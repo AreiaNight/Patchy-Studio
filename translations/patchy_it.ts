@@ -17598,6 +17598,70 @@ Y: %2
         <source>Limit the fill to pixels connected to the click</source>
         <translation>Limita il riempimento ai pixel contigui al punto cliccato</translation>
     </message>
+    <message>
+        <source>Paragraph</source>
+        <translation>Paragrafo</translation>
+    </message>
+    <message>
+        <source>Justify (last line left)</source>
+        <translation>Giustifica (ultima riga a sinistra)</translation>
+    </message>
+    <message>
+        <source>Paragraph alignment; Justify spreads every line but the last across the box</source>
+        <translation>Allineamento del paragrafo; Giustifica distribuisce ogni riga tranne l'ultima sulla larghezza della casella</translation>
+    </message>
+    <message>
+        <source>Alignment:</source>
+        <translation>Allineamento:</translation>
+    </message>
+    <message>
+        <source>First line indent:</source>
+        <translation>Rientro prima riga:</translation>
+    </message>
+    <message>
+        <source>Indent of each paragraph&apos;s first line; negative with a left indent makes a hanging indent</source>
+        <translation>Rientro della prima riga di ogni paragrafo; negativo con un rientro sinistro crea un rientro sporgente</translation>
+    </message>
+    <message>
+        <source>Left indent:</source>
+        <translation>Rientro sinistro:</translation>
+    </message>
+    <message>
+        <source>Space between the box edge and every line&apos;s start</source>
+        <translation>Spazio tra il bordo della casella e l'inizio di ogni riga</translation>
+    </message>
+    <message>
+        <source>Right indent:</source>
+        <translation>Rientro destro:</translation>
+    </message>
+    <message>
+        <source>Space between every line&apos;s end and the box edge</source>
+        <translation>Spazio tra la fine di ogni riga e il bordo della casella</translation>
+    </message>
+    <message>
+        <source>Space before:</source>
+        <translation>Spazio prima:</translation>
+    </message>
+    <message>
+        <source>Extra space above each paragraph</source>
+        <translation>Spazio aggiuntivo sopra ogni paragrafo</translation>
+    </message>
+    <message>
+        <source>Space after:</source>
+        <translation>Spazio dopo:</translation>
+    </message>
+    <message>
+        <source>Extra space below each paragraph</source>
+        <translation>Spazio aggiuntivo sotto ogni paragrafo</translation>
+    </message>
+    <message>
+        <source>Paragraph...</source>
+        <translation>Paragrafo...</translation>
+    </message>
+    <message>
+        <source>Paragraph panel (alignment, indents, spacing)</source>
+        <translation>Pannello Paragrafo (allineamento, rientri, spaziatura)</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -18968,6 +19032,14 @@ Y: %2
     <message>
         <source>align must be &apos;left&apos;, &apos;center&apos;, &apos;right&apos; or &apos;justify&apos;.</source>
         <translation>align deve essere &apos;left&apos;, &apos;center&apos;, &apos;right&apos; o &apos;justify&apos;.</translation>
+    </message>
+    <message>
+        <source>%1: paragraph must be an object with firstLineIndent, startIndent, endIndent, spaceBefore and spaceAfter numbers (document pixels).</source>
+        <translation>%1: paragraph deve essere un oggetto con i numeri firstLineIndent, startIndent, endIndent, spaceBefore e spaceAfter (pixel del documento).</translation>
+    </message>
+    <message>
+        <source>%1: paragraph.%2 must be a number (document pixels).</source>
+        <translation>%1: paragraph.%2 deve essere un numero (pixel del documento).</translation>
     </message>
 </context>
 <context>

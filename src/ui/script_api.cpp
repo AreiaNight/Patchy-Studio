@@ -116,6 +116,34 @@ bool text_align_name_is_valid(const QString& align) {
 
 // An array of {text, font?, size?, bold?, italic?, color?} objects (a bare string counts as a
 // run with no overrides). False after throwing on a malformed run.
+// Paragraph metrics object ({firstLineIndent, startIndent, endIndent, spaceBefore, spaceAfter},
+// document pixels; a missing field stays unset so the setter leaves it alone).
+bool parse_paragraph_metrics(ScriptEngineHost& host, const QJSValue& value, const char* verb,
+                             TextParagraphMetrics* out) {
+  if (!value.isObject() || value.isArray() || value.isCallable()) {
+    host.throw_js_error(ScriptEngineHost::tr("%1: paragraph must be an object with firstLineIndent, startIndent, "
+                                             "endIndent, spaceBefore and spaceAfter numbers (document pixels).")
+                            .arg(QString::fromLatin1(verb)));
+    return false;
+  }
+  const auto read = [&](const char* key, std::optional<double>* field) {
+    const auto property = value.property(QString::fromLatin1(key));
+    if (property.isUndefined() || property.isNull()) {
+      return true;
+    }
+    if (!property.isNumber() || !std::isfinite(property.toNumber())) {
+      host.throw_js_error(ScriptEngineHost::tr("%1: paragraph.%2 must be a number (document pixels).")
+                              .arg(QString::fromLatin1(verb), QString::fromLatin1(key)));
+      return false;
+    }
+    *field = property.toNumber();
+    return true;
+  };
+  return read("firstLineIndent", &out->first_line_indent) && read("startIndent", &out->start_indent) &&
+         read("endIndent", &out->end_indent) && read("spaceBefore", &out->space_before) &&
+         read("spaceAfter", &out->space_after);
+}
+
 bool parse_text_runs(ScriptEngineHost& host, const QJSValue& value, const char* verb,
                      std::vector<ScriptEngineHost::TextRunParams>* runs) {
   if (!value.isArray()) {
@@ -576,6 +604,36 @@ void ScriptLayerObject::set_text_align(const QString& align) {
     return;
   }
   if (!host_.set_text_layer_align(session_id_, layer_id_, align)) {
+    host_.throw_js_error(ScriptEngineHost::tr("Could not edit the text layer."));
+  }
+}
+
+QJSValue ScriptLayerObject::text_paragraph() const {
+  const ScriptApiCall api_call(host_);
+  if (!host_.layer_is_text_layer(session_id_, layer_id_)) {
+    return QJSValue(QJSValue::NullValue);
+  }
+  const auto metrics = host_.text_layer_paragraph(session_id_, layer_id_);
+  auto object = host_.engine()->newObject();
+  object.setProperty(QStringLiteral("firstLineIndent"), metrics.first_line_indent.value_or(0.0));
+  object.setProperty(QStringLiteral("startIndent"), metrics.start_indent.value_or(0.0));
+  object.setProperty(QStringLiteral("endIndent"), metrics.end_indent.value_or(0.0));
+  object.setProperty(QStringLiteral("spaceBefore"), metrics.space_before.value_or(0.0));
+  object.setProperty(QStringLiteral("spaceAfter"), metrics.space_after.value_or(0.0));
+  return object;
+}
+
+void ScriptLayerObject::set_text_paragraph(const QJSValue& paragraph) {
+  const ScriptApiCall api_call(host_);
+  if (!host_.layer_is_text_layer(session_id_, layer_id_)) {
+    host_.throw_js_error(ScriptEngineHost::tr("This layer is not a text layer."));
+    return;
+  }
+  TextParagraphMetrics metrics;
+  if (!parse_paragraph_metrics(host_, paragraph, "textParagraph", &metrics)) {
+    return;
+  }
+  if (!host_.set_text_layer_paragraph(session_id_, layer_id_, metrics)) {
     host_.throw_js_error(ScriptEngineHost::tr("Could not edit the text layer."));
   }
 }
@@ -1706,6 +1764,12 @@ QJSValue ScriptDocumentObject::addTextLayer(const QJSValue& text, const QJSValue
       params.align = align.toString();
       if (!text_align_name_is_valid(params.align)) {
         host_.throw_js_error(ScriptEngineHost::tr("align must be 'left', 'center', 'right' or 'justify'."));
+        return QJSValue();
+      }
+    }
+    if (const auto paragraph = options.property(QStringLiteral("paragraph"));
+        !paragraph.isUndefined() && !paragraph.isNull()) {
+      if (!parse_paragraph_metrics(host_, paragraph, "addTextLayer", &params.paragraph)) {
         return QJSValue();
       }
     }

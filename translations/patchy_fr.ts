@@ -17598,6 +17598,70 @@ Y : %2
         <source>Limit the fill to pixels connected to the click</source>
         <translation>Limiter le remplissage aux pixels contigus au point cliqué</translation>
     </message>
+    <message>
+        <source>Paragraph</source>
+        <translation>Paragraphe</translation>
+    </message>
+    <message>
+        <source>Justify (last line left)</source>
+        <translation>Justifier (dernière ligne à gauche)</translation>
+    </message>
+    <message>
+        <source>Paragraph alignment; Justify spreads every line but the last across the box</source>
+        <translation>Alignement du paragraphe ; Justifier étale chaque ligne sauf la dernière sur la largeur du bloc</translation>
+    </message>
+    <message>
+        <source>Alignment:</source>
+        <translation>Alignement :</translation>
+    </message>
+    <message>
+        <source>First line indent:</source>
+        <translation>Retrait de première ligne :</translation>
+    </message>
+    <message>
+        <source>Indent of each paragraph&apos;s first line; negative with a left indent makes a hanging indent</source>
+        <translation>Retrait de la première ligne de chaque paragraphe ; une valeur négative avec un retrait gauche donne un retrait suspendu</translation>
+    </message>
+    <message>
+        <source>Left indent:</source>
+        <translation>Retrait gauche :</translation>
+    </message>
+    <message>
+        <source>Space between the box edge and every line&apos;s start</source>
+        <translation>Espace entre le bord du bloc et le début de chaque ligne</translation>
+    </message>
+    <message>
+        <source>Right indent:</source>
+        <translation>Retrait droit :</translation>
+    </message>
+    <message>
+        <source>Space between every line&apos;s end and the box edge</source>
+        <translation>Espace entre la fin de chaque ligne et le bord du bloc</translation>
+    </message>
+    <message>
+        <source>Space before:</source>
+        <translation>Espace avant :</translation>
+    </message>
+    <message>
+        <source>Extra space above each paragraph</source>
+        <translation>Espace supplémentaire au-dessus de chaque paragraphe</translation>
+    </message>
+    <message>
+        <source>Space after:</source>
+        <translation>Espace après :</translation>
+    </message>
+    <message>
+        <source>Extra space below each paragraph</source>
+        <translation>Espace supplémentaire sous chaque paragraphe</translation>
+    </message>
+    <message>
+        <source>Paragraph...</source>
+        <translation>Paragraphe...</translation>
+    </message>
+    <message>
+        <source>Paragraph panel (alignment, indents, spacing)</source>
+        <translation>Panneau Paragraphe (alignement, retraits, espacement)</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -18968,6 +19032,14 @@ Y : %2
     <message>
         <source>align must be &apos;left&apos;, &apos;center&apos;, &apos;right&apos; or &apos;justify&apos;.</source>
         <translation>align doit valoir &apos;left&apos;, &apos;center&apos;, &apos;right&apos; ou &apos;justify&apos;.</translation>
+    </message>
+    <message>
+        <source>%1: paragraph must be an object with firstLineIndent, startIndent, endIndent, spaceBefore and spaceAfter numbers (document pixels).</source>
+        <translation>%1 : paragraph doit être un objet avec les nombres firstLineIndent, startIndent, endIndent, spaceBefore et spaceAfter (pixels du document).</translation>
+    </message>
+    <message>
+        <source>%1: paragraph.%2 must be a number (document pixels).</source>
+        <translation>%1 : paragraph.%2 doit être un nombre (pixels du document).</translation>
     </message>
 </context>
 <context>

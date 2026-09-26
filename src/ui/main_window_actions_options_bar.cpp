@@ -2990,6 +2990,14 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   text_character_button_->setFocusPolicy(Qt::NoFocus);
   add_option_widget(text_character_button_, {CanvasTool::Text});
   connect(text_character_button_, &QPushButton::clicked, this, [this] { open_text_character_dialog(); });
+  // Paragraph panel: same live-session rules as the Character panel (Qt::NoFocus).
+  text_paragraph_button_ = new QPushButton(tr("Paragraph..."), toolbar);
+  bind_widget_text(text_paragraph_button_, QT_TR_NOOP("Paragraph..."));
+  text_paragraph_button_->setObjectName(QStringLiteral("textParagraphButton"));
+  bind_tooltip(text_paragraph_button_, QT_TR_NOOP("Paragraph panel (alignment, indents, spacing)"));
+  text_paragraph_button_->setFocusPolicy(Qt::NoFocus);
+  add_option_widget(text_paragraph_button_, {CanvasTool::Text});
+  connect(text_paragraph_button_, &QPushButton::clicked, this, [this] { open_text_paragraph_dialog(); });
   connect(text_font_combo_, &QFontComboBox::currentFontChanged, this, [this](const QFont& chosen) {
     // Repopulate before applying: apply_text_family_to_active_editor renders with the style the
     // combo is showing, and the outgoing family's style list may not contain it.

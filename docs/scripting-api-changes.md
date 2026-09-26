@@ -1,5 +1,11 @@
 # Scripting API compatibility
 
+2026-09-27 (API 1): paragraph metrics. Text layers expose `textParagraph` (read/write:
+`{firstLineIndent, startIndent, endIndent, spaceBefore, spaceAfter}` in document pixels;
+reading gives the first paragraph, setting merges the given fields into every paragraph), and
+`doc.addTextLayer` takes the same object as its `paragraph` option. Additive; apiVersion
+unchanged. See [text-tool.md](text-tool.md).
+
 2026-09-26 (API 1): rich text. `doc.addTextLayer` accepts an array of runs (`{text, font?,
 size?, bold?, italic?, color?}`) in place of the string, so one layer mixes faces, sizes and
 colors; options gain `box` (`{width, height}`: a wrapping paragraph text box with x/y as its

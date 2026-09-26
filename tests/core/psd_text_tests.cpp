@@ -2212,9 +2212,11 @@ void psd_writer_emits_v2_paragraph_layout() {
   const auto text_payload = psd_layer_block_payload(psd_layer_extra_data(bytes, 1), "TySh");
   CHECK(text_payload.has_value());
   const std::string payload_text(text_payload->begin(), text_payload->end());
-  CHECK(payload_text.find("/FirstLineIndent -24") != std::string::npos);
-  CHECK(payload_text.find("/StartIndent 24") != std::string::npos);
-  CHECK(payload_text.find("/SpaceAfter 24") != std::string::npos);
+  // Photoshop's spelling with a decimal point: its parser reads a bare "24" as 16.16 fixed
+  // point (0.000366 px), which is how every Patchy-written indent used to vanish.
+  CHECK(payload_text.find("/FirstLineIndent -24.0 /StartIndent 24.0 /EndIndent 0.0 /SpaceBefore 0.0 /SpaceAfter 24.0") !=
+        std::string::npos);
+  CHECK(payload_text.find("/FirstLineIndent -24 ") == std::string::npos);
   CHECK(payload_text.find("/Hanging true") != std::string::npos);
   CHECK(payload_text.find("/AutoLeading true /Leading 33.600000") != std::string::npos);
   CHECK(payload_text.find("/RunLengthArray [ " + std::to_string(first_length) + ' ' +
@@ -2278,7 +2280,7 @@ void psd_reader_regenerates_patchy_generated_type_blocks_after_reopen() {
   CHECK(regenerated_payload.has_value());
   const std::string regenerated_payload_text(regenerated_payload->begin(), regenerated_payload->end());
   CHECK(regenerated_payload_text.find(leading_marker) != std::string::npos);
-  CHECK(regenerated_payload_text.find("/SpaceAfter 24") != std::string::npos);
+  CHECK(regenerated_payload_text.find("/SpaceAfter 24.0") != std::string::npos);
 
   const auto read_again = patchy::psd::DocumentIo::read(regenerated_bytes);
   CHECK(read_again.layers().size() == 2);

@@ -17547,6 +17547,70 @@ Clipped to the layer below</source>
         <source>Limit the fill to pixels connected to the click</source>
         <translation>塗りつぶしをクリック位置とつながったピクセルに限定します</translation>
     </message>
+    <message>
+        <source>Paragraph</source>
+        <translation>段落</translation>
+    </message>
+    <message>
+        <source>Justify (last line left)</source>
+        <translation>均等配置（最終行左揃え）</translation>
+    </message>
+    <message>
+        <source>Paragraph alignment; Justify spreads every line but the last across the box</source>
+        <translation>段落の配置。均等配置は最終行以外の各行をテキストボックスの幅いっぱいに広げます</translation>
+    </message>
+    <message>
+        <source>Alignment:</source>
+        <translation>配置:</translation>
+    </message>
+    <message>
+        <source>First line indent:</source>
+        <translation>1 行目インデント:</translation>
+    </message>
+    <message>
+        <source>Indent of each paragraph&apos;s first line; negative with a left indent makes a hanging indent</source>
+        <translation>各段落の 1 行目のインデント。左インデントと組み合わせて負の値にするとぶら下げインデントになります</translation>
+    </message>
+    <message>
+        <source>Left indent:</source>
+        <translation>左インデント:</translation>
+    </message>
+    <message>
+        <source>Space between the box edge and every line&apos;s start</source>
+        <translation>テキストボックスの端と各行の先頭との間隔</translation>
+    </message>
+    <message>
+        <source>Right indent:</source>
+        <translation>右インデント:</translation>
+    </message>
+    <message>
+        <source>Space between every line&apos;s end and the box edge</source>
+        <translation>各行の末尾とテキストボックスの端との間隔</translation>
+    </message>
+    <message>
+        <source>Space before:</source>
+        <translation>段落前の間隔:</translation>
+    </message>
+    <message>
+        <source>Extra space above each paragraph</source>
+        <translation>各段落の上に追加する間隔</translation>
+    </message>
+    <message>
+        <source>Space after:</source>
+        <translation>段落後の間隔:</translation>
+    </message>
+    <message>
+        <source>Extra space below each paragraph</source>
+        <translation>各段落の下に追加する間隔</translation>
+    </message>
+    <message>
+        <source>Paragraph...</source>
+        <translation>段落...</translation>
+    </message>
+    <message>
+        <source>Paragraph panel (alignment, indents, spacing)</source>
+        <translation>段落パネル（配置・インデント・間隔）</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -18916,6 +18980,14 @@ Clipped to the layer below</source>
     <message>
         <source>align must be &apos;left&apos;, &apos;center&apos;, &apos;right&apos; or &apos;justify&apos;.</source>
         <translation>align は &apos;left&apos;、&apos;center&apos;、&apos;right&apos;、&apos;justify&apos; のいずれかにしてください。</translation>
+    </message>
+    <message>
+        <source>%1: paragraph must be an object with firstLineIndent, startIndent, endIndent, spaceBefore and spaceAfter numbers (document pixels).</source>
+        <translation>%1: paragraph は firstLineIndent、startIndent、endIndent、spaceBefore、spaceAfter の数値を持つオブジェクトにしてください（ドキュメントピクセル）。</translation>
+    </message>
+    <message>
+        <source>%1: paragraph.%2 must be a number (document pixels).</source>
+        <translation>%1: paragraph.%2 は数値にしてください（ドキュメントピクセル）。</translation>
     </message>
 </context>
 <context>

@@ -39,14 +39,14 @@ Lives in [photoshop-com.md](photoshop-com.md): the PowerShell entry point, dialo
   `kRegeneratedTextIndexBase` + n instead, so Photoshop reads that layer from its TySh (its
   old-text path: `oldText = true`, the "Some text layers might need to be updated" prompt) while
   untouched layers keep their objects, variable-font instances included. Pinned by
-  `psd_text_regenerated_layer_gets_an_index_outside_the_text_engine_block`. Patchy cannot author
-  the block (an undocumented numerically keyed serialization; a hollow one leaves layers old, a
-  skeleton makes Photoshop refuse the file), so every Patchy-authored PSD shows that prompt on
-  first selection of a type layer, and **variable-font named instances are static-substituted on
-  layers read through the old-text path** ("Bahnschrift-SemiBold", the name Photoshop itself
-  writes, reads back as Regular; Photoshop's own objects carry the instance axes). Patchy renders
-  named instances correctly in both engines (the Bahnschrift weights share advance widths, so
-  compare ink, not bounds). Authoring Txt2 is the remaining step for variable-font parity.
+  `psd_text_regenerated_layer_gets_an_index_outside_the_text_engine_block`. Patchy does not
+  author the block yet, so every Patchy-authored PSD shows that prompt on first selection of a
+  type layer, and **variable-font named instances are static-substituted on layers read through
+  the old-text path** ("Bahnschrift-SemiBold", the name Photoshop itself writes, reads back as
+  Regular; Photoshop's own objects carry the instance axes). Patchy renders named instances
+  correctly in both engines (the Bahnschrift weights share advance widths, so compare ink, not
+  bounds). Format, key map and the September 2026 probe results: [txt2.md](txt2.md).
+  Authoring the block is the remaining step for variable-font parity and lists.
 - **A gradient descriptor's `Trns` list is never empty.** Photoshop's gradients carry at least
   two transparency stops; an empty list (a scripted gradient fill without alphaStops) raises the
   "discard unknown data" prompt and the layer comes back empty. The vector fill writer supplies
@@ -56,6 +56,7 @@ Lives in [photoshop-com.md](photoshop-com.md): the PowerShell entry point, dialo
   `psd_vector_gradient_fill_without_alpha_stops_writes_opaque_stops` and
   `psd_vector_gradient_without_transparency_stops_heals_on_save`
   (`patchy-gradient-empty-transparency.psd`).
+- **Engine-data paragraph metrics carry a decimal point.** Photoshop reads a bare integer token as 16.16 fixed point: `/FirstLineIndent 24` read back as 0.000366 px (24/65536), losing the indent; `24.0` reads as 24 px (September 27, 2026). `engine_paragraph_metric` writes `24.0`, `-20.0`, `0.0`; pinned by `psd_writer_emits_v2_paragraph_layout`.
 - **Do not author unknown per-layer tagged keys.** Even correctly padded private tags trigger Photoshop's unknown-data warning. Merged vector associations use image resource 4211 in the documented plug-in resource range (4000-4999), with native `lyid` references; legacy `pvcl`/`pvfi` tags remain read-only. See [layer-merging.md](layer-merging.md) and the [Adobe file-format specification](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/).
 - **Patchy-only style options ride a plug-in image resource, never descriptor keys.** The continuous (long) drop shadow's `continuous`/`fade` fields travel in resource 4212 (layout in psd_io_internal.hpp) keyed by the layer's `lyid`, which `prepare_compound_vector_psd` assigns on save. The lfx2 keeps the pinned 12-item DrSh with `Dstn` = sweep length, so PS shows a plain shadow at Distance and may drop the resource on resave.
 - **Compound path groups use Photoshop's continuation records.** Contours sharing one vmsk group index are one shape: the lead length record carries the combine op with +6 field 1 (even-odd; PS's own compound shapes write 2 = nonzero), every continuation record op 0xFFFF and +6 field 0. Giving each contour its own op unites them: PS fills a donut solid (2026-09-26 probes; `patchy-compound-group.psd/bmp`). Detail in [vector-tools.md](vector-tools.md).

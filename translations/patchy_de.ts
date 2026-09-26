@@ -17598,6 +17598,70 @@ Y: %2
         <source>Limit the fill to pixels connected to the click</source>
         <translation>Füllung auf Pixel beschränken, die mit dem Klickpunkt verbunden sind</translation>
     </message>
+    <message>
+        <source>Paragraph</source>
+        <translation>Absatz</translation>
+    </message>
+    <message>
+        <source>Justify (last line left)</source>
+        <translation>Blocksatz (letzte Zeile links)</translation>
+    </message>
+    <message>
+        <source>Paragraph alignment; Justify spreads every line but the last across the box</source>
+        <translation>Absatzausrichtung; Blocksatz verteilt jede Zeile außer der letzten über die Textbox</translation>
+    </message>
+    <message>
+        <source>Alignment:</source>
+        <translation>Ausrichtung:</translation>
+    </message>
+    <message>
+        <source>First line indent:</source>
+        <translation>Einzug erste Zeile:</translation>
+    </message>
+    <message>
+        <source>Indent of each paragraph&apos;s first line; negative with a left indent makes a hanging indent</source>
+        <translation>Einzug der ersten Zeile jedes Absatzes; negativ mit linkem Einzug ergibt einen hängenden Einzug</translation>
+    </message>
+    <message>
+        <source>Left indent:</source>
+        <translation>Linker Einzug:</translation>
+    </message>
+    <message>
+        <source>Space between the box edge and every line&apos;s start</source>
+        <translation>Abstand zwischen dem Boxrand und dem Anfang jeder Zeile</translation>
+    </message>
+    <message>
+        <source>Right indent:</source>
+        <translation>Rechter Einzug:</translation>
+    </message>
+    <message>
+        <source>Space between every line&apos;s end and the box edge</source>
+        <translation>Abstand zwischen dem Ende jeder Zeile und dem Boxrand</translation>
+    </message>
+    <message>
+        <source>Space before:</source>
+        <translation>Abstand davor:</translation>
+    </message>
+    <message>
+        <source>Extra space above each paragraph</source>
+        <translation>Zusätzlicher Abstand über jedem Absatz</translation>
+    </message>
+    <message>
+        <source>Space after:</source>
+        <translation>Abstand danach:</translation>
+    </message>
+    <message>
+        <source>Extra space below each paragraph</source>
+        <translation>Zusätzlicher Abstand unter jedem Absatz</translation>
+    </message>
+    <message>
+        <source>Paragraph...</source>
+        <translation>Absatz...</translation>
+    </message>
+    <message>
+        <source>Paragraph panel (alignment, indents, spacing)</source>
+        <translation>Absatz-Bedienfeld (Ausrichtung, Einzüge, Abstände)</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -18968,6 +19032,14 @@ Y: %2
     <message>
         <source>align must be &apos;left&apos;, &apos;center&apos;, &apos;right&apos; or &apos;justify&apos;.</source>
         <translation>align muss &apos;left&apos;, &apos;center&apos;, &apos;right&apos; oder &apos;justify&apos; sein.</translation>
+    </message>
+    <message>
+        <source>%1: paragraph must be an object with firstLineIndent, startIndent, endIndent, spaceBefore and spaceAfter numbers (document pixels).</source>
+        <translation>%1: paragraph muss ein Objekt mit den Zahlen firstLineIndent, startIndent, endIndent, spaceBefore und spaceAfter sein (Dokumentpixel).</translation>
+    </message>
+    <message>
+        <source>%1: paragraph.%2 must be a number (document pixels).</source>
+        <translation>%1: paragraph.%2 muss eine Zahl sein (Dokumentpixel).</translation>
     </message>
 </context>
 <context>

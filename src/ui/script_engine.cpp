@@ -1989,6 +1989,13 @@ std::optional<LayerId> ScriptEngineHost::add_text_layer(std::int64_t session_id,
     editor->setTextCursor(all);
     window_.apply_text_direction_to_active_editor(*direction);
   }
+  if (!params.paragraph.empty()) {
+    // Paragraph panel metrics on the whole object, like `align`.
+    auto all = editor->textCursor();
+    all.select(QTextCursor::Document);
+    editor->setTextCursor(all);
+    window_.apply_text_paragraph_metrics_to_editor(*editor, params.paragraph);
+  }
   QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
   window_.finish_active_text_editor();
   QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
@@ -2147,6 +2154,58 @@ QString ScriptEngineHost::text_layer_align(std::int64_t session_id, LayerId laye
     }
   }
   return QStringLiteral("left");
+}
+
+TextParagraphMetrics ScriptEngineHost::text_layer_paragraph(std::int64_t session_id, LayerId layer_id) const {
+  TextParagraphMetrics metrics;
+  metrics.first_line_indent = 0.0;
+  metrics.start_indent = 0.0;
+  metrics.end_indent = 0.0;
+  metrics.space_before = 0.0;
+  metrics.space_after = 0.0;
+  const auto* document = session_document_const(session_id);
+  const auto* layer = document != nullptr ? document->find_layer(layer_id) : nullptr;
+  if (layer == nullptr || !layer_is_text(*layer)) {
+    return metrics;
+  }
+  const auto found = layer->metadata().find(kLayerMetadataTextParagraphRuns);
+  if (found == layer->metadata().end()) {
+    return metrics;
+  }
+  // The first paragraph's v2+ columns (first line indent, left, right, space before, space after).
+  for (const auto& raw_line : QString::fromStdString(found->second).split(QLatin1Char('\n'))) {
+    const auto fields = raw_line.trimmed().split(QLatin1Char('\t'));
+    if (fields.size() < 3) {
+      continue;
+    }
+    if (fields.size() >= 8) {
+      const auto metric = [&fields](int index) {
+        bool ok = false;
+        const auto value = fields[index].toDouble(&ok);
+        return ok && std::isfinite(value) ? value : 0.0;
+      };
+      metrics.first_line_indent = metric(3);
+      metrics.start_indent = metric(4);
+      metrics.end_indent = metric(5);
+      metrics.space_before = metric(6);
+      metrics.space_after = metric(7);
+    }
+    break;
+  }
+  return metrics;
+}
+
+bool ScriptEngineHost::set_text_layer_paragraph(std::int64_t session_id, LayerId layer_id,
+                                                const TextParagraphMetrics& metrics) {
+  if (metrics.empty()) {
+    return layer_is_text_layer(session_id, layer_id);
+  }
+  return edit_text_layer_session(session_id, layer_id, [this, metrics](QTextEdit& editor) {
+    auto all = editor.textCursor();
+    all.select(QTextCursor::Document);
+    editor.setTextCursor(all);
+    window_.apply_text_paragraph_metrics_to_editor(editor, metrics);
+  });
 }
 
 bool ScriptEngineHost::set_text_layer_align(std::int64_t session_id, LayerId layer_id, const QString& align) {
