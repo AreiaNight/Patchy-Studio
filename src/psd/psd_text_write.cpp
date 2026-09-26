@@ -1881,23 +1881,12 @@ void override_text_index_in_payload(std::vector<std::uint8_t>& payload, std::int
 
 }  // namespace
 
-std::optional<std::vector<std::uint8_t>> photoshop_type_tool_payload_for_layer(const Layer& layer,
-                                                                               const Rect& bounds,
-                                                                               std::optional<std::int32_t> text_index_override) {
+std::optional<TextEngineInputs> text_engine_inputs_for_layer(const Layer& layer, const Rect& bounds) {
   const auto text = layer_metadata_value(layer, kLayerMetadataText);
   if (!text.has_value() || text->empty()) {
     return std::nullopt;
   }
-  if (should_preserve_imported_text_geometry(layer)) {
-    if (auto templated_payload = photoshop_type_tool_payload_from_template(layer, *text);
-        templated_payload.has_value()) {
-      if (text_index_override.has_value()) {
-        override_text_index_in_payload(*templated_payload, *text_index_override);
-      }
-      return templated_payload;
-    }
-  }
-  const auto runs = text_runs_for_layer(layer, *text);
+  auto runs = text_runs_for_layer(layer, *text);
   if (runs.empty()) {
     return std::nullopt;
   }
@@ -1922,15 +1911,62 @@ std::optional<std::vector<std::uint8_t>> photoshop_type_tool_payload_for_layer(c
       }
     }
   }
-  auto text_bounds = bounds;
-  const auto boxed_text = layer_metadata_value(layer, kLayerMetadataTextFlow).value_or(std::string_view{}) == "box";
-  if (boxed_text) {
+  TextEngineInputs inputs;
+  inputs.text = photoshop_engine_text(*text);
+  inputs.boxed = layer_metadata_value(layer, kLayerMetadataTextFlow).value_or(std::string_view{}) == "box";
+  inputs.box_width = bounds.width;
+  inputs.box_height = bounds.height;
+  if (inputs.boxed) {
     if (const auto width = layer_metadata_value(layer, kLayerMetadataTextBoxWidth); width.has_value()) {
-      text_bounds.width = std::max(1, parse_int_or(*width, bounds.width));
+      inputs.box_width = std::max(1, parse_int_or(*width, bounds.width));
     }
     if (const auto height = layer_metadata_value(layer, kLayerMetadataTextBoxHeight); height.has_value()) {
-      text_bounds.height = std::max(1, parse_int_or(*height, bounds.height));
+      inputs.box_height = std::max(1, parse_int_or(*height, bounds.height));
     }
+  }
+  inputs.vertical = layer_text_is_vertical(layer);
+  inputs.run_font_names.reserve(runs.size());
+  for (const auto& run : runs) {
+    inputs.run_font_names.push_back(photoshop_font_name_for_run(run.family, run.style, run.bold, run.italic));
+  }
+  inputs.runs = std::move(runs);
+  inputs.paragraph_runs = std::move(paragraph_runs);
+  return inputs;
+}
+
+bool text_layer_keeps_photoshop_type_block(const Layer& layer) {
+  const auto text = layer_metadata_value(layer, kLayerMetadataText);
+  return text.has_value() && !text->empty() && should_preserve_imported_text_geometry(layer) &&
+         photoshop_type_tool_payload_from_template(layer, *text).has_value();
+}
+
+std::optional<std::vector<std::uint8_t>> photoshop_type_tool_payload_for_layer(const Layer& layer,
+                                                                               const Rect& bounds,
+                                                                               std::optional<std::int32_t> text_index_override) {
+  const auto text = layer_metadata_value(layer, kLayerMetadataText);
+  if (!text.has_value() || text->empty()) {
+    return std::nullopt;
+  }
+  if (should_preserve_imported_text_geometry(layer)) {
+    if (auto templated_payload = photoshop_type_tool_payload_from_template(layer, *text);
+        templated_payload.has_value()) {
+      if (text_index_override.has_value()) {
+        override_text_index_in_payload(*templated_payload, *text_index_override);
+      }
+      return templated_payload;
+    }
+  }
+  const auto inputs = text_engine_inputs_for_layer(layer, bounds);
+  if (!inputs.has_value()) {
+    return std::nullopt;
+  }
+  const auto& runs = inputs->runs;
+  const auto& paragraph_runs = inputs->paragraph_runs;
+  auto text_bounds = bounds;
+  const auto boxed_text = inputs->boxed;
+  if (boxed_text) {
+    text_bounds.width = static_cast<int>(std::lround(inputs->box_width));
+    text_bounds.height = static_cast<int>(std::lround(inputs->box_height));
   }
   const auto warp = text_warp_from_layer(layer);
   const bool warp_active = warp.has_value() && !text_warp_is_identity(*warp);

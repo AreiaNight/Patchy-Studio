@@ -311,6 +311,8 @@ add_library(patchy_psd
   src/psd/pat_reader.cpp
   src/psd/psd_adjustments.cpp
   src/psd/psd_binary.cpp
+  src/psd/engine_data.cpp
+  src/psd/engine_data.hpp
   src/psd/psd_channel_data.cpp
   src/psd/psd_descriptor.cpp
   src/psd/psd_document_io.cpp
@@ -322,6 +324,9 @@ add_library(patchy_psd
   src/psd/psd_layer_styles.cpp
   src/psd/psd_patterns.cpp
   src/psd/psd_smart_objects.cpp
+  src/psd/psd_text_engine_block.cpp
+  src/psd/psd_text_engine_block.hpp
+  src/psd/psd_text_engine_template.cpp
   src/psd/psd_text_read.cpp
   src/psd/psd_text_write.cpp
   src/psd/psd_vector.cpp
@@ -1621,6 +1626,7 @@ if(PATCHY_BUILD_TESTS)
     tests/core/psd_core_io_tests.cpp
     tests/core/psd_structure_tests.cpp
     tests/core/psd_text_tests.cpp
+    tests/core/text_engine_block_tests.cpp
     tests/core/psd_vector_fixtures_tests.cpp
     tests/core/psd_writer_stability_tests.cpp
     tests/core/jxr_tests.cpp
