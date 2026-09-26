@@ -1431,19 +1431,27 @@ std::string engine_short_fraction(double value) {
   return text;
 }
 
+// A paragraph metric (indents, spacing) for the engine text. Photoshop spells them "24.0",
+// "-20.0" and "0.0", and its parser reads a bare integer token as 16.16 fixed point: the
+// metadata spelling "24" that used to go here came back from Photoshop 2026 as 0.000366 px
+// (24 / 65536), so every Patchy-written indent was silently lost (September 2026 readback).
+std::string engine_paragraph_metric(double value) {
+  return engine_short_fraction(std::isfinite(value) && std::abs(value) >= 0.000001 ? value : 0.0);
+}
+
 std::string engine_paragraph_properties(const PsdTextParagraphRun& run) {
   std::string properties = "<< /Justification ";
   properties += std::to_string(std::clamp(run.justification, 0, 3));
   properties += " /FirstLineIndent ";
-  properties += serialize_paragraph_metric(run.first_line_indent);
+  properties += engine_paragraph_metric(run.first_line_indent);
   properties += " /StartIndent ";
-  properties += serialize_paragraph_metric(run.start_indent);
+  properties += engine_paragraph_metric(run.start_indent);
   properties += " /EndIndent ";
-  properties += serialize_paragraph_metric(run.end_indent);
+  properties += engine_paragraph_metric(run.end_indent);
   properties += " /SpaceBefore ";
-  properties += serialize_paragraph_metric(run.space_before);
+  properties += engine_paragraph_metric(run.space_before);
   properties += " /SpaceAfter ";
-  properties += serialize_paragraph_metric(run.space_after);
+  properties += engine_paragraph_metric(run.space_after);
   properties +=
       " /AutoHyphenate true /HyphenatedWordSize 6 /PreHyphen 2 /PostHyphen 2 /ConsecutiveHyphens 8"
       " /Zone 36.0 /WordSpacing [ 0.8 1.0 1.33 ] /LetterSpacing [ 0.0 0.0 0.0 ]"

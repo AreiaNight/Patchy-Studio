@@ -5,6 +5,7 @@
 #include <QJsonValue>
 #include <QImage>
 #include "ui/script_stroke.hpp"
+#include "ui/text_paragraph_metrics.hpp"
 
 #include "core/document.hpp"
 #include "core/layer.hpp"
@@ -284,6 +285,7 @@ public:
     QString direction;    // "auto" / "ltr" / "rtl"; empty = auto
     QSize box;            // valid = a paragraph text box of that size at `position` (wrapping)
     QString align;        // "left" / "center" / "right" / "justify"; empty = the default
+    TextParagraphMetrics paragraph;  // indents and spacing in document px; unset fields keep the defaults
   };
   // A stored run read back in text order (see text_layer_runs).
   struct TextRunInfo {
@@ -309,6 +311,10 @@ public:
   // every paragraph.
   [[nodiscard]] QString text_layer_align(std::int64_t session_id, LayerId layer_id) const;
   bool set_text_layer_align(std::int64_t session_id, LayerId layer_id, const QString& align);
+  // The first paragraph's indents and spacing in document pixels (every field set, 0 when
+  // nothing is recorded); the setter merges the given fields into every paragraph.
+  [[nodiscard]] TextParagraphMetrics text_layer_paragraph(std::int64_t session_id, LayerId layer_id) const;
+  bool set_text_layer_paragraph(std::int64_t session_id, LayerId layer_id, const TextParagraphMetrics& metrics);
   [[nodiscard]] QString text_layer_text(std::int64_t session_id, LayerId layer_id) const;
   // Vertical type and paragraph direction, through the same hidden session as `text`.
   [[nodiscard]] QString text_layer_orientation(std::int64_t session_id, LayerId layer_id) const;

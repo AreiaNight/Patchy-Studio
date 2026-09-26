@@ -281,6 +281,15 @@ interface PatchyLayer {
   /** Text layers: the first paragraph's alignment; setting it aligns every paragraph and re-renders. */
   textAlign: 'left' | 'center' | 'right' | 'justify';
   /**
+   * Text layers: the first paragraph's indents and spacing in DOCUMENT PIXELS
+   * (Photoshop's Paragraph panel: first line indent, left indent, right indent,
+   * space before, space after). Setting it merges the given fields into every
+   * paragraph and re-renders; a field left out keeps its value. A negative
+   * firstLineIndent with a positive startIndent is a hanging indent. null for
+   * other layers.
+   */
+  textParagraph: { firstLineIndent: number; startIndent: number; endIndent: number; spaceBefore: number; spaceAfter: number } | null;
+  /**
    * Text layers: replaces the content with formatted runs the way retyping
    * does. Every run starts from the first character's current formatting and
    * applies its own font, size, bold, italic and color on top, so
@@ -519,7 +528,10 @@ interface PatchyDocument {
    * column's top centre). box: {width, height} (each at least 16 document px)
    * opens a paragraph text box with x/y as its top-left corner: lines wrap at
    * the box width, exactly like dragging a box with the Type tool. align
-   * ("left", "center", "right", "justify") sets every paragraph's alignment.
+   * ("left", "center", "right", "justify") sets every paragraph's alignment;
+   * paragraph ({firstLineIndent, startIndent, endIndent, spaceBefore,
+   * spaceAfter}, document pixels, each optional) sets every paragraph's
+   * indents and spacing, like layer.textParagraph.
    * size is the text height in DOCUMENT PIXELS, independent of the canvas
    * zoom and the document PPI (the Character panel shows the pt equivalent).
    * orientation "vertical" stacks upright glyphs in columns that advance right
@@ -540,6 +552,7 @@ interface PatchyDocument {
     direction?: 'auto' | 'ltr' | 'rtl';
     box?: { width: number; height: number };
     align?: 'left' | 'center' | 'right' | 'justify';
+    paragraph?: { firstLineIndent?: number; startIndent?: number; endIndent?: number; spaceBefore?: number; spaceAfter?: number };
   }): PatchyLayer;
   /**
    * Files as Layers: adds each image file as a new layer directly above the

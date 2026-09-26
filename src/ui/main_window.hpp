@@ -15,6 +15,7 @@
 #include "ui/hotkey_registry.hpp"
 #include "ui/image_document_io.hpp"
 #include "ui/stress_test.hpp"
+#include "ui/text_paragraph_metrics.hpp"
 #include "ui/unit_spin_box.hpp"
 
 #include <QBrush>
@@ -1458,6 +1459,15 @@ private:
   void apply_text_character_faux_bold_to_active_editor();
   void apply_text_character_faux_italic_to_active_editor();
   void apply_text_character_rotate_roman_to_active_editor();
+  // Paragraph panel (alignment, indents, spacing): the same live-session-or-selected-layers
+  // model as the Character panel. Metrics are paragraph-level, so a bare caret edits its
+  // paragraph and the no-session path edits every paragraph of each selected layer.
+  void open_text_paragraph_dialog();
+  void sync_text_paragraph_dialog_from_editor();
+  void apply_text_paragraph_alignment_from_dialog();
+  void apply_text_paragraph_metrics_to_active_editor();
+  // Merges the metrics (document px) into the block formats under the editor's selection.
+  void apply_text_paragraph_metrics_to_editor(QTextEdit& editor, const TextParagraphMetrics& metrics);
   // The options-bar font-style picker, the only face control in the bar (like Photoshop).
   // `refresh_text_style_combo` rebuilds the list for a family, keeping `preferred` selected
   // when that family offers it and falling back to the face the caller's bold/italic flags
@@ -1849,6 +1859,17 @@ private:
   // Vertical type only: rotate Roman glyphs along the column (Photoshop's Standard Vertical
   // Roman Alignment, /BaselineDirection 2).
   QCheckBox* text_character_rotate_roman_{nullptr};
+  // Paragraph panel (alignment, indents, spacing), exempt from the focus-loss auto-commit
+  // like the Character panel.
+  QPushButton* text_paragraph_button_{nullptr};
+  QPointer<QDialog> text_paragraph_dialog_;
+  QLabel* text_paragraph_hint_label_{nullptr};
+  QComboBox* text_paragraph_align_combo_{nullptr};
+  UnitSpinBox* text_paragraph_first_line_indent_spin_{nullptr};
+  UnitSpinBox* text_paragraph_start_indent_spin_{nullptr};
+  UnitSpinBox* text_paragraph_end_indent_spin_{nullptr};
+  UnitSpinBox* text_paragraph_space_before_spin_{nullptr};
+  UnitSpinBox* text_paragraph_space_after_spin_{nullptr};
   // Session apply/cancel for the inline text editor (Photoshop's options-bar
   // commit/cancel); visible only while an editor is open, managed by
   // refresh_options_bar(), never registered as per-tool option widgets.

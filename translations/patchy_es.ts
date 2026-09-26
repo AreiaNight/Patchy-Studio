@@ -17598,6 +17598,70 @@ Y: %2
         <source>Limit the fill to pixels connected to the click</source>
         <translation>Limitar el relleno a los píxeles contiguos al punto de clic</translation>
     </message>
+    <message>
+        <source>Paragraph</source>
+        <translation>Párrafo</translation>
+    </message>
+    <message>
+        <source>Justify (last line left)</source>
+        <translation>Justificar (última línea a la izquierda)</translation>
+    </message>
+    <message>
+        <source>Paragraph alignment; Justify spreads every line but the last across the box</source>
+        <translation>Alineación del párrafo; Justificar reparte todas las líneas menos la última a lo ancho del cuadro</translation>
+    </message>
+    <message>
+        <source>Alignment:</source>
+        <translation>Alineación:</translation>
+    </message>
+    <message>
+        <source>First line indent:</source>
+        <translation>Sangría de primera línea:</translation>
+    </message>
+    <message>
+        <source>Indent of each paragraph&apos;s first line; negative with a left indent makes a hanging indent</source>
+        <translation>Sangría de la primera línea de cada párrafo; un valor negativo con sangría izquierda crea una sangría francesa</translation>
+    </message>
+    <message>
+        <source>Left indent:</source>
+        <translation>Sangría izquierda:</translation>
+    </message>
+    <message>
+        <source>Space between the box edge and every line&apos;s start</source>
+        <translation>Espacio entre el borde del cuadro y el inicio de cada línea</translation>
+    </message>
+    <message>
+        <source>Right indent:</source>
+        <translation>Sangría derecha:</translation>
+    </message>
+    <message>
+        <source>Space between every line&apos;s end and the box edge</source>
+        <translation>Espacio entre el final de cada línea y el borde del cuadro</translation>
+    </message>
+    <message>
+        <source>Space before:</source>
+        <translation>Espacio antes:</translation>
+    </message>
+    <message>
+        <source>Extra space above each paragraph</source>
+        <translation>Espacio adicional encima de cada párrafo</translation>
+    </message>
+    <message>
+        <source>Space after:</source>
+        <translation>Espacio después:</translation>
+    </message>
+    <message>
+        <source>Extra space below each paragraph</source>
+        <translation>Espacio adicional debajo de cada párrafo</translation>
+    </message>
+    <message>
+        <source>Paragraph...</source>
+        <translation>Párrafo...</translation>
+    </message>
+    <message>
+        <source>Paragraph panel (alignment, indents, spacing)</source>
+        <translation>Panel Párrafo (alineación, sangrías, espaciado)</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -18968,6 +19032,14 @@ Y: %2
     <message>
         <source>align must be &apos;left&apos;, &apos;center&apos;, &apos;right&apos; or &apos;justify&apos;.</source>
         <translation>align debe ser &apos;left&apos;, &apos;center&apos;, &apos;right&apos; o &apos;justify&apos;.</translation>
+    </message>
+    <message>
+        <source>%1: paragraph must be an object with firstLineIndent, startIndent, endIndent, spaceBefore and spaceAfter numbers (document pixels).</source>
+        <translation>%1: paragraph debe ser un objeto con los números firstLineIndent, startIndent, endIndent, spaceBefore y spaceAfter (píxeles del documento).</translation>
+    </message>
+    <message>
+        <source>%1: paragraph.%2 must be a number (document pixels).</source>
+        <translation>%1: paragraph.%2 debe ser un número (píxeles del documento).</translation>
     </message>
 </context>
 <context>

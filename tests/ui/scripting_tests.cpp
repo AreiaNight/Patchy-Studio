@@ -1213,6 +1213,43 @@ void ui_script_set_text_runs_edits_existing_layer() {
   CHECK(backlog_contains(window, QStringLiteral("empty-throws=true")));
 }
 
+// textParagraph reads the first paragraph's indents and spacing in document px, the addTextLayer
+// `paragraph` option seeds them, and the setter merges only the fields it is given into every
+// paragraph. Other layers read null; a non-number throws.
+void ui_script_text_paragraph_reads_and_sets_metrics() {
+  patchy::ui::MainWindow window;
+  show_window(window);
+  CHECK(run_script(window, QStringLiteral(R"JS(
+    var doc = app.activeDocument;
+    // The values travel through the editor's zoom, so compare them rounded.
+    function fmt(p) {
+      if (p === null) { return 'null'; }
+      return [p.firstLineIndent, p.startIndent, p.endIndent, p.spaceBefore, p.spaceAfter]
+          .map(function (v) { return Math.round(v * 100) / 100; }).join(',');
+    }
+    var layer = doc.addTextLayer('First paragraph\nSecond paragraph',
+                                 {font: 'Arial', size: 20, x: 10, y: 20, box: {width: 300, height: 200},
+                                  paragraph: {firstLineIndent: 12, startIndent: 8, spaceAfter: 6}});
+    console.log('set=' + fmt(layer.textParagraph));
+    var narrow = layer.bounds.width;
+    layer.textParagraph = {startIndent: 20};
+    console.log('merged=' + fmt(layer.textParagraph));
+    var plain = doc.addTextLayer('No indents', {font: 'Arial', size: 20, x: 10, y: 300});
+    console.log('plain=' + fmt(plain.textParagraph));
+    console.log('pixel=' + fmt(doc.addLayer('px').textParagraph));
+    var threw = false;
+    try { layer.textParagraph = {startIndent: 'wide'}; } catch (e) { threw = true; }
+    console.log('bad-throws=' + threw);
+    console.log('kept=' + fmt(layer.textParagraph));
+  )JS")));
+  CHECK(backlog_contains(window, QStringLiteral("set=12,8,0,0,6")));
+  CHECK(backlog_contains(window, QStringLiteral("merged=12,20,0,0,6")));
+  CHECK(backlog_contains(window, QStringLiteral("plain=0,0,0,0,0")));
+  CHECK(backlog_contains(window, QStringLiteral("pixel=null")));
+  CHECK(backlog_contains(window, QStringLiteral("bad-throws=true")));
+  CHECK(backlog_contains(window, QStringLiteral("kept=12,20,0,0,6")));
+}
+
 // The auto-leading fraction the PSD writer hands Photoshop is the measured line pitch over the
 // largest run size ON THOSE LINES. It used to divide by the layer's largest run, so a layer whose
 // 49 px lines were separated by a 155 px spacer paragraph wrote 0.35 and Photoshop stacked the
@@ -3499,6 +3536,7 @@ std::vector<patchy::test::TestCase> scripting_tests() {
       {"ui_script_text_runs_create_and_read_back", ui_script_text_runs_create_and_read_back},
       {"ui_script_text_box_wraps_and_aligns", ui_script_text_box_wraps_and_aligns},
       {"ui_script_set_text_runs_edits_existing_layer", ui_script_set_text_runs_edits_existing_layer},
+      {"ui_script_text_paragraph_reads_and_sets_metrics", ui_script_text_paragraph_reads_and_sets_metrics},
       {"ui_script_text_auto_leading_ignores_spacer_paragraphs", ui_script_text_auto_leading_ignores_spacer_paragraphs},
       {"ui_script_list_fonts_reports_registered_families", ui_script_list_fonts_reports_registered_families},
       {"ui_script_text_layer_with_uncovered_script_does_not_crash",

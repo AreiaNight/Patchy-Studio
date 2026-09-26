@@ -17552,6 +17552,70 @@ Y: %2
         <source>Limit the fill to pixels connected to the click</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Paragraph</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Justify (last line left)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Paragraph alignment; Justify spreads every line but the last across the box</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Alignment:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>First line indent:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Indent of each paragraph&apos;s first line; negative with a left indent makes a hanging indent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Left indent:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Space between the box edge and every line&apos;s start</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Right indent:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Space between every line&apos;s end and the box edge</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Space before:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Extra space above each paragraph</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Space after:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Extra space below each paragraph</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Paragraph...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Paragraph panel (alignment, indents, spacing)</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -18921,6 +18985,14 @@ Y: %2
     </message>
     <message>
         <source>align must be &apos;left&apos;, &apos;center&apos;, &apos;right&apos; or &apos;justify&apos;.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1: paragraph must be an object with firstLineIndent, startIndent, endIndent, spaceBefore and spaceAfter numbers (document pixels).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1: paragraph.%2 must be a number (document pixels).</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

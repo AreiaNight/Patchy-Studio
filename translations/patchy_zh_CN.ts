@@ -17547,6 +17547,70 @@ Y: %2
         <source>Limit the fill to pixels connected to the click</source>
         <translation>将填充限制为与点击点相连的像素</translation>
     </message>
+    <message>
+        <source>Paragraph</source>
+        <translation>段落</translation>
+    </message>
+    <message>
+        <source>Justify (last line left)</source>
+        <translation>两端对齐 (末行左对齐)</translation>
+    </message>
+    <message>
+        <source>Paragraph alignment; Justify spreads every line but the last across the box</source>
+        <translation>段落对齐方式；两端对齐会将除末行外的每一行铺满文本框</translation>
+    </message>
+    <message>
+        <source>Alignment:</source>
+        <translation>对齐:</translation>
+    </message>
+    <message>
+        <source>First line indent:</source>
+        <translation>首行缩进:</translation>
+    </message>
+    <message>
+        <source>Indent of each paragraph&apos;s first line; negative with a left indent makes a hanging indent</source>
+        <translation>每个段落首行的缩进；与左缩进搭配使用负值可形成悬挂缩进</translation>
+    </message>
+    <message>
+        <source>Left indent:</source>
+        <translation>左缩进:</translation>
+    </message>
+    <message>
+        <source>Space between the box edge and every line&apos;s start</source>
+        <translation>文本框边缘与每行起始位置之间的间距</translation>
+    </message>
+    <message>
+        <source>Right indent:</source>
+        <translation>右缩进:</translation>
+    </message>
+    <message>
+        <source>Space between every line&apos;s end and the box edge</source>
+        <translation>每行末尾与文本框边缘之间的间距</translation>
+    </message>
+    <message>
+        <source>Space before:</source>
+        <translation>段前间距:</translation>
+    </message>
+    <message>
+        <source>Extra space above each paragraph</source>
+        <translation>每个段落上方的额外间距</translation>
+    </message>
+    <message>
+        <source>Space after:</source>
+        <translation>段后间距:</translation>
+    </message>
+    <message>
+        <source>Extra space below each paragraph</source>
+        <translation>每个段落下方的额外间距</translation>
+    </message>
+    <message>
+        <source>Paragraph...</source>
+        <translation>段落...</translation>
+    </message>
+    <message>
+        <source>Paragraph panel (alignment, indents, spacing)</source>
+        <translation>段落面板 (对齐、缩进、间距)</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -18916,6 +18980,14 @@ Y: %2
     <message>
         <source>align must be &apos;left&apos;, &apos;center&apos;, &apos;right&apos; or &apos;justify&apos;.</source>
         <translation>align 必须是 &apos;left&apos;、&apos;center&apos;、&apos;right&apos; 或 &apos;justify&apos;。</translation>
+    </message>
+    <message>
+        <source>%1: paragraph must be an object with firstLineIndent, startIndent, endIndent, spaceBefore and spaceAfter numbers (document pixels).</source>
+        <translation>%1: paragraph 必须是包含 firstLineIndent、startIndent、endIndent、spaceBefore 和 spaceAfter 数值的对象（文档像素）。</translation>
+    </message>
+    <message>
+        <source>%1: paragraph.%2 must be a number (document pixels).</source>
+        <translation>%1: paragraph.%2 必须是数值（文档像素）。</translation>
     </message>
 </context>
 <context>

@@ -10247,6 +10247,8 @@ void MainWindow::apply_text_character_edit(const std::function<bool(QTextEdit&)>
 }
 
 void MainWindow::sync_text_character_dialog_from_editor() {
+  // The Paragraph panel mirrors the same session-or-layer state at every one of these sites.
+  sync_text_paragraph_dialog_from_editor();
   if (text_character_dialog_ == nullptr || text_character_auto_leading_ == nullptr ||
       text_character_leading_spin_ == nullptr || text_character_tracking_spin_ == nullptr ||
       text_character_h_scale_spin_ == nullptr || text_character_v_scale_spin_ == nullptr ||
@@ -10415,6 +10417,225 @@ void MainWindow::apply_text_character_glyph_scales_to_active_editor() {
     });
     return true;
   });
+}
+
+void MainWindow::open_text_paragraph_dialog() {
+  if (text_paragraph_dialog_ != nullptr) {
+    text_paragraph_dialog_->show();
+    text_paragraph_dialog_->raise();
+    text_paragraph_dialog_->activateWindow();
+    sync_text_paragraph_dialog_from_editor();
+    return;
+  }
+  auto* dialog = new QDialog(this);
+  dialog->setAttribute(Qt::WA_DeleteOnClose);
+  dialog->setObjectName(QStringLiteral("textParagraphDialog"));
+  dialog->setWindowTitle(tr("Paragraph"));
+  text_paragraph_dialog_ = dialog;
+  auto* layout = new QFormLayout(dialog);
+
+  text_paragraph_hint_label_ =
+      new QLabel(tr("Select a text layer or click in text with the Type tool to edit these settings."), dialog);
+  text_paragraph_hint_label_->setObjectName(QStringLiteral("textParagraphHint"));
+  text_paragraph_hint_label_->setWordWrap(true);
+  set_themed_style(*text_paragraph_hint_label_, QStringLiteral("color: @hint_text;"));
+  layout->addRow(text_paragraph_hint_label_);
+
+  text_paragraph_align_combo_ = new QComboBox(dialog);
+  text_paragraph_align_combo_->setObjectName(QStringLiteral("textParagraphAlignCombo"));
+  text_paragraph_align_combo_->addItem(tr("Left"), QStringLiteral("left"));
+  text_paragraph_align_combo_->addItem(tr("Center"), QStringLiteral("center"));
+  text_paragraph_align_combo_->addItem(tr("Right"), QStringLiteral("right"));
+  text_paragraph_align_combo_->addItem(tr("Justify (last line left)"), QStringLiteral("justify"));
+  text_paragraph_align_combo_->setToolTip(tr("Paragraph alignment; Justify spreads every line but the last across the box"));
+  layout->addRow(tr("Alignment:"), text_paragraph_align_combo_);
+
+  const auto make_metric_spin = [this, dialog, layout](const char* object_name, const QString& label,
+                                                        const QString& tooltip) {
+    auto* spin = new UnitSpinBox(SpinUnit::Points, dialog);
+    spin->setObjectName(QString::fromLatin1(object_name));
+    spin->set_context_provider([this] {
+      return UnitConversionContext{has_active_document() ? text_size_ppi(document()) : 300.0, 0.0};
+    });
+    spin->setDecimals(2);
+    spin->setRange(-10000.0, 10000.0);
+    spin->setSingleStep(1.0);
+    spin->setToolTip(tooltip);
+    configure_dialog_spinbox(spin);
+    configure_text_character_spin(spin);
+    layout->addRow(label, spin);
+    return spin;
+  };
+  text_paragraph_first_line_indent_spin_ = make_metric_spin(
+      "textParagraphFirstLineIndentSpin", tr("First line indent:"),
+      tr("Indent of each paragraph's first line; negative with a left indent makes a hanging indent"));
+  text_paragraph_start_indent_spin_ =
+      make_metric_spin("textParagraphStartIndentSpin", tr("Left indent:"), tr("Space between the box edge and every line's start"));
+  text_paragraph_end_indent_spin_ =
+      make_metric_spin("textParagraphEndIndentSpin", tr("Right indent:"), tr("Space between every line's end and the box edge"));
+  text_paragraph_space_before_spin_ =
+      make_metric_spin("textParagraphSpaceBeforeSpin", tr("Space before:"), tr("Extra space above each paragraph"));
+  text_paragraph_space_after_spin_ =
+      make_metric_spin("textParagraphSpaceAfterSpin", tr("Space after:"), tr("Extra space below each paragraph"));
+
+  connect(text_paragraph_align_combo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+          [this](int) { apply_text_paragraph_alignment_from_dialog(); });
+  for (auto* spin : {text_paragraph_first_line_indent_spin_, text_paragraph_start_indent_spin_,
+                     text_paragraph_end_indent_spin_, text_paragraph_space_before_spin_,
+                     text_paragraph_space_after_spin_}) {
+    connect(spin, &QDoubleSpinBox::valueChanged, this, [this](double) { apply_text_paragraph_metrics_to_active_editor(); });
+  }
+
+  // Sub-control gotcha: the spin-button style must land AFTER all children exist.
+  append_themed_style(*dialog, dialog_spinbox_button_style());
+  sync_text_paragraph_dialog_from_editor();
+  run_non_modal_dialog(*dialog);
+  // WA_DeleteOnClose destroyed the dialog when the nested loop unwound.
+  text_paragraph_hint_label_ = nullptr;
+  text_paragraph_align_combo_ = nullptr;
+  text_paragraph_first_line_indent_spin_ = nullptr;
+  text_paragraph_start_indent_spin_ = nullptr;
+  text_paragraph_end_indent_spin_ = nullptr;
+  text_paragraph_space_before_spin_ = nullptr;
+  text_paragraph_space_after_spin_ = nullptr;
+}
+
+void MainWindow::sync_text_paragraph_dialog_from_editor() {
+  if (text_paragraph_dialog_ == nullptr || text_paragraph_hint_label_ == nullptr ||
+      text_paragraph_align_combo_ == nullptr || text_paragraph_first_line_indent_spin_ == nullptr ||
+      text_paragraph_start_indent_spin_ == nullptr || text_paragraph_end_indent_spin_ == nullptr ||
+      text_paragraph_space_before_spin_ == nullptr || text_paragraph_space_after_spin_ == nullptr) {
+    return;
+  }
+  auto* editor =
+      canvas_ != nullptr ? canvas_->findChild<QTextEdit*>(QStringLiteral("inlineTextEditor")) : nullptr;
+  const bool session_open = editor != nullptr && !editor->property(kTextEditorFinishedProperty).toBool();
+  const auto* layer = session_open ? nullptr : text_character_target_layer();
+  const auto inputs = layer != nullptr ? text_render_inputs_from_layer(*layer) : std::nullopt;
+  const bool enabled = !preview_dialog_edit_locked() && (session_open || inputs.has_value());
+  text_paragraph_hint_label_->setVisible(!enabled);
+  text_paragraph_align_combo_->setEnabled(enabled);
+  for (auto* spin : {text_paragraph_first_line_indent_spin_, text_paragraph_start_indent_spin_,
+                     text_paragraph_end_indent_spin_, text_paragraph_space_before_spin_,
+                     text_paragraph_space_after_spin_}) {
+    spin->setEnabled(enabled);
+  }
+  if (!enabled) {
+    return;
+  }
+  QTextBlockFormat format;
+  QString alignment_name;
+  double zoom = 1.0;
+  double display_scale = 1.0;
+  if (session_open) {
+    // The caret's paragraph, the one a bare-caret edit changes.
+    format = editor->textCursor().blockFormat();
+    alignment_name = paragraph_alignment_name(editor->alignment());
+    zoom = std::max(0.01, canvas_->zoom());
+    display_scale = text_editor_size_display_scale(*editor);
+  } else {
+    const auto built = build_text_render_document(inputs->settings, inputs->color, inputs->max_width,
+                                                  inputs->paragraph_runs, inputs->rich_text_runs, 1.0);
+    format = built.document->begin().blockFormat();
+    alignment_name = paragraph_alignment_name(format.alignment());
+    if (const auto affine = canonical_text_affine_transform_for_layer(*layer); affine.has_value()) {
+      const auto scale = std::hypot((*affine)[2], (*affine)[3]);
+      if (std::isfinite(scale) && scale > 0.01) {
+        display_scale = scale;
+      }
+    }
+  }
+  const auto to_display_pt = [this, zoom, display_scale](double editor_px) {
+    return editor_px / zoom * display_scale * 72.0 / text_size_ppi(document());
+  };
+  const QSignalBlocker block_align(text_paragraph_align_combo_);
+  const auto align_index = text_paragraph_align_combo_->findData(alignment_name);
+  text_paragraph_align_combo_->setCurrentIndex(std::max(0, align_index));
+  const auto set_metric = [&to_display_pt](UnitSpinBox* spin, double editor_px) {
+    const QSignalBlocker blocker(spin);
+    const auto pt = to_display_pt(std::isfinite(editor_px) ? editor_px : 0.0);
+    spin->setValue(std::clamp(pt, spin->minimum(), spin->maximum()));
+  };
+  set_metric(text_paragraph_first_line_indent_spin_, format.textIndent());
+  set_metric(text_paragraph_start_indent_spin_, format.leftMargin());
+  set_metric(text_paragraph_end_indent_spin_, format.rightMargin());
+  set_metric(text_paragraph_space_before_spin_, format.topMargin());
+  set_metric(text_paragraph_space_after_spin_, format.bottomMargin());
+}
+
+void MainWindow::apply_text_paragraph_alignment_from_dialog() {
+  if (text_paragraph_align_combo_ == nullptr) {
+    return;
+  }
+  apply_text_alignment_to_active_editor(paragraph_alignment_from_name(text_paragraph_align_combo_->currentData().toString()));
+}
+
+void MainWindow::apply_text_paragraph_metrics_to_active_editor() {
+  if (canvas_ == nullptr || applying_text_options_to_layers_ || !has_active_document() ||
+      text_paragraph_first_line_indent_spin_ == nullptr || text_paragraph_start_indent_spin_ == nullptr ||
+      text_paragraph_end_indent_spin_ == nullptr || text_paragraph_space_before_spin_ == nullptr ||
+      text_paragraph_space_after_spin_ == nullptr) {
+    return;
+  }
+  // The panel shows points; the paragraph runs and Photoshop's sheets store document pixels.
+  const auto ppi = text_size_ppi(document());
+  const auto to_document_px = [ppi](double pt) { return pt * ppi / 72.0; };
+  TextParagraphMetrics metrics;
+  metrics.first_line_indent = to_document_px(text_paragraph_first_line_indent_spin_->value());
+  metrics.start_indent = to_document_px(text_paragraph_start_indent_spin_->value());
+  metrics.end_indent = to_document_px(text_paragraph_end_indent_spin_->value());
+  metrics.space_before = to_document_px(text_paragraph_space_before_spin_->value());
+  metrics.space_after = to_document_px(text_paragraph_space_after_spin_->value());
+  auto* editor = canvas_->findChild<QTextEdit*>(QStringLiteral("inlineTextEditor"));
+  if (editor != nullptr && !editor->property(kTextEditorFinishedProperty).toBool()) {
+    // The live session: the selection's paragraphs (a bare caret edits its own paragraph).
+    apply_text_paragraph_metrics_to_editor(*editor, metrics);
+    relayout_text_editor(editor, true);
+    schedule_text_editor_preview(editor);
+    return;
+  }
+  // No session: paragraph-level like the alignment buttons, so the hidden session selects the
+  // whole object first.
+  apply_text_character_edit([this, metrics](QTextEdit& target) {
+    auto cursor = target.textCursor();
+    cursor.select(QTextCursor::Document);
+    target.setTextCursor(cursor);
+    apply_text_paragraph_metrics_to_editor(target, metrics);
+    return true;
+  });
+}
+
+void MainWindow::apply_text_paragraph_metrics_to_editor(QTextEdit& editor, const TextParagraphMetrics& metrics) {
+  if (metrics.empty()) {
+    return;
+  }
+  // Block margins live in editor pixels (document px * zoom, the scale apply_paragraph_runs_to_document
+  // opened the session with); a PSD-frame session divides by its display scale like leading does.
+  const auto zoom = canvas_ != nullptr ? std::max(0.01, canvas_->zoom()) : 1.0;
+  const auto display_scale = text_editor_size_display_scale(editor);
+  const auto to_editor_px = [zoom, display_scale](double document_px) {
+    return (std::isfinite(document_px) ? document_px : 0.0) / display_scale * zoom;
+  };
+  QTextBlockFormat format;
+  if (metrics.first_line_indent.has_value()) {
+    format.setTextIndent(to_editor_px(*metrics.first_line_indent));
+  }
+  if (metrics.start_indent.has_value()) {
+    format.setLeftMargin(to_editor_px(*metrics.start_indent));
+  }
+  if (metrics.end_indent.has_value()) {
+    format.setRightMargin(to_editor_px(*metrics.end_indent));
+  }
+  if (metrics.space_before.has_value()) {
+    format.setTopMargin(to_editor_px(*metrics.space_before));
+  }
+  if (metrics.space_after.has_value()) {
+    format.setBottomMargin(to_editor_px(*metrics.space_after));
+  }
+  // mergeBlockFormat covers every block the selection touches, the caret's block alone otherwise.
+  auto cursor = editor.textCursor();
+  cursor.mergeBlockFormat(format);
+  mark_text_editor_changed(&editor);
 }
 
 // The family the session is actually set in: the run under the caret first, the options-bar combo
@@ -12742,6 +12963,8 @@ void MainWindow::sync_text_alignment_buttons_from_editor() {
   set_checked(text_align_center_button_, (alignment & Qt::AlignHCenter) != 0);
   set_checked(text_align_right_button_, (alignment & Qt::AlignRight) != 0);
   sync_text_orientation_controls_from_editor();
+  // The Paragraph panel's alignment combo follows the buttons (no-op while it is closed).
+  sync_text_paragraph_dialog_from_editor();
 }
 
 void MainWindow::apply_text_family_to_active_editor() {
@@ -13033,9 +13256,12 @@ bool MainWindow::is_text_option_widget(QWidget* widget) const {
          owns(text_smoothing_combo_) || owns(text_color_button_) || owns(text_align_left_button_) ||
          owns(text_orientation_button_) || owns(text_direction_combo_) ||
          owns(text_align_center_button_) || owns(text_align_right_button_) || owns(text_apply_button_) ||
-         owns(text_cancel_button_) || owns(text_character_button_) || owns(primary_color_button_) ||
-         // The Character panel edits the LIVE session; focus moving into it must not commit.
+         owns(text_cancel_button_) || owns(text_character_button_) || owns(text_paragraph_button_) ||
+         owns(primary_color_button_) ||
+         // The Character and Paragraph panels edit the LIVE session; focus moving into them
+         // must not commit.
          in_named_ancestor(QStringLiteral("textCharacterDialog")) ||
+         in_named_ancestor(QStringLiteral("textParagraphDialog")) ||
          // The font picker popup is a Qt::Popup window, so isAncestorOf-based ownership stops
          // at its boundary; without the name match, focusing its search box would auto-commit
          // an open inline text editor.

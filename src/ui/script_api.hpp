@@ -53,6 +53,7 @@ class ScriptLayerObject : public QObject {
   Q_PROPERTY(QJSValue textRuns READ text_runs)
   Q_PROPERTY(QJSValue textBox READ text_box)
   Q_PROPERTY(QString textAlign READ text_align WRITE set_text_align)
+  Q_PROPERTY(QJSValue textParagraph READ text_paragraph WRITE set_text_paragraph)
 
 public:
   ScriptLayerObject(ScriptEngineHost& host, std::int64_t session_id, LayerId layer_id);
@@ -103,6 +104,8 @@ public:
   [[nodiscard]] QJSValue text_box() const;
   [[nodiscard]] QString text_align() const;
   void set_text_align(const QString& align);
+  [[nodiscard]] QJSValue text_paragraph() const;
+  void set_text_paragraph(const QJSValue& paragraph);
   Q_INVOKABLE void setTextRuns(const QJSValue& runs);
 
   Q_INVOKABLE void moveTo(double x, double y);

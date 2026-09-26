@@ -226,6 +226,14 @@ Lives in [font-resolution.md](font-resolution.md): how a display family name bec
 - `textCharacterDialog` is exempted from the focus-loss auto-commit via `is_text_option_widget`.
 - Setting fixed leading opts the layer into the Photoshop layout marker at commit (explicit leading does not render under Qt-natural layout).
 
+## Paragraph panel
+
+- Opened via options bar > Paragraph... while the Text tool is active; edits alignment (Left, Center, Right, Justify with the last line left, the only justify variant the paragraph runs model) plus Photoshop's five metrics: first line indent, left indent, right indent, space before, space after. The fields show points at the document's text PPI and store document pixels, which is what `patchy.text.paragraph_runs` (v2 columns 4 to 8) and the TySh EngineData carry, so a value entered here round-trips to Photoshop through the existing writer without any Txt2 work. A negative first line indent with a positive left indent is a hanging indent (`/Hanging true` in the EngineData).
+- Same session model as the Character panel: during inline editing a change merges into the block formats of the paragraphs the selection touches (a bare caret edits its own paragraph); with no session it applies to every paragraph of every selected unlocked text layer through the hidden-session path, one Type undo step. Block margins live in editor pixels (document px times the canvas zoom, divided by a PSD-frame session's display scale, the same conversion leading uses).
+- The panel reads the caret's paragraph in a session, else the active layer's first paragraph from a 1:1 render document. `textParagraphDialog` and `textParagraphButton` are exempt from the focus-loss auto-commit via `is_text_option_widget`; `sync_text_character_dialog_from_editor` and the alignment-button sync also refresh it.
+- Scripting: `layer.textParagraph` (read the first paragraph, set merges into every paragraph) and the `paragraph` option of `addTextLayer`, document pixels ([scripting.md](scripting.md)). Tests: `ui_text_paragraph_panel_sets_indents_and_spacing`, `ui_script_text_paragraph_reads_and_sets_metrics`.
+- Lists (bullets, numbering) are not here: Photoshop stores them only in its Txt2 block, which Patchy does not author yet ([txt2.md](txt2.md)).
+
 ## Vertical text and paragraph direction
 
 Vertical type (`patchy.text.orientation = vertical`) and the paragraph base direction
@@ -259,7 +267,7 @@ the session contract.
 - Scripting: `doc.addTextLayer(text, {orientation, direction})`, `layer.textOrientation` /
   `textDirection`. Tests: `tests/ui/text_vertical_rtl_tests.cpp`.
 - Known gaps: tate-chu-yoko, kinsoku, vmtx metrics, transformed PSD vertical imports (horizontal
-  re-anchoring), box indents, uncalibrated vertical Warp Text, SVG export rasterizes it.
+  re-anchoring), uncalibrated vertical Warp Text, SVG export rasterizes it.
 
 ## Document geometry operations follow the text transform
 
