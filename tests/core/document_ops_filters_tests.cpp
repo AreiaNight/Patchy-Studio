@@ -1443,6 +1443,15 @@ void filter_catalog_defines_stable_named_contracts() {
         CHECK(parameter.maximum == 500.0);
         CHECK(parameter.practical_minimum == 0.0);
         CHECK(parameter.practical_maximum == 300.0);
+      } else if ((actual.identifier == "patchy.filters.box_blur" ||
+                  actual.identifier == "patchy.filters.gaussian_blur") &&
+                 parameter.key == "radius") {
+        CHECK(parameter.minimum == 1.0);
+        CHECK(parameter.maximum ==
+              (actual.identifier == "patchy.filters.box_blur" ? 2000.0
+                                                              : 1000.0));
+        CHECK(parameter.practical_minimum == 1.0);
+        CHECK(parameter.practical_maximum == 100.0);
       } else {
         CHECK(!parameter.practical_minimum.has_value());
         CHECK(!parameter.practical_maximum.has_value());
@@ -1549,9 +1558,13 @@ void filter_invocations_normalize_scale_and_reject_bad_data() {
   CHECK(normalized->background.blue == 6);
 
   gaussian.parameters["radius"] = std::int64_t{999};
+  const auto kept = registry.normalize(gaussian);
+  CHECK(kept.has_value());
+  CHECK(std::get<std::int64_t>(kept->parameters.at("radius")) == 999);
+  gaussian.parameters["radius"] = std::int64_t{5000};
   const auto clamped = registry.normalize(gaussian);
   CHECK(clamped.has_value());
-  CHECK(std::get<std::int64_t>(clamped->parameters.at("radius")) == 12);
+  CHECK(std::get<std::int64_t>(clamped->parameters.at("radius")) == 1000);
   gaussian.parameters["radius"] = 2.0;
   CHECK(!registry.supports(gaussian));
   gaussian.parameters["radius"] = std::int64_t{2};
@@ -2672,10 +2685,146 @@ void liquify_render_preserves_identity_and_scales_the_field() {
   CHECK(!cancelled.has_value());
 }
 
+// Gaussian and Box Blur radii above the historical 12 px range run an exact
+// integer running-sum path so a 1000 px radius costs the same per pixel as a
+// 13 px one. It must equal a brute-force edge-clamped, alpha-weighted tent
+// (Gaussian, weights r + 1 - |d|) or box average, including radii far larger
+// than the buffer, for RGBA and RGB buffers.
+void catalog_large_radius_blurs_match_brute_force_reference() {
+  patchy::FilterRegistry registry;
+  patchy::register_builtin_filters(registry);
+
+  const auto reference = [](const patchy::PixelBuffer &source, int radius,
+                            bool weighted) {
+    auto expected = source;
+    const auto channels = source.format().channels;
+    const auto has_alpha = channels >= 4;
+    const auto weight = [&](int offset) -> std::int64_t {
+      return weighted ? radius + 1 - std::abs(offset) : 1;
+    };
+    const auto axis_sum = weighted
+                              ? static_cast<double>(radius + 1) * (radius + 1)
+                              : static_cast<double>(2 * radius + 1);
+    for (int y = 0; y < source.height(); ++y) {
+      for (int x = 0; x < source.width(); ++x) {
+        std::array<std::int64_t, 4> sums{};
+        for (int dy = -radius; dy <= radius; ++dy) {
+          const auto sy = std::clamp(y + dy, 0, source.height() - 1);
+          for (int dx = -radius; dx <= radius; ++dx) {
+            const auto sx = std::clamp(x + dx, 0, source.width() - 1);
+            const auto *px = source.pixel(sx, sy);
+            const auto w = weight(dx) * weight(dy);
+            const std::int64_t alpha = has_alpha ? px[3] : 255;
+            for (int channel = 0; channel < 3; ++channel) {
+              sums[static_cast<std::size_t>(channel)] +=
+                  static_cast<std::int64_t>(px[channel]) * alpha * w;
+            }
+            sums[3] += alpha * w;
+          }
+        }
+        auto *out = expected.pixel(x, y);
+        for (int channel = 0; channel < 3; ++channel) {
+          out[channel] = static_cast<std::uint8_t>(std::clamp(
+              std::lround(sums[3] > 0
+                              ? static_cast<double>(
+                                    sums[static_cast<std::size_t>(channel)]) /
+                                    static_cast<double>(sums[3])
+                              : 0.0),
+              0L, 255L));
+        }
+        if (has_alpha) {
+          out[3] = static_cast<std::uint8_t>(std::clamp(
+              std::lround(static_cast<double>(sums[3]) /
+                          (axis_sum * axis_sum)),
+              0L, 255L));
+        }
+      }
+    }
+    return expected;
+  };
+
+  auto rgba = patchy::PixelBuffer(11, 7, patchy::PixelFormat::rgba8());
+  auto rgb = patchy::PixelBuffer(6, 9, patchy::PixelFormat::rgb8());
+  for (auto *buffer : {&rgba, &rgb}) {
+    const auto channels = buffer->format().channels;
+    for (int y = 0; y < buffer->height(); ++y) {
+      for (int x = 0; x < buffer->width(); ++x) {
+        auto *px = buffer->pixel(x, y);
+        px[0] = static_cast<std::uint8_t>((x * 37 + y * 11) % 256);
+        px[1] = static_cast<std::uint8_t>((x * 5 + y * 71) % 256);
+        px[2] = static_cast<std::uint8_t>(255 - (x * 23 + y * 3) % 256);
+        if (channels >= 4) {
+          // Include fully transparent pixels so alpha weighting matters.
+          px[3] = static_cast<std::uint8_t>((x + 2 * y) % 5 == 0
+                                                ? 0
+                                                : 30 + 45 * ((x + y) % 5));
+        }
+      }
+    }
+  }
+
+  for (const auto *identifier :
+       {"patchy.filters.gaussian_blur", "patchy.filters.box_blur"}) {
+    const auto weighted =
+        std::string_view(identifier) == "patchy.filters.gaussian_blur";
+    for (const int radius : {13, 17, 40}) {
+      for (const auto *source : {&rgba, &rgb}) {
+        auto invocation = registry.default_invocation(identifier);
+        invocation.parameters["radius"] = std::int64_t{radius};
+        auto actual = *source;
+        registry.apply(invocation, actual);
+        const auto expected = reference(*source, radius, weighted);
+        CHECK(std::equal(actual.data().begin(), actual.data().end(),
+                         expected.data().begin(), expected.data().end()));
+      }
+    }
+  }
+
+  // The direct path below the cutoff approximates the same kernel, so the
+  // switch at 12/13 px is not a visible discontinuity.
+  for (const auto *identifier :
+       {"patchy.filters.gaussian_blur", "patchy.filters.box_blur"}) {
+    auto invocation = registry.default_invocation(identifier);
+    invocation.parameters["radius"] = std::int64_t{12};
+    auto actual = rgba;
+    registry.apply(invocation, actual);
+    const auto expected = reference(
+        rgba, 12,
+        std::string_view(identifier) == "patchy.filters.gaussian_blur");
+    for (std::size_t i = 0; i < actual.data().size(); ++i) {
+      CHECK(std::abs(static_cast<int>(actual.data()[i]) -
+                     static_cast<int>(expected.data()[i])) <= 1);
+    }
+  }
+
+  // The destructive Box Blur above the cutoff equals the Box Blur Smart
+  // Filter's own sliding renderer on the same buffer.
+  auto box = registry.default_invocation("patchy.filters.box_blur");
+  box.parameters["radius"] = std::int64_t{15};
+  auto destructive = rgba;
+  registry.apply(box, destructive);
+  const auto smart = patchy::render_box_blur(
+      rgba, patchy::Rect{0, 0, rgba.width(), rgba.height()}, 15.0);
+  CHECK(std::equal(destructive.data().begin(), destructive.data().end(),
+                   smart.pixels.data().begin(), smart.pixels.data().end()));
+
+  // Photoshop's ranges: Gaussian to 1000 px, Box to 2000 px, and the layer
+  // grows by the full radius.
+  auto gaussian = registry.default_invocation("patchy.filters.gaussian_blur");
+  gaussian.parameters["radius"] = std::int64_t{1000};
+  CHECK(registry.normalize(gaussian).has_value());
+  CHECK(registry.output_margin(gaussian, 8, 8) == 1000);
+  box.parameters["radius"] = std::int64_t{2000};
+  CHECK(registry.normalize(box).has_value());
+  CHECK(registry.output_margin(box, 8, 8) == 2000);
+}
+
 }  // namespace
 
 std::vector<patchy::test::TestCase> document_ops_filters_tests() {
   return {
+      {"catalog_large_radius_blurs_match_brute_force_reference",
+       catalog_large_radius_blurs_match_brute_force_reference},
       {"tool_flip_horizontal_changes_pixels_and_writes_artifact", tool_flip_horizontal_changes_pixels_and_writes_artifact},
       {"tool_flip_vertical_changes_pixels_and_writes_artifact", tool_flip_vertical_changes_pixels_and_writes_artifact},
       {"document_crop_to_selection_changes_canvas_and_writes_artifact",

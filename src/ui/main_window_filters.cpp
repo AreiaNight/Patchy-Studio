@@ -440,8 +440,7 @@ FilterInvocation editable_smart_filter_invocation(SmartFilterKind kind) {
   return invocation;
 }
 
-FilterDialogSpec editable_smart_filter_dialog_spec(
-    SmartFilterKind kind, const FilterInvocation& initial_invocation) {
+FilterDialogSpec editable_smart_filter_dialog_spec(SmartFilterKind kind) {
   const auto high_pass = kind == SmartFilterKind::HighPass;
   const auto median = kind == SmartFilterKind::Median;
   const auto dust = kind == SmartFilterKind::DustAndScratches;
@@ -550,7 +549,7 @@ FilterDialogSpec editable_smart_filter_dialog_spec(
     radius_control.label = QObject::tr("Radius");
     radius_control.object_name = QStringLiteral("filterRadius");
     radius_control.minimum = 1;
-    radius_control.maximum = 12;
+    radius_control.maximum = 100;
     radius_control.value = 1;
     radius_control.suffix = QObject::tr(" px");
     radius_control.parameter_key = "radius";
@@ -710,7 +709,11 @@ FilterDialogSpec editable_smart_filter_dialog_spec(
   radius.label = QObject::tr("Radius");
   radius.object_name = QStringLiteral("filterRadius");
   radius.minimum = dust || median || surface ? 1 : 0;
-  radius.maximum = dust || median ? 500 : (surface ? 25 : 12);
+  // Gaussian Blur's slider covers 0.1..100 px like the destructive catalog;
+  // High Pass and Unsharp Mask keep their compact 12 px sliders.
+  radius.maximum = dust || median
+                       ? 500
+                       : (surface ? 25 : (high_pass || unsharp ? 12 : 100));
   radius.value = surface ? 5 : (dust || median ? 1 : (high_pass ? 10 : 2));
   radius.suffix = QObject::tr(" px");
   radius.parameter_key = "radius";
@@ -724,13 +727,7 @@ FilterDialogSpec editable_smart_filter_dialog_spec(
   radius.typed_minimum = dust || median || surface ? 1.0 : 0.1;
   radius.typed_maximum =
       surface ? 100.0
-              : (dust || median
-                     ? 500.0
-                     : (high_pass || unsharp
-                            ? 1000.0
-                            : std::max(12.0,
-                                       smart_filter_radius_from_invocation(
-                                           initial_invocation, 2.0))));
+              : (dust || median ? 500.0 : 1000.0);
   // Native descriptors retain fractional radius values. Gaussian Blur changes
   // at hundredths; Median currently floors for rendering but must not round a
   // value merely because the dialog was opened and accepted.
@@ -1731,8 +1728,7 @@ void MainWindow::editable_smart_filter_dialog(
       canvas_->document_changed();
     }
   });
-  const auto dialog_spec =
-      editable_smart_filter_dialog_spec(kind, initial_invocation);
+  const auto dialog_spec = editable_smart_filter_dialog_spec(kind);
   const auto settings = request_filter_settings(
       this, dialog_spec, preview_changed, std::move(initial_invocation),
       nullptr, &blending_settings);

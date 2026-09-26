@@ -332,10 +332,224 @@ void filter_copy_sampled_pixel(PixelBuffer &pixels, const PixelBuffer &original,
   filter_write_accumulated_pixel(pixels, x, y, accum);
 }
 
+// Radii through the historical 1..12 range keep the direct double-precision
+// path byte for byte (pins and the Box Blur Smart Filter parity depend on it);
+// larger radii switch to the exact integer running-sum path below.
+constexpr int kDirectTentBlurMaximumRadius = 12;
+constexpr int kMaximumTentBlurRadius = 2000;
+// Typed catalog ranges: Photoshop's Box Blur (1..2000 px, which the native
+// Smart Filter mapping already accepts) and Gaussian Blur (to 1000 px). The
+// linked sliders stop at kBlurSliderMaximumRadius; the spin boxes go further.
+constexpr int kBoxBlurMaximumRadius = 2000;
+constexpr int kGaussianBlurMaximumRadius = 1000;
+constexpr double kBlurSliderMaximumRadius = 100.0;
+
+[[nodiscard]] int blur_maximum_radius(std::string_view identifier) {
+  return identifier == "patchy.filters.gaussian_blur"
+             ? kGaussianBlurMaximumRadius
+             : kBoxBlurMaximumRadius;
+}
+
+// Large-radius tent (weighted) or box average with the same edge-clamped,
+// alpha-weighted sampling as the direct path, in O(1) work per pixel per axis
+// whatever the radius. Terms are raw bytes (color * alpha, alpha), so every
+// sum is an exact int64 and the result is deterministic across toolchains.
+// The tent with weights r + 1 - |d| is the running difference of two
+// (r + 1)-wide box sums, so both kernels slide. Worst-case magnitude is the
+// tent at 2000 px: (2001^2)^2 * 255 * 255, about 1.04e18, inside int64.
+void apply_separable_tent_blur_running(PixelBuffer &pixels,
+                                       const PixelBuffer &original, int radius,
+                                       bool weighted,
+                                       const FilterProgress *progress) {
+  const auto width = original.width();
+  const auto height = original.height();
+  const auto channels = original.format().channels;
+  const auto color_channels = std::min<std::uint16_t>(channels, 3);
+  const auto has_alpha = channels >= 4;
+  const auto pixel_bytes = bytes_per_pixel(original.format());
+  const auto row_stride = static_cast<std::size_t>(width) * 4U;
+  const auto r = static_cast<std::int64_t>(radius);
+  const auto axis_weight_sum = weighted ? (r + 1) * (r + 1) : 2 * r + 1;
+  const auto total_weight = static_cast<double>(axis_weight_sum) *
+                            static_cast<double>(axis_weight_sum);
+
+  const auto term = [&](const std::uint8_t *row, std::int32_t x,
+                        std::array<std::int64_t, 4> &out) {
+    const auto *px = row + static_cast<std::size_t>(x) * pixel_bytes;
+    const auto alpha = has_alpha ? static_cast<std::int64_t>(px[3]) : 255;
+    for (std::uint16_t channel = 0; channel < color_channels; ++channel) {
+      out[channel] = static_cast<std::int64_t>(px[channel]) * alpha;
+    }
+    out[3] = alpha;
+  };
+  // Horizontal kernel sums for one source row, written as width * 4 terms.
+  const auto build_h_row = [&](std::int32_t source_y, std::int64_t *out) {
+    const auto *row = original.row(source_y).data();
+    const auto clamp_x = [&](std::int64_t x) {
+      return static_cast<std::int32_t>(
+          std::clamp<std::int64_t>(x, 0, width - 1));
+    };
+    std::array<std::int64_t, 4> sample{};
+    std::array<std::int64_t, 4> sum{};
+    std::array<std::int64_t, 4> left{};
+    std::array<std::int64_t, 4> right{};
+    for (auto d = -r; d <= r; ++d) {
+      term(row, clamp_x(d), sample);
+      const auto weight = weighted ? r + 1 - (d < 0 ? -d : d) : 1;
+      for (std::size_t c = 0; c < 4; ++c) {
+        sum[c] += sample[c] * weight;
+        if (weighted && d <= 0) {
+          left[c] += sample[c];
+        }
+      }
+    }
+    if (weighted) {
+      for (auto k = std::int64_t{1}; k <= r + 1; ++k) {
+        term(row, clamp_x(k), sample);
+        for (std::size_t c = 0; c < 4; ++c) {
+          right[c] += sample[c];
+        }
+      }
+    }
+    std::array<std::int64_t, 4> entering{};
+    std::array<std::int64_t, 4> leaving{};
+    std::array<std::int64_t, 4> center{};
+    for (std::int32_t x = 0; x < width; ++x) {
+      auto *dst = out + static_cast<std::size_t>(x) * 4U;
+      for (std::size_t c = 0; c < 4; ++c) {
+        dst[c] = sum[c];
+      }
+      if (x + 1 >= width) {
+        break;
+      }
+      if (weighted) {
+        // sum(x+1) = sum(x) + right(x) - left(x), where right covers
+        // x+1..x+r+1 and left covers x-r..x.
+        term(row, clamp_x(x + 1), center);
+        term(row, clamp_x(x + r + 2), entering);
+        term(row, clamp_x(x - r), leaving);
+        for (std::size_t c = 0; c < 4; ++c) {
+          sum[c] += right[c] - left[c];
+          right[c] += entering[c] - center[c];
+          left[c] += center[c] - leaving[c];
+        }
+      } else {
+        term(row, clamp_x(x + r + 1), entering);
+        term(row, clamp_x(x - r), leaving);
+        for (std::size_t c = 0; c < 4; ++c) {
+          sum[c] += entering[c] - leaving[c];
+        }
+      }
+    }
+  };
+
+  // Rows at or beyond an edge repeat that edge row, so cache both edge rows;
+  // every other row is rebuilt on demand into a scratch slot (O(width + r)).
+  std::vector<std::int64_t> first_row(row_stride);
+  std::vector<std::int64_t> last_row(row_stride);
+  build_h_row(0, first_row.data());
+  build_h_row(height - 1, last_row.data());
+  std::array<std::vector<std::int64_t>, 3> scratch_rows{
+      std::vector<std::int64_t>(row_stride),
+      std::vector<std::int64_t>(row_stride),
+      std::vector<std::int64_t>(row_stride)};
+  const auto h_row = [&](std::int64_t source_y,
+                         std::size_t slot) -> const std::int64_t * {
+    if (source_y <= 0) {
+      return first_row.data();
+    }
+    if (source_y >= height - 1) {
+      return last_row.data();
+    }
+    build_h_row(static_cast<std::int32_t>(source_y), scratch_rows[slot].data());
+    return scratch_rows[slot].data();
+  };
+
+  std::vector<std::int64_t> sum(row_stride, 0);
+  std::vector<std::int64_t> left(weighted ? row_stride : 0U, 0);
+  std::vector<std::int64_t> right(weighted ? row_stride : 0U, 0);
+  const auto accumulate = [](std::vector<std::int64_t> &into,
+                             const std::int64_t *row, std::int64_t weight) {
+    for (std::size_t i = 0; i < into.size(); ++i) {
+      into[i] += row[i] * weight;
+    }
+  };
+  // Rows above the top edge all repeat row 0; fold them into one weighted add.
+  for (auto d = -r; d <= r; ++d) {
+    if (d < 0 && d > -r) {
+      continue;
+    }
+    std::int64_t weight = 1;
+    if (d == -r) {
+      // Weighted: sum of (r + 1 - |d|) for d in -r..-1 is r(r + 1) / 2.
+      weight = weighted ? r * (r + 1) / 2 : r;
+    } else if (weighted) {
+      weight = r + 1 - d;
+    }
+    accumulate(sum, h_row(d == -r ? 0 : d, 0), weight);
+    if (weighted && d <= 0) {
+      accumulate(left, h_row(d == -r ? 0 : d, 0), d == -r ? r : 1);
+    }
+  }
+  if (weighted) {
+    for (auto k = std::int64_t{1}; k <= r + 1; ++k) {
+      accumulate(right, h_row(k, 0), 1);
+    }
+  }
+
+  for (std::int32_t y = 0; y < height; ++y) {
+    report_filter_progress(progress, y, height, FilterProgressStage::Blurring);
+    for (std::int32_t x = 0; x < width; ++x) {
+      const auto *accum = sum.data() + static_cast<std::size_t>(x) * 4U;
+      auto *dst = pixels.pixel(x, y);
+      const auto alpha_sum = accum[3];
+      for (std::uint16_t channel = 0; channel < color_channels; ++channel) {
+        dst[channel] = filter_clamp_byte(
+            alpha_sum > 0 ? static_cast<double>(accum[channel]) /
+                                static_cast<double>(alpha_sum)
+                          : 0.0);
+      }
+      if (has_alpha) {
+        dst[3] = filter_clamp_byte(static_cast<double>(alpha_sum) /
+                                   total_weight);
+      }
+    }
+    if (y + 1 >= height) {
+      break;
+    }
+    if (weighted) {
+      const auto *center = h_row(y + 1, 0);
+      const auto *entering = h_row(y + r + 2, 1);
+      const auto *leaving = h_row(y - r, 2);
+      for (std::size_t i = 0; i < row_stride; ++i) {
+        sum[i] += right[i] - left[i];
+        right[i] += entering[i] - center[i];
+        left[i] += center[i] - leaving[i];
+      }
+    } else {
+      const auto *entering = h_row(y + r + 1, 0);
+      const auto *leaving = h_row(y - r, 1);
+      for (std::size_t i = 0; i < row_stride; ++i) {
+        sum[i] += entering[i] - leaving[i];
+      }
+    }
+  }
+  report_filter_progress(progress, height, height,
+                         FilterProgressStage::Blurring);
+}
+
 void apply_separable_tent_blur(PixelBuffer &pixels, const PixelBuffer &original,
                                int radius, bool weighted,
                                const FilterProgress *progress) {
-  radius = std::clamp(radius, 1, 32);
+  radius = std::clamp(radius, 1, kMaximumTentBlurRadius);
+  if (original.width() == 0 || original.height() == 0) {
+    return;
+  }
+  if (radius > kDirectTentBlurMaximumRadius) {
+    apply_separable_tent_blur_running(pixels, original, radius, weighted,
+                                      progress);
+    return;
+  }
   const auto width = original.width();
   const auto height = original.height();
   if (width == 0 || height == 0) {
@@ -1981,7 +2195,7 @@ void execute_builtin_filter(const FilterRegistry &registry,
     const auto radius = std::clamp(
         filter_value(invocation, "radius",
                      identifier == "patchy.filters.gaussian_blur" ? 2 : 1),
-        1, 12);
+        1, blur_maximum_radius(identifier));
     apply_separable_tent_blur(pixels, original, radius,
                               identifier == "patchy.filters.gaussian_blur",
                               progress);
@@ -2971,10 +3185,12 @@ FilterCatalogMetadata builtin_filter_catalog(std::string_view identifier) {
         Category::Adjustment, true,
         {integer_parameter("levels", "Levels", "filterLevels", 2, 16, 4)});
   } else if (identifier == "patchy.filters.box_blur") {
-    metadata = catalog_metadata(
-        Category::Blur, false,
-        {integer_parameter("radius", "Radius", "filterRadius", 1, 12, 1,
-                           Unit::Pixels, Scale::Pixels)});
+    auto radius = integer_parameter("radius", "Radius", "filterRadius", 1,
+                                    kBoxBlurMaximumRadius, 1, Unit::Pixels,
+                                    Scale::Pixels);
+    radius.practical_minimum = 1.0;
+    radius.practical_maximum = kBlurSliderMaximumRadius;
+    metadata = catalog_metadata(Category::Blur, false, {std::move(radius)});
   } else if (identifier == "patchy.filters.sharpen") {
     metadata =
         catalog_metadata(Category::Sharpen, false,
@@ -3093,10 +3309,12 @@ FilterCatalogMetadata builtin_filter_catalog(std::string_view identifier) {
              0.0, 100.0, 20.0, 0.1, Unit::Percent, Scale::None,
              Presentation::TiltTransitionWidthPercent)});
   } else if (identifier == "patchy.filters.gaussian_blur") {
-    metadata = catalog_metadata(
-        Category::Blur, false,
-        {integer_parameter("radius", "Radius", "filterRadius", 1, 12, 2,
-                           Unit::Pixels, Scale::Pixels)});
+    auto radius = integer_parameter("radius", "Radius", "filterRadius", 1,
+                                    kGaussianBlurMaximumRadius, 2,
+                                    Unit::Pixels, Scale::Pixels);
+    radius.practical_minimum = 1.0;
+    radius.practical_maximum = kBlurSliderMaximumRadius;
+    metadata = catalog_metadata(Category::Blur, false, {std::move(radius)});
   } else if (identifier == "patchy.filters.motion_blur") {
     auto angle =
         integer_parameter("angle", "Angle", "filterAngle", -360, 360, 0,
@@ -3247,20 +3465,24 @@ FilterCatalogMetadata builtin_filter_catalog(std::string_view identifier) {
   if (identifier == "patchy.filters.box_blur") {
     metadata.output_margin = [](const FilterInvocation &invocation,
                                 std::int32_t, std::int32_t) {
-      return std::clamp(catalog_integer(invocation, "radius", 1), 1, 12);
+      return std::clamp(catalog_integer(invocation, "radius", 1), 1,
+                        kBoxBlurMaximumRadius);
     };
     metadata.translation_support =
         [](const FilterInvocation &invocation) -> std::optional<int> {
-      return std::clamp(catalog_integer(invocation, "radius", 1), 1, 12);
+      return std::clamp(catalog_integer(invocation, "radius", 1), 1,
+                        kBoxBlurMaximumRadius);
     };
   } else if (identifier == "patchy.filters.gaussian_blur") {
     metadata.output_margin = [](const FilterInvocation &invocation,
                                 std::int32_t, std::int32_t) {
-      return std::clamp(catalog_integer(invocation, "radius", 2), 1, 12);
+      return std::clamp(catalog_integer(invocation, "radius", 2), 1,
+                        kGaussianBlurMaximumRadius);
     };
     metadata.translation_support =
         [](const FilterInvocation &invocation) -> std::optional<int> {
-      return std::clamp(catalog_integer(invocation, "radius", 2), 1, 12);
+      return std::clamp(catalog_integer(invocation, "radius", 2), 1,
+                        kGaussianBlurMaximumRadius);
     };
   } else if (identifier == "patchy.filters.unsharp_mask") {
     metadata.translation_support =
