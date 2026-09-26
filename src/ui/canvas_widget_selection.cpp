@@ -68,6 +68,8 @@
 #include <functional>
 #include <iostream>
 #include <limits>
+#include <mutex>
+#include <new>
 #include <queue>
 #include <thread>
 #include <utility>
@@ -931,7 +933,95 @@ std::uint8_t CanvasWidget::selection_alpha_at(QPoint point) const noexcept {
   if (!selection_mask_alpha_.isNull()) {
     return alpha_at(selection_mask_alpha_, selection_mask_bounds_, point);
   }
-  return selection_.contains(point) ? 255 : 0;
+  // QRegion::contains checks every rectangle of the region in turn (a single
+  // rectangle and the region's inner rectangle are its only shortcuts), so a
+  // region with more than a handful of spans answers through the rasterized
+  // lookup instead: a wand selection of a background around a subject holds
+  // thousands of row spans, and filling it pixel by pixel through contains()
+  // took about 45 s for 1.5 Mpx (GitHub issue 34).
+  constexpr int kMaxRectsForDirectContains = 4;
+  if (selection_.rectCount() <= kMaxRectsForDirectContains) {
+    return selection_.contains(point) ? 255 : 0;
+  }
+  return selection_lookup_contains(point) ? 255 : 0;
+}
+
+void CanvasWidget::invalidate_selection_lookup() noexcept {
+  selection_lookup_valid_.store(false, std::memory_order_release);
+  std::vector<std::uint8_t>().swap(selection_lookup_bits_);
+  selection_lookup_bounds_ = QRect();
+}
+
+void CanvasWidget::build_selection_lookup() const {
+  const std::lock_guard<std::mutex> lock(selection_lookup_mutex_);
+  if (selection_lookup_valid_.load(std::memory_order_acquire)) {
+    return;
+  }
+  const auto bounds = selection_.boundingRect();
+  const auto width = bounds.width();
+  const auto height = bounds.height();
+  const auto stride = static_cast<std::size_t>((width + 7) / 8);
+  std::vector<std::uint8_t> bits;
+  try {
+    bits.assign(stride * static_cast<std::size_t>(height), 0U);
+  } catch (const std::bad_alloc&) {
+    // An empty lookup makes selection_lookup_contains fall back to QRegion::contains.
+    bits.clear();
+  }
+  if (!bits.empty()) {
+    for (const auto& rect : selection_) {
+      const auto first_x = rect.left() - bounds.left();
+      const auto last_x = rect.right() - bounds.left();
+      if (first_x < 0 || last_x < first_x || last_x >= width) {
+        continue;
+      }
+      const auto first_byte = static_cast<std::size_t>(first_x >> 3);
+      const auto last_byte = static_cast<std::size_t>(last_x >> 3);
+      const auto first_mask = static_cast<std::uint8_t>(0xFFU << (first_x & 7));
+      const auto last_mask = static_cast<std::uint8_t>(0xFFU >> (7 - (last_x & 7)));
+      for (int y = rect.top(); y <= rect.bottom(); ++y) {
+        const auto local_y = y - bounds.top();
+        if (local_y < 0 || local_y >= height) {
+          continue;
+        }
+        auto* row = bits.data() + static_cast<std::size_t>(local_y) * stride;
+        if (first_byte == last_byte) {
+          row[first_byte] |= static_cast<std::uint8_t>(first_mask & last_mask);
+          continue;
+        }
+        row[first_byte] |= first_mask;
+        if (last_byte > first_byte + 1) {
+          std::memset(row + first_byte + 1, 0xFF, last_byte - first_byte - 1);
+        }
+        row[last_byte] |= last_mask;
+      }
+    }
+  }
+  selection_lookup_bounds_ = bounds;
+  selection_lookup_bits_ = std::move(bits);
+  selection_lookup_valid_.store(true, std::memory_order_release);
+}
+
+bool CanvasWidget::selection_lookup_contains(QPoint point) const noexcept {
+  if (!selection_lookup_valid_.load(std::memory_order_acquire)) {
+    try {
+      build_selection_lookup();
+    } catch (...) {
+      return selection_.contains(point);
+    }
+  }
+  if (selection_lookup_bits_.empty()) {
+    return selection_.contains(point);
+  }
+  if (!selection_lookup_bounds_.contains(point)) {
+    return false;
+  }
+  const auto local_x = point.x() - selection_lookup_bounds_.left();
+  const auto local_y = point.y() - selection_lookup_bounds_.top();
+  const auto stride = static_cast<std::size_t>((selection_lookup_bounds_.width() + 7) / 8);
+  const auto byte = selection_lookup_bits_[static_cast<std::size_t>(local_y) * stride +
+                                           static_cast<std::size_t>(local_x >> 3)];
+  return ((byte >> (local_x & 7)) & 1U) != 0U;
 }
 
 bool CanvasWidget::selection_has_partial_alpha() const noexcept {
@@ -981,6 +1071,7 @@ void stroke_marching_ants(QPainter& painter, const QPolygon& polyline, int dash_
 void CanvasWidget::invalidate_selection_outline() noexcept {
   selection_outline_dirty_ = true;
   selection_outline_screen_valid_ = false;
+  invalidate_selection_lookup();
 }
 
 void CanvasWidget::ensure_selection_outline_screen_path() const {

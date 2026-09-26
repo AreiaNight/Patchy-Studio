@@ -35,6 +35,7 @@ The Fill tool click (G / Shift+G, `CanvasWidget::flood_fill` over core `patchy::
 - **Opacity blends** through `write_pixel` (palette mode snaps there like every tool) instead of stamping a reduced alpha; **Soft** feathers inward from the region's edge with the Fill command's chamfer transform (`compute_fill_feather`, up to 50 px). Tolerance 0 at 100% opacity is byte-identical to the old verbatim path, which keeps the `flood_fill_background` digest in `tool_write_paths_digest_baseline` unchanged.
 - Mask and channel floods (`flood_fill_mask`) apply Tol and Contiguous over the one gray channel and write the mask value verbatim. Anti-alias is deliberately not offered.
 - Coverage: core `tool_fill_bucket_*`, UI `ui_fill_tool_tolerance_and_contiguous_persist_across_documents` and `ui_fill_tool_click_honors_tolerance_contiguous_and_opacity`.
+- Both paths test the selection per pixel through `selection_alpha_at`, which rasterizes a many-span hard selection once (GitHub issue 34, the 45 s fill of a wand-selected background); see the lookup section of [selection-tools.md](selection-tools.md). `ui_fill_of_wand_selection_with_many_spans_is_fast` pins both fills on a 1110 x 1388 wand selection.
 
 ## Free Transform modifiers
 

@@ -1474,6 +1474,101 @@ void ui_fill_tool_click_honors_tolerance_contiguous_and_opacity() {
   CHECK(pixel_at(10, 40) == QColor(0, 180, 210));
 }
 
+// GitHub issue 34: wand-selecting the slightly uneven white background of a 1110 x 1388 image
+// and filling it took about 45 s with both the Fill tool and Layer > Fill. The selection is a
+// QRegion with thousands of row spans (the background weaves between the subject), and every
+// per-pixel selection query went through QRegion::contains, which scans all of them. The canvas
+// now rasterizes such a selection once; both fills must finish in a small fraction of a second.
+void ui_fill_of_wand_selection_with_many_spans_is_fast() {
+  constexpr int kWidth = 1110;
+  constexpr int kHeight = 1388;
+  constexpr int kDiscSpacing = 80;
+  constexpr int kDiscRadius = 24;
+  patchy::Document document(kWidth, kHeight, patchy::PixelFormat::rgba8());
+  patchy::PixelBuffer pixels(kWidth, kHeight, patchy::PixelFormat::rgba8());
+  for (std::int32_t y = 0; y < kHeight; ++y) {
+    for (std::int32_t x = 0; x < kWidth; ++x) {
+      // A near-white background (253..255, within the wand's tolerance) with a grid of dark
+      // discs on it: every row through a disc band crosses a dozen discs, so the wand's
+      // background region holds thousands of spans.
+      const auto dx = x % kDiscSpacing - kDiscSpacing / 2;
+      const auto dy = y % kDiscSpacing - kDiscSpacing / 2;
+      const bool disc = dx * dx + dy * dy <= kDiscRadius * kDiscRadius;
+      const auto gray = static_cast<std::uint8_t>(disc ? 30 : 253 + (x * 7 + y * 13) % 3);
+      auto* px = pixels.pixel(x, y);
+      px[0] = px[1] = px[2] = gray;
+      px[3] = 255;
+    }
+  }
+  const auto layer_id = document.add_pixel_layer("Background", std::move(pixels)).id();
+  document.set_active_layer(layer_id);
+
+  patchy::ui::MainWindow window;
+  show_window(window);
+  window.add_document_session(std::move(document), QStringLiteral("Issue 34"));
+  QApplication::processEvents();
+  auto* canvas = require_canvas(window);
+  auto& edited = patchy::ui::MainWindowTestAccess::document(window);
+  const auto pixel_at = [&](int x, int y) {
+    const auto* px = std::as_const(edited).find_layer(layer_id)->pixels().pixel(x, y);
+    return QColor(px[0], px[1], px[2], px[3]);
+  };
+  const auto click = [&](int x, int y) {
+    const auto position = canvas->widget_position_for_document_point(QPoint(x, y));
+    send_mouse(*canvas, QEvent::MouseButtonPress, position, Qt::LeftButton, Qt::LeftButton);
+    send_mouse(*canvas, QEvent::MouseButtonRelease, position, Qt::LeftButton, Qt::NoButton);
+    QApplication::processEvents();
+  };
+
+  canvas->set_tool(patchy::ui::CanvasTool::MagicWand);
+  canvas->set_wand_tolerance(32);
+  canvas->set_wand_contiguous(true);
+  canvas->set_wand_sample_all_layers(false);
+  canvas->set_selection_feather_radius(0);
+  click(2, 2);
+  const auto& selection = canvas->selected_document_region();
+  CHECK(selection.contains(QPoint(2, 2)));
+  CHECK(!selection.contains(QPoint(kDiscSpacing / 2, kDiscSpacing / 2)));
+  CHECK(selection.rectCount() > 5000);
+  CHECK(canvas->selection_alpha_at(QPoint(2, 2)) == 255U);
+  CHECK(canvas->selection_alpha_at(QPoint(kDiscSpacing / 2, kDiscSpacing / 2)) == 0U);
+  CHECK(canvas->selection_alpha_at(QPoint(kWidth - 3, kHeight - 3)) == 255U);
+  CHECK(canvas->selection_alpha_at(QPoint(kWidth, kHeight - 3)) == 0U);
+  CHECK(canvas->selection_alpha_at(QPoint(-1, 5)) == 0U);
+
+  // Layer > Fill (the background variant needs no dialog).
+  canvas->set_secondary_color(QColor(0, 180, 210));
+  auto* fill_background = window.findChild<QAction*>(QStringLiteral("layerFillBackgroundAction"));
+  CHECK(fill_background != nullptr);
+  QElapsedTimer fill_command_timer;
+  fill_command_timer.start();
+  fill_background->trigger();
+  QApplication::processEvents();
+  const auto fill_command_ms = fill_command_timer.elapsed();
+  CHECK(pixel_at(2, 2) == QColor(0, 180, 210));
+  CHECK(pixel_at(kWidth - 3, kHeight - 3) == QColor(0, 180, 210));
+  CHECK(pixel_at(kDiscSpacing / 2, kDiscSpacing / 2) == QColor(30, 30, 30));
+  CHECK(fill_command_ms < 3000);
+
+  // The Fill tool click inside the same selection floods the fresh fill color.
+  canvas->set_tool(patchy::ui::CanvasTool::Fill);
+  canvas->set_primary_color(QColor(200, 40, 60));
+  canvas->set_fill_tolerance(32);
+  canvas->set_fill_contiguous(true);
+  canvas->set_fill_opacity(100);
+  canvas->set_fill_softness(0);
+  QElapsedTimer fill_tool_timer;
+  fill_tool_timer.start();
+  click(2, 2);
+  const auto fill_tool_ms = fill_tool_timer.elapsed();
+  CHECK(pixel_at(2, 2) == QColor(200, 40, 60));
+  CHECK(pixel_at(kWidth - 3, kHeight - 3) == QColor(200, 40, 60));
+  CHECK(pixel_at(kDiscSpacing / 2, kDiscSpacing / 2) == QColor(30, 30, 30));
+  CHECK(fill_tool_ms < 3000);
+  std::cout << "  fill command " << fill_command_ms << " ms, fill tool " << fill_tool_ms << " ms over "
+            << selection.rectCount() << " selection spans\n";
+}
+
 void ui_options_bar_tracks_active_tool() {
   SettingsValueRestorer saved_gradient_method(QStringLiteral("tools/gradientMethod"));
   SettingsValueRestorer saved_gradient_reverse(QStringLiteral("tools/gradientReverse"));
@@ -2889,6 +2984,7 @@ std::vector<patchy::test::TestCase> canvas_view_tools_tests() {
        ui_fill_tool_tolerance_and_contiguous_persist_across_documents},
       {"ui_fill_tool_click_honors_tolerance_contiguous_and_opacity",
        ui_fill_tool_click_honors_tolerance_contiguous_and_opacity},
+      {"ui_fill_of_wand_selection_with_many_spans_is_fast", ui_fill_of_wand_selection_with_many_spans_is_fast},
       {"ui_gradient_toolbar_preset_popup_applies_stops", ui_gradient_toolbar_preset_popup_applies_stops},
       {"ui_options_bar_spinboxes_fit_widest_value", ui_options_bar_spinboxes_fit_widest_value},
       {"ui_options_bar_spinboxes_show_their_extremes_unclipped",

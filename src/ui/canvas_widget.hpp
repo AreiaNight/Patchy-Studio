@@ -48,6 +48,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <future>
 #include <optional>
 #include <unordered_map>
@@ -1912,6 +1913,11 @@ private:
   // that writes selection_ / selection_display_region_ directly instead of
   // going through the setters above.
   void invalidate_selection_outline() noexcept;
+  // The rasterized-selection lookup behind selection_alpha_at (see
+  // selection_lookup_bits_): drops it, builds it, and answers one query.
+  void invalidate_selection_lookup() noexcept;
+  void build_selection_lookup() const;
+  [[nodiscard]] bool selection_lookup_contains(QPoint point) const noexcept;
   // Lazily retraces the outline loops after a selection change and refreshes
   // the cached device-space path when zoom/pan/viewport differ from the key it
   // was built for; animation ticks then only restroke the cached path.
@@ -2505,6 +2511,18 @@ private:
   mutable double selection_outline_screen_zoom_{0.0};
   mutable QPointF selection_outline_screen_pan_;
   mutable QRect selection_outline_screen_viewport_;
+  // Rasterized selection_ for the per-pixel lookups behind selection_alpha_at
+  // when the region holds more than a few rectangles: QRegion::contains scans
+  // every rectangle, so a wand selection of a background around a subject
+  // (thousands of row spans) made a 1.5 Mpx fill take about 45 s (GitHub
+  // issue 34). One bit per pixel over selection_lookup_bounds_, built on first
+  // use under selection_lookup_mutex_ (render/filter workers may query it in
+  // parallel), and dropped by invalidate_selection_outline() with the outline
+  // caches, which every selection write already calls.
+  mutable std::vector<std::uint8_t> selection_lookup_bits_;
+  mutable QRect selection_lookup_bounds_;
+  mutable std::atomic<bool> selection_lookup_valid_{false};
+  mutable std::mutex selection_lookup_mutex_;
   QBasicTimer processing_animation_timer_;
   bool processing_overlay_visible_{false};
   bool processing_render_wait_active_{false};

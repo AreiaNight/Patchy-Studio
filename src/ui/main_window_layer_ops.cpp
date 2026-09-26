@@ -321,7 +321,11 @@ EditOptions edit_options(CanvasWidget& canvas) {
         options.selection_scan_rects.push_back(to_core_rect(rect));
       }
     }
-    options.selection_mask = [region](std::int32_t x, std::int32_t y) { return region.contains(QPoint(x, y)); };
+    // Both per-pixel lookups go through selection_alpha_at, which rasterizes a
+    // many-span region once; QRegion::contains would scan every span per pixel.
+    options.selection_mask = [&canvas](std::int32_t x, std::int32_t y) {
+      return canvas.selection_alpha_at(QPoint(x, y)) != 0U;
+    };
     options.selection_coverage = [&canvas](std::int32_t x, std::int32_t y) {
       return static_cast<float>(canvas.selection_alpha_at(QPoint(x, y))) / 255.0F;
     };
