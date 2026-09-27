@@ -1626,11 +1626,12 @@ MainWindow::AddFilesAsLayersResult MainWindow::add_files_as_layers(
   // stack upward in path order: the last file ends on top.
   Document staged = live_target->document;
   std::vector<LayerId> added_top_to_bottom;
+  CrossDocumentLayerPlacement placement;
+  placement.keep_source_position = true;
   for (const auto& loaded : loaded_documents) {
     const std::vector<LayerId> root_ids{loaded.layers().front().id()};
     QString copy_error;
-    const auto ids = copy_layers_between_documents(loaded, root_ids, staged,
-                                                   CrossDocumentLayerPlacement{std::nullopt, true},
+    const auto ids = copy_layers_between_documents(loaded, root_ids, staged, placement,
                                                    [] { return true; }, &copy_error);
     if (ids.empty()) {
       return fail(copy_error);

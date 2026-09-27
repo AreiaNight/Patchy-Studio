@@ -138,7 +138,7 @@ These are corpus-specific results, not universal product ratings. See the [full 
 
 ## Download
 
-**Latest release: 0.99** · September 25, 2026 · [Release notes](#whats-new) · [All releases](https://github.com/SethRobinson/Patchy/releases)
+**Latest release: 1.00** · September 27, 2026 · [Release notes](#whats-new) · [All releases](https://github.com/SethRobinson/Patchy/releases)
 
 Windows releases are code signed by Seth A. Robinson; the macOS app is signed and
 notarized (Robinson Technologies Corporation). Every release is published on the
@@ -204,6 +204,22 @@ flatpak install --user -y flathub org.freedesktop.Platform.ffmpeg-full//24.08
 
 ## What's New
 
+### 1.00 - September 27, 2026
+
+- Photoshop text: Patchy writes Photoshop's own text engine data now, so type layers made or edited in Patchy open in Photoshop as native, editable text, and an edited imported layer shows its new text there instead of the old one. Mixed-size paragraphs keep their line spacing in Photoshop, and legacy faces (heavy weights, fonts Windows names differently) survive round trips and re-edits keep their face and size
+- New Paragraph panel (Paragraph... in the Type tool's options bar): alignment, first line and left/right indents, and space before and after, all of which round-trip to Photoshop
+- Text options bar: font, size, face, smoothing, alignment, and color apply to every selected text layer without entering an edit session, and the Character panel edits all selected layers as one undo step (issue 31)
+- Smart Objects: Layer > Smart Objects > Convert to Layers unpacks the contents into a group in the Smart Object's place (issue 35)
+- Guide drags show their position in the ruler's unit (issue 36)
+- Levels and Curves histograms are scaled the way Photoshop's are, so midtone peaks no longer get crushed under a clipping spike (issue 32)
+- Filling a complex Magic Wand selection is much faster: a fill that took 48 seconds now takes about 45 ms (issue 34)
+- Filters and commands reach Photoshop's ranges: Gaussian Blur to 1000 px (with decimal radii), Box Blur and Motion Blur to 2000 px (and much faster at large sizes), Drop Shadow distance to 30000 px, Feather to 1000 px, Expand/Contract to 500 px, plus the full ranges of Wave, Mosaic, Color Halftone, Posterize, and Iris Blur. High Pass and Unsharp Mask sliders reach 100 px, and Filter Gallery fields accept any typed value in range
+- PSD fixes for Photoshop: an opaque layer above the Background no longer hides everything under it, compound shapes (donuts, converted text) keep their holes, gradient fills no longer trigger Photoshop's "unknown data" prompt (older files heal on save), and saves after rasterizing or deleting a linked Smart Object open again in Photoshop 2026
+- macOS: switching the interface language no longer crashes on the next window activation (issue 29)
+- Blend mode menus step with the Left and Right arrow keys, and a run of blend changes from the Layers panel is one undo step
+- The recent files list no longer stalls startup or the File menu when entries sit on slow or disconnected network drives
+- Scripting: text layers with mixed fonts, sizes, and colors in one layer, paragraph boxes and alignment (`addTextLayer`, `textRuns`, `setTextRuns`, `textBox`, `textAlign`, `textParagraph`), `app.listFonts()`, and headless runs see installed fonts
+
 ### 0.99 - September 25, 2026
 
 - Automatic document recovery: a recovery copy of every modified document is written every 10 minutes (Preferences > Application sets the interval or turns it off). After a crash, a kill, or a power cut, the next launch reopens them as "(Recovered)" documents. Saving also writes to a temporary file first and swaps it in, so a crash or a full disk mid-save can no longer damage the original
@@ -216,22 +232,6 @@ flatpak install --user -y flathub org.freedesktop.Platform.ffmpeg-full//24.08
 - Downloads come from GitHub Releases now, with rtsoft.com as a mirror, and the in-app update check points there (issue 26)
 - The user-data folder moved from "Seth A. Robinson" to "RTsoft" (migrated automatically on first launch); the About dialog shows where it is
 - Options bar number boxes size themselves to their widest value, so the Fill tool's Tolerance no longer clips at 255
-
-### 0.98 - September 24, 2026
-
-- The right mouse button now opens context menus on the canvas instead of panning.  (middle mouse button or holding space bar still pans)
-- Edit > Remove Object fills a selection with content-aware texture taken from its surroundings.  It's slow as shit but seems to work pretty well.  Its dialog has a Reroll button (each variation is a different fill), a Tone match slider (0 keeps the raw fill), and an Edge feather setting.
-- Move tool alignment: magenta guides show when a dragged layer snaps to another layer's edges or center or to the canvas, a Snap checkbox in the options bar turns it off, also a bunch of new alignment buttons are on the Move tool's options bar, and the Align and Distribute commands in the Layer menu work on multiple selected layers
-- Changing the pivot point in the free transform affects rotation now, it was always supposed to but it was broken.  Should probably make the pivot point draggable, hrm.
-- Free Transform numeric fields (and a few other places) accept typed units (px, in, cm, mm, pt, %, deg)
-- New Continuous (long shadow) option for Drop Shadow with a Fade control. Photoshop has no equivalent, so it saves in a way Photoshop ignores and the layer style dialog marks it as Patchy-only
-- Shape tools: a click without a drag opens a Create Shape dialog for exact sizes, and the options bar's W and H resize the active shape. The Shape Appearance dialog adds layer, fill, and stroke opacity, Photoshop-compatible Feather and Density, linked Width/Height and corner radii, a Reset button, and -/+ steppers, and opens from the options bar, Layer > Shape, the Properties panel, or a right-click on a shape layer
-- Right-click a tool palette button to open its tool flyout, and edit a vector shape's width and height from the Properties panel ([@ifloppy](https://github.com/ifloppy)). Flyouts also open with a double-click or a shorter press-and-hold
-- PDF: multi-page PDFs open each page as its own document, with a progress dialog and pages appearing as they load. File > Export > Multi-Page PDF saves open documents or top-level groups as pages, and PDF export is much faster and smaller, with quality presets and grayscale detection; pages that came from an imported PDF and were not edited keep their original image data. The print dialog gains a paper size setting... I need to work on this more, we really need full Artboard support but that's a big job, but at least it's possible to round-trip editing multipage pdfs in a somewhat reasonable way now.
-- File > Open Folder opens every image in a folder as tabs (dropping a folder on the window does the same), and File > Export > Documents to Folder saves open documents as numbered images, layered PSDs, or Aseprite files. The export commands now live together in a File > Export submenu
-- Rectangular and Elliptical Marquee selections can be resized after they are drawn: with the marquee tool active, drag a handle on an edge or corner (Shift on a corner keeps the proportions, and holding Space mid-drag slides the whole selection, as it does while drawing one), or drag inside the selection to move it as before. Feathered and rounded selections are redrawn at the new size, and Undo steps back through each resize
-- Text positioning between Patchy->Photoshop is more accurate
-- Square brush preset added, square brush 'tip' is now handled programmatically, not with a bmp
 
 [Older releases](RELEASE-HISTORY.md)
 

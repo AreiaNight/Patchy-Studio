@@ -1185,11 +1185,25 @@ void ui_script_text_box_wraps_and_aligns() {
 // formatting (the family and size survive, the runs' own bold and color apply), and a plain
 // `text` assignment afterwards keeps the first run's formatting as before.
 void ui_script_set_text_runs_edits_existing_layer() {
+  // The family must be installed: an edit session moves a layer whose family is missing onto
+  // the substitute it draws with (substituted_text_family), and Linux has no Arial.
+  patchy::test::register_test_fonts(patchy::test::TestFontRole::UiDefault);
+  QString family;
+  for (const auto* candidate : {"Arial", "Liberation Sans", "DejaVu Sans"}) {
+    if (QFontDatabase::hasFamily(QString::fromLatin1(candidate))) {
+      family = QString::fromLatin1(candidate);
+      break;
+    }
+  }
+  if (family.isEmpty()) {
+    std::cout << "[SKIP] no Arial-class family installed (setTextRuns family check)\n";
+    return;
+  }
   patchy::ui::MainWindow window;
   show_window(window);
   CHECK(run_script(window, QStringLiteral(R"JS(
     var doc = app.activeDocument;
-    var layer = doc.addTextLayer('Ask Seth for a game', {font: 'Arial', size: 24, x: 10, y: 40, color: '#102030'});
+    var layer = doc.addTextLayer('Ask Seth for a game', {font: '__FAMILY__', size: 24, x: 10, y: 40, color: '#102030'});
     var plainWidth = layer.bounds.width;
     layer.setTextRuns([{text: 'Ask '}, {text: 'Seth', bold: true, color: '#ff0000'}, ' for a game']);
     var runs = layer.textRuns;
@@ -1203,10 +1217,10 @@ void ui_script_set_text_runs_edits_existing_layer() {
     var threw = false;
     try { layer.setTextRuns([]); } catch (e) { threw = true; }
     console.log('empty-throws=' + threw);
-  )JS")));
+  )JS").replace(QStringLiteral("__FAMILY__"), family)));
   CHECK(backlog_contains(window, QStringLiteral("text=Ask Seth for a game")));
   CHECK(backlog_contains(window, QStringLiteral("count=3")));
-  CHECK(backlog_contains(window, QStringLiteral("kept=Arial|24|#102030|false")));
+  CHECK(backlog_contains(window, QStringLiteral("kept=%1|24|#102030|false").arg(family)));
   CHECK(backlog_contains(window, QStringLiteral("bolded=Seth|true|#ff0000")));
   CHECK(backlog_contains(window, QStringLiteral("wider=true")));
   CHECK(backlog_contains(window, QStringLiteral("back=1|false")));
