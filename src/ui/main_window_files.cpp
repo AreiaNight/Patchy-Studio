@@ -1946,8 +1946,13 @@ void MainWindow::run_cli_export(const QString& output_path, const QString& appen
 }
 
 void MainWindow::activate_for_second_instance(const QStringList& paths) {
-  // Restore from a minimized/hidden state and pull the existing window in front so the user sees the
-  // file they just double-clicked open in this instance rather than a new process.
+  // Pull the existing window in front so the user sees the file they just double-clicked open in
+  // this instance rather than a new process.
+  bring_to_front_for_second_instance();
+  open_command_line_files(paths);
+}
+
+void MainWindow::bring_to_front_for_second_instance() {
   if (isMinimized()) {
     setWindowState(windowState() & ~Qt::WindowMinimized);
   }
@@ -1955,8 +1960,15 @@ void MainWindow::activate_for_second_instance(const QStringList& paths) {
     show();
   }
   raise();
-  activateWindow();
-  open_command_line_files(paths);
+  // A modal dialog owns the input (it disables this window), so it alone is activated: a second
+  // activation request for this window can land after the dialog's and leave it behind.
+  auto* modal = QApplication::activeModalWidget();
+  if (modal == nullptr || modal == this) {
+    activateWindow();
+    return;
+  }
+  modal->raise();
+  modal->activateWindow();
 }
 
 bool MainWindow::save_debug_screenshot(const QString& file_path, const QString& widget_name,

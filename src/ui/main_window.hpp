@@ -165,6 +165,10 @@ public:
   // Bring this already-running window to the foreground and open the files a second launch handed off
   // via the single-instance channel (see src/app/main.cpp).
   void activate_for_second_instance(const QStringList& paths);
+  // The foreground half of that, run the moment a relaunch's request arrives: un-minimize, raise
+  // and activate the window, then the open modal dialog if there is one (file opens wait for the
+  // dialog to close; the relaunch's foreground grant would not last that long).
+  void bring_to_front_for_second_instance();
   // Save a PNG grab of this window — or a named child widget, optionally cropped to a
   // sub-rect of it — for external verification tooling (the `--screenshot` flag in
   // src/app/main.cpp). Returns false when the widget name is unknown or the save fails.

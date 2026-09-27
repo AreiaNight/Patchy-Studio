@@ -70,6 +70,7 @@
 #include "ui/visual_filter_gallery_dialog.hpp"
 #include "ui/zoomable_image_preview.hpp"
 #include "ui/zoom_status_bar.hpp"
+#include "ui/single_instance.hpp"
 
 #include "filters/builtin_filters.hpp"
 #include "psd/psd_document_io.hpp"
@@ -123,6 +124,8 @@
 #include <QItemSelectionModel>
 #include <QLabel>
 #include <QLineEdit>
+#include <QLocalServer>
+#include <QLocalSocket>
 #include <QList>
 #include <QListView>
 #include <QLayout>
@@ -3567,6 +3570,55 @@ void ui_blocking_refusal_shows_error_status_and_info_clears_it() {
   CHECK(!bar->error_message_active());
 }
 
+// A relaunch hands its foreground right to the running instance at the far end of the
+// single-instance pipe, so it must be able to name that process.
+void ui_single_instance_socket_names_the_server_process() {
+  QLocalServer server;
+  const auto name = QStringLiteral("Patchy-SingleInstanceTest-%1").arg(QCoreApplication::applicationPid());
+  QLocalServer::removeServer(name);
+  CHECK(server.listen(name));
+  QLocalSocket client;
+  client.connectToServer(name);
+  CHECK(client.waitForConnected(2000));
+  const auto process_id = patchy::ui::local_socket_server_process_id(client);
+#ifdef Q_OS_WIN
+  CHECK(process_id.has_value() && *process_id == QCoreApplication::applicationPid());
+#else
+  CHECK(!process_id.has_value());
+  CHECK(!patchy::ui::allow_local_socket_server_to_take_foreground(client));
+#endif
+  client.disconnectFromServer();
+  QLocalSocket unconnected;
+  CHECK(!patchy::ui::local_socket_server_process_id(unconnected).has_value());
+}
+
+// A relaunch restores a minimized window, and with a modal dialog open it is the dialog that
+// ends up active: file opens wait for the dialog, the foreground must not.
+void ui_second_instance_brings_window_and_modal_dialog_forward() {
+  patchy::ui::MainWindow window;
+  show_window(window);
+  window.showMinimized();
+  QApplication::processEvents();
+  CHECK(window.isMinimized());
+  window.bring_to_front_for_second_instance();
+  QApplication::processEvents();
+  CHECK(!window.isMinimized());
+  CHECK(window.isVisible());
+
+  QDialog dialog(&window);
+  dialog.setObjectName(QStringLiteral("secondInstanceTestDialog"));
+  dialog.setModal(true);
+  dialog.show();
+  QApplication::processEvents();
+  CHECK(QApplication::activeModalWidget() == &dialog);
+  // Offscreen lets the blocked window take activation, which is the state a relaunch must undo.
+  window.activateWindow();
+  CHECK(QTest::qWaitFor([&window] { return QApplication::activeWindow() == &window; }, 2000));
+  window.bring_to_front_for_second_instance();
+  CHECK(QTest::qWaitFor([&dialog] { return QApplication::activeWindow() == &dialog; }, 2000));
+  dialog.reject();
+}
+
 void ui_svg_icon_resources_are_registered() {
   patchy::ui::MainWindow window;
   show_window(window);
@@ -4265,6 +4317,9 @@ std::vector<patchy::test::TestCase> app_shell_tests() {
       {"ui_app_data_migration_merges_legacy_folder", ui_app_data_migration_merges_legacy_folder},
       {"ui_frameless_window_edges_resize", ui_frameless_window_edges_resize},
       {"ui_right_edge_scrollbars_remain_draggable", ui_right_edge_scrollbars_remain_draggable},
+      {"ui_single_instance_socket_names_the_server_process", ui_single_instance_socket_names_the_server_process},
+      {"ui_second_instance_brings_window_and_modal_dialog_forward",
+       ui_second_instance_brings_window_and_modal_dialog_forward},
       {"ui_svg_icon_resources_are_registered", ui_svg_icon_resources_are_registered},
       {"ui_icon_color_map_covers_every_authored_color", ui_icon_color_map_covers_every_authored_color},
       {"ui_no_widget_ships_unresolved_theme_tokens", ui_no_widget_ships_unresolved_theme_tokens},

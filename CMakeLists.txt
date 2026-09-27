@@ -1153,6 +1153,8 @@ ${PATCHY_LUPDATE_MANIFEST_SOURCES}
       src/ui/splash_dialog.cpp
       src/ui/tool_cursors.hpp
       src/ui/tool_cursors.cpp
+      src/ui/single_instance.hpp
+      src/ui/single_instance.cpp
       src/ui/update_checker.hpp
       src/ui/update_checker.cpp
       src/ui/user_fonts.hpp

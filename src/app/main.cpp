@@ -9,6 +9,7 @@
 #include "ui/main_window.hpp"
 #include "ui/mcp_attachment.hpp"
 #include "ui/script_engine.hpp"
+#include "ui/single_instance.hpp"
 #include "ui/psd_font_resolver.hpp"
 #include "ui/stress_test.hpp"
 #include "ui/theme_manager.hpp"
@@ -183,6 +184,8 @@ bool forward_to_running_instance(const QStringList& files) {
   if (!socket.waitForConnected(300)) {
     return false;
   }
+  // Grant before sending: once the payload lands the receiver may activate at any moment.
+  (void)patchy::ui::allow_local_socket_server_to_take_foreground(socket);
   QByteArray payload;
   QDataStream stream(&payload, QIODevice::WriteOnly);
   stream.setVersion(QDataStream::Qt_5_15);
@@ -688,6 +691,17 @@ int main(int argc, char* argv[]) {
             } else {
               deferred.append(entry);
             }
+          }
+          // Come forward now, as the dispatch below will for this request (files, or a bare
+          // relaunch): that waits out modal dialogs and a running script, and Windows only
+          // honors the relaunch's foreground grant for a moment.
+          bool has_files = false;
+          bool has_run_script = false;
+          for (const auto& entry : deferred) {
+            (entry.startsWith(kRunScriptCommandPrefix) ? has_run_script : has_files) = true;
+          }
+          if (has_files || (!handled_command && !has_run_script)) {
+            window.bring_to_front_for_second_instance();
           }
           if (!deferred.isEmpty() || !handled_command) {
             forwarded_requests.push_back(std::move(deferred));
