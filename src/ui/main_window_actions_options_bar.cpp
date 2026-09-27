@@ -1098,7 +1098,7 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   feather_layout->addWidget(feather_label);
   auto* feather = new UnitIntSpinBox(SpinUnit::Pixels, feather_group);
   feather->setObjectName(QStringLiteral("selectionFeatherSpin"));
-  feather->setRange(0, 250);
+  feather->setRange(0, kMaxSelectionFeatherRadius);
   feather->setValue(current_selection_feather_radius_);
   configure_toolbar_spinbox(feather, 64);
   feather_layout->addWidget(feather);

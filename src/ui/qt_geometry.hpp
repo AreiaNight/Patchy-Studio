@@ -9,7 +9,14 @@ namespace patchy::ui {
 
 [[nodiscard]] QRect to_qrect(Rect rect);
 [[nodiscard]] Rect to_core_rect(QRect rect);
-// Dilates the region by a square structuring element of the given radius (Expand Selection).
+
+// Photoshop's ranges: selection Feather 0..1000 px, Select > Modify > Expand /
+// Contract 1..500 px.
+inline constexpr int kMaxSelectionFeatherRadius = 1000;
+inline constexpr int kMaxSelectionModifyRadius = 500;
+
+// Dilates the region by a square structuring element of the given radius (Expand Selection),
+// up to kMaxSelectionModifyRadius.
 [[nodiscard]] QRegion expanded_region(const QRegion& region, int pixels, QRect bounds);
 
 // Where Stroke Selection lays its band relative to the selection edge (Photoshop's Location).

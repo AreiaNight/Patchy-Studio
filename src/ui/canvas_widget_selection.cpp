@@ -287,7 +287,7 @@ int CanvasWidget::marquee_corner_radius() const noexcept {
 }
 
 void CanvasWidget::set_selection_feather_radius(int pixels) noexcept {
-  selection_feather_radius_ = std::clamp(pixels, 0, 250);
+  selection_feather_radius_ = std::clamp(pixels, 0, kMaxSelectionFeatherRadius);
 }
 
 int CanvasWidget::selection_feather_radius() const noexcept {
@@ -464,7 +464,7 @@ void CanvasWidget::contract_selection(int pixels) {
   if (document_ == nullptr || selection_.isEmpty() || pixels <= 0) {
     return;
   }
-  pixels = std::clamp(pixels, 0, 250);
+  pixels = std::clamp(pixels, 0, kMaxSelectionModifyRadius);
   const QRect canvas_rect(0, 0, document_->width(), document_->height());
   const QRegion canvas_region(canvas_rect);
   const auto padded_canvas_rect = canvas_rect.adjusted(-pixels, -pixels, pixels, pixels);

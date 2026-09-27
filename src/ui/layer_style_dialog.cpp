@@ -1074,12 +1074,15 @@ std::optional<LayerStyleSettings> request_layer_style_settings(
     }
     return spin_object_name + QStringLiteral("Slider");
   };
+  // Photoshop's Drop/Inner Shadow Distance maximum.
+  constexpr int kShadowDistanceMaximum = 30000;
   auto add_slider_spin_row = [&slider_object_name](QFormLayout* form, QWidget* parent, const QString& label,
                                                    const QString& spin_object_name, int minimum, int maximum,
-                                                   int value, const QString& suffix = {}, int spin_width = 72) {
+                                                   int value, const QString& suffix = {}, int spin_width = 72,
+                                                   int slider_maximum = std::numeric_limits<int>::max()) {
     return add_dialog_slider_spin_row(form, parent, label, slider_object_name(spin_object_name),
                                       spin_object_name, minimum, maximum, value, suffix, spin_width,
-                                      /*row_spacing=*/8, /*step_buttons=*/true);
+                                      /*row_spacing=*/8, /*step_buttons=*/true, slider_maximum);
   };
   auto add_color_slider_row = [&slider_object_name](QVBoxLayout* layout, QWidget* parent, const QString& label,
                                                     const QString& spin_object_name, std::uint8_t value) {
@@ -2605,10 +2608,11 @@ std::optional<LayerStyleSettings> request_layer_style_settings(
       add_slider_spin_row(inner_shadow_form, inner_shadow_group, QObject::tr("Angle"),
                           QStringLiteral("layerStyleInnerShadowAngleSpin"), -180, 180,
                           static_cast<int>(std::round(inner_shadow.angle_degrees)));
+  // Photoshop's 0..30000 px typed range; the slider keeps its 0..1000 reach.
   auto* inner_shadow_distance =
       add_slider_spin_row(inner_shadow_form, inner_shadow_group, QObject::tr("Distance"),
-                          QStringLiteral("layerStyleInnerShadowDistanceSpin"), 0, 1000,
-                          static_cast<int>(std::round(inner_shadow.distance)));
+                          QStringLiteral("layerStyleInnerShadowDistanceSpin"), 0, kShadowDistanceMaximum,
+                          static_cast<int>(std::round(inner_shadow.distance)), {}, 72, 1000);
   auto* inner_shadow_size = add_slider_spin_row(inner_shadow_form, inner_shadow_group, QObject::tr("Size"),
                                                 QStringLiteral("layerStyleInnerShadowSizeSpin"), 0, 1000,
                                                 static_cast<int>(std::round(inner_shadow.size)));
@@ -2852,11 +2856,12 @@ std::optional<LayerStyleSettings> request_layer_style_settings(
   auto* shadow_angle = add_slider_spin_row(shadow_form, shadow_group, QObject::tr("Angle"),
                                            QStringLiteral("layerStyleDropShadowAngleSpin"), -180, 180,
                                            static_cast<int>(std::round(shadow.angle_degrees)));
-  // 0..2000 like Photopea's long-shadow range; Photoshop's own dialog stops
-  // at 30000, so any value here round-trips through DrSh.
+  // Photoshop's 0..30000 px typed range (it round-trips through DrSh); the
+  // slider keeps the 0..2000 reach of Photopea's long-shadow range.
   auto* shadow_distance = add_slider_spin_row(shadow_form, shadow_group, QObject::tr("Distance"),
-                                              QStringLiteral("layerStyleDropShadowDistanceSpin"), 0, 2000,
-                                              static_cast<int>(std::round(shadow.distance)));
+                                              QStringLiteral("layerStyleDropShadowDistanceSpin"), 0,
+                                              kShadowDistanceMaximum, static_cast<int>(std::round(shadow.distance)),
+                                              {}, 72, 2000);
   auto* shadow_size = add_slider_spin_row(shadow_form, shadow_group, QObject::tr("Size"),
                                           QStringLiteral("layerStyleDropShadowSizeSpin"), 0, 1000,
                                           static_cast<int>(std::round(shadow.size)));

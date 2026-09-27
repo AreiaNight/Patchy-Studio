@@ -10,6 +10,7 @@
 #include <QSizeGrip>
 
 #include <exception>
+#include <limits>
 
 class QAction;
 class QBoxLayout;
@@ -94,10 +95,14 @@ QWidget* wrap_spin_with_step_buttons(QAbstractSpinBox* spin, QWidget* parent,
 // these widgets up by exact objectName, so each call site keeps its own naming
 // scheme. row_spacing < 0 keeps the layout's default spacing. step_buttons appends
 // the add_spin_step_buttons pair after the spin box for one-unit adjustments.
+// A slider_maximum below `maximum` stops the slider short of the spin box: the
+// slider covers the practical range while the spin box still accepts `maximum`
+// (a typed value past the slider parks the slider at its end).
 QSpinBox* add_dialog_slider_spin_row(QFormLayout* form, QWidget* parent, const QString& label,
                                      const QString& slider_object_name, const QString& spin_object_name,
                                      int minimum, int maximum, int value, const QString& suffix = QString(),
-                                     int spin_width = 72, int row_spacing = -1, bool step_buttons = false);
+                                     int spin_width = 72, int row_spacing = -1, bool step_buttons = false,
+                                     int slider_maximum = std::numeric_limits<int>::max());
 // Same row with a unit-entry spin box: the suffix comes from the native unit and typed
 // unit tokens convert on entry (px/in/cm/mm/pt/%/deg; see unit_spin_box.hpp). `provider`
 // supplies the PPI and percent basis; leave it empty for a plain 300 ppi, no-percent field.

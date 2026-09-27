@@ -1210,7 +1210,7 @@ void filter_catalog_defines_stable_named_contracts() {
       const auto& blur = actual.catalog.parameters[0];
       CHECK(blur.key == "blur");
       CHECK(blur.kind == Kind::Double);
-      CHECK(blur.minimum == 0.0 && blur.maximum == 100.0);
+      CHECK(blur.minimum == 0.0 && blur.maximum == 500.0);
       CHECK(blur.step == 0.1);
       CHECK(blur.unit == Unit::Pixels);
       CHECK(blur.spatial_scale == Scale::Pixels);
@@ -1357,9 +1357,12 @@ void filter_catalog_defines_stable_named_contracts() {
       const auto is_unsharp_mask_radius =
           actual.identifier == "patchy.filters.unsharp_mask" &&
           parameter.key == "radius";
+      const auto is_gaussian_radius =
+          actual.identifier == "patchy.filters.gaussian_blur" &&
+          parameter.key == "radius";
       const auto is_fractional_radius =
           is_high_pass_radius || is_median_radius || is_surface_blur_radius ||
-          is_unsharp_mask_radius;
+          is_unsharp_mask_radius || is_gaussian_radius;
       CHECK(parameter.kind == (is_fractional_radius
                                    ? patchy::FilterParameterKind::Double
                                    : patchy::FilterParameterKind::Integer));
@@ -1370,7 +1373,10 @@ void filter_catalog_defines_stable_named_contracts() {
       const auto expected_step =
           is_median_radius || is_surface_blur_radius
               ? 0.01
-              : (is_high_pass_radius || is_unsharp_mask_radius ? 0.1 : 1.0);
+              : (is_high_pass_radius || is_unsharp_mask_radius ||
+                         is_gaussian_radius
+                     ? 0.1
+                     : 1.0);
       CHECK(parameter.step == expected_step);
       if (is_fractional_radius) {
         CHECK(std::get<double>(parameter.default_value) ==
@@ -1386,11 +1392,13 @@ void filter_catalog_defines_stable_named_contracts() {
             expected_presentation(actual.identifier, parameter.key));
       CHECK(static_cast<double>(default_value) >= *parameter.minimum);
       CHECK(static_cast<double>(default_value) <= *parameter.maximum);
-      if (is_high_pass_radius) {
+      CHECK(parameter.accepts_legacy_integer == is_gaussian_radius);
+      if (is_high_pass_radius || is_unsharp_mask_radius ||
+          is_gaussian_radius) {
         CHECK(parameter.minimum == 0.1);
         CHECK(parameter.maximum == 1000.0);
         CHECK(parameter.practical_minimum == 0.1);
-        CHECK(parameter.practical_maximum == 12.0);
+        CHECK(parameter.practical_maximum == 100.0);
       } else if (is_median_radius) {
         CHECK(parameter.minimum == 1.0);
         CHECK(parameter.maximum == 500.0);
@@ -1408,11 +1416,6 @@ void filter_catalog_defines_stable_named_contracts() {
         CHECK(parameter.maximum == 100.0);
         CHECK(parameter.practical_minimum == 1.0);
         CHECK(parameter.practical_maximum == 25.0);
-      } else if (is_unsharp_mask_radius) {
-        CHECK(parameter.minimum == 0.1);
-        CHECK(parameter.maximum == 1000.0);
-        CHECK(parameter.practical_minimum == 0.1);
-        CHECK(parameter.practical_maximum == 12.0);
       } else if (actual.identifier == "patchy.filters.motion_blur" &&
                  parameter.key == "angle") {
         CHECK(parameter.minimum == -360.0);
@@ -1443,13 +1446,10 @@ void filter_catalog_defines_stable_named_contracts() {
         CHECK(parameter.maximum == 500.0);
         CHECK(parameter.practical_minimum == 0.0);
         CHECK(parameter.practical_maximum == 300.0);
-      } else if ((actual.identifier == "patchy.filters.box_blur" ||
-                  actual.identifier == "patchy.filters.gaussian_blur") &&
+      } else if (actual.identifier == "patchy.filters.box_blur" &&
                  parameter.key == "radius") {
         CHECK(parameter.minimum == 1.0);
-        CHECK(parameter.maximum ==
-              (actual.identifier == "patchy.filters.box_blur" ? 2000.0
-                                                              : 1000.0));
+        CHECK(parameter.maximum == 2000.0);
         CHECK(parameter.practical_minimum == 1.0);
         CHECK(parameter.practical_maximum == 100.0);
       } else {
@@ -1553,19 +1553,27 @@ void filter_invocations_normalize_scale_and_reject_bad_data() {
   const auto normalized = registry.normalize(gaussian);
   CHECK(normalized.has_value());
   CHECK(normalized->parameters.size() == 1);
-  CHECK(std::get<std::int64_t>(normalized->parameters.at("radius")) == 2);
+  CHECK(std::get<double>(normalized->parameters.at("radius")) == 2.0);
   CHECK(normalized->foreground.red == 1);
   CHECK(normalized->background.blue == 6);
 
+  // Recipes and Saved Looks from before the decimal radius stored integers;
+  // they still normalize, widened to doubles.
   gaussian.parameters["radius"] = std::int64_t{999};
   const auto kept = registry.normalize(gaussian);
   CHECK(kept.has_value());
-  CHECK(std::get<std::int64_t>(kept->parameters.at("radius")) == 999);
+  CHECK(std::get<double>(kept->parameters.at("radius")) == 999.0);
   gaussian.parameters["radius"] = std::int64_t{5000};
   const auto clamped = registry.normalize(gaussian);
   CHECK(clamped.has_value());
-  CHECK(std::get<std::int64_t>(clamped->parameters.at("radius")) == 1000);
-  gaussian.parameters["radius"] = 2.0;
+  CHECK(std::get<double>(clamped->parameters.at("radius")) == 1000.0);
+  gaussian.parameters["radius"] = 0.05;
+  const auto floored = registry.normalize(gaussian);
+  CHECK(floored.has_value());
+  CHECK(std::get<double>(floored->parameters.at("radius")) == 0.1);
+  gaussian.parameters["radius"] = 2.5;
+  CHECK(registry.supports(gaussian));
+  gaussian.parameters["radius"] = std::string("2");
   CHECK(!registry.supports(gaussian));
   gaussian.parameters["radius"] = std::int64_t{2};
   gaussian.schema_version = 2;
@@ -1911,9 +1919,21 @@ void filter_named_engine_recipes_bounds_colors_and_legacy_stay_distinct() {
   auto legacy_gaussian = blur_source;
   registry.apply("patchy.filters.gaussian_blur", legacy_gaussian);
   CHECK(legacy_gaussian.pixel(2, 2)[0] == 36);
+  // The named path is Photoshop's calibrated Gaussian (radius 2.0 default),
+  // deliberately distinct from the legacy wrapper's fixed 5-tap kernel.
   auto named_gaussian = blur_source;
   registry.apply(registry.default_invocation("patchy.filters.gaussian_blur"), named_gaussian);
-  CHECK(named_gaussian.pixel(2, 2)[0] == 28);
+  auto staged_dot = patchy::PixelBuffer(5, 5, patchy::PixelFormat::rgba8());
+  for (int y = 0; y < 5; ++y) {
+    for (int x = 0; x < 5; ++x) {
+      auto* px = staged_dot.pixel(x, y);
+      px[0] = px[1] = px[2] = blur_source.pixel(x, y)[0];
+      px[3] = 255;
+    }
+  }
+  const auto photoshop_dot = patchy::render_photoshop_gaussian_blur(staged_dot, patchy::Rect{0, 0, 5, 5}, 2.0);
+  CHECK(named_gaussian.pixel(2, 2)[0] == photoshop_dot.pixels.pixel(2, 2)[0]);
+  CHECK(named_gaussian.pixel(2, 2)[0] != legacy_gaussian.pixel(2, 2)[0]);
 
   auto clouds = registry.default_invocation("patchy.filters.clouds", patchy::RgbColor{240, 20, 10},
                                             patchy::RgbColor{5, 15, 230});
@@ -2351,10 +2371,11 @@ void filter_recipe_scales_supports_validates_and_skips_zero_opacity() {
       patchy::FilterRecipeEntry{sharpen},
       patchy::FilterRecipeEntry{vignette, false},
   }};
-  CHECK(registry.translation_invariant_support(supported) == 8);
+  // Box 4 + Gaussian 3 px (three radii of reach: 9) + Sharpen 1.
+  CHECK(registry.translation_invariant_support(supported) == 14);
   supported.entries.back().enabled = true;
   supported.entries.back().opacity = 0.0;
-  CHECK(registry.translation_invariant_support(supported) == 8);
+  CHECK(registry.translation_invariant_support(supported) == 14);
   supported.entries.back().opacity = 1.0;
   CHECK(!registry.translation_invariant_support(supported).has_value());
   CHECK(registry.translation_invariant_support(patchy::FilterRecipe{}) == 0);
@@ -2685,26 +2706,22 @@ void liquify_render_preserves_identity_and_scales_the_field() {
   CHECK(!cancelled.has_value());
 }
 
-// Gaussian and Box Blur radii above the historical 12 px range run an exact
-// integer running-sum path so a 1000 px radius costs the same per pixel as a
-// 13 px one. It must equal a brute-force edge-clamped, alpha-weighted tent
-// (Gaussian, weights r + 1 - |d|) or box average, including radii far larger
-// than the buffer, for RGBA and RGB buffers.
-void catalog_large_radius_blurs_match_brute_force_reference() {
+// Box Blur radii above the historical 12 px range run an exact integer
+// running-sum path, so a 2000 px radius costs the same per pixel as a 13 px
+// one. It must equal a brute-force edge-clamped, alpha-weighted box average,
+// including radii far larger than the buffer, for RGBA and RGB buffers.
+// Gaussian Blur renders through Photoshop's calibrated Gaussian (the Smart
+// Filter renderer), takes a decimal radius, and still accepts the integer
+// radii older recipes stored.
+void catalog_large_radius_blurs_match_reference_renderers() {
   patchy::FilterRegistry registry;
   patchy::register_builtin_filters(registry);
 
-  const auto reference = [](const patchy::PixelBuffer &source, int radius,
-                            bool weighted) {
+  const auto box_reference = [](const patchy::PixelBuffer &source,
+                                int radius) {
     auto expected = source;
-    const auto channels = source.format().channels;
-    const auto has_alpha = channels >= 4;
-    const auto weight = [&](int offset) -> std::int64_t {
-      return weighted ? radius + 1 - std::abs(offset) : 1;
-    };
-    const auto axis_sum = weighted
-                              ? static_cast<double>(radius + 1) * (radius + 1)
-                              : static_cast<double>(2 * radius + 1);
+    const auto has_alpha = source.format().channels >= 4;
+    const auto taps = static_cast<double>(2 * radius + 1);
     for (int y = 0; y < source.height(); ++y) {
       for (int x = 0; x < source.width(); ++x) {
         std::array<std::int64_t, 4> sums{};
@@ -2713,13 +2730,12 @@ void catalog_large_radius_blurs_match_brute_force_reference() {
           for (int dx = -radius; dx <= radius; ++dx) {
             const auto sx = std::clamp(x + dx, 0, source.width() - 1);
             const auto *px = source.pixel(sx, sy);
-            const auto w = weight(dx) * weight(dy);
             const std::int64_t alpha = has_alpha ? px[3] : 255;
             for (int channel = 0; channel < 3; ++channel) {
               sums[static_cast<std::size_t>(channel)] +=
-                  static_cast<std::int64_t>(px[channel]) * alpha * w;
+                  static_cast<std::int64_t>(px[channel]) * alpha;
             }
-            sums[3] += alpha * w;
+            sums[3] += alpha;
           }
         }
         auto *out = expected.pixel(x, y);
@@ -2734,9 +2750,8 @@ void catalog_large_radius_blurs_match_brute_force_reference() {
         }
         if (has_alpha) {
           out[3] = static_cast<std::uint8_t>(std::clamp(
-              std::lround(static_cast<double>(sums[3]) /
-                          (axis_sum * axis_sum)),
-              0L, 255L));
+              std::lround(static_cast<double>(sums[3]) / (taps * taps)), 0L,
+              255L));
         }
       }
     }
@@ -2763,68 +2778,99 @@ void catalog_large_radius_blurs_match_brute_force_reference() {
     }
   }
 
-  for (const auto *identifier :
-       {"patchy.filters.gaussian_blur", "patchy.filters.box_blur"}) {
-    const auto weighted =
-        std::string_view(identifier) == "patchy.filters.gaussian_blur";
-    for (const int radius : {13, 17, 40}) {
-      for (const auto *source : {&rgba, &rgb}) {
-        auto invocation = registry.default_invocation(identifier);
-        invocation.parameters["radius"] = std::int64_t{radius};
-        auto actual = *source;
-        registry.apply(invocation, actual);
-        const auto expected = reference(*source, radius, weighted);
-        CHECK(std::equal(actual.data().begin(), actual.data().end(),
-                         expected.data().begin(), expected.data().end()));
-      }
-    }
-  }
-
-  // The direct path below the cutoff approximates the same kernel, so the
-  // switch at 12/13 px is not a visible discontinuity.
-  for (const auto *identifier :
-       {"patchy.filters.gaussian_blur", "patchy.filters.box_blur"}) {
-    auto invocation = registry.default_invocation(identifier);
-    invocation.parameters["radius"] = std::int64_t{12};
-    auto actual = rgba;
-    registry.apply(invocation, actual);
-    const auto expected = reference(
-        rgba, 12,
-        std::string_view(identifier) == "patchy.filters.gaussian_blur");
-    for (std::size_t i = 0; i < actual.data().size(); ++i) {
-      CHECK(std::abs(static_cast<int>(actual.data()[i]) -
-                     static_cast<int>(expected.data()[i])) <= 1);
-    }
-  }
-
-  // The destructive Box Blur above the cutoff equals the Box Blur Smart
-  // Filter's own sliding renderer on the same buffer.
   auto box = registry.default_invocation("patchy.filters.box_blur");
+  for (const int radius : {13, 17, 40}) {
+    for (const auto *source : {&rgba, &rgb}) {
+      box.parameters["radius"] = std::int64_t{radius};
+      auto actual = *source;
+      registry.apply(box, actual);
+      const auto expected = box_reference(*source, radius);
+      CHECK(std::equal(actual.data().begin(), actual.data().end(),
+                       expected.data().begin(), expected.data().end()));
+    }
+  }
+  // The direct path at 12 px approximates the same average in doubles, so
+  // the switch at 12/13 px is not a visible discontinuity.
+  box.parameters["radius"] = std::int64_t{12};
+  auto direct = rgba;
+  registry.apply(box, direct);
+  const auto direct_expected = box_reference(rgba, 12);
+  for (std::size_t i = 0; i < direct.data().size(); ++i) {
+    CHECK(std::abs(static_cast<int>(direct.data()[i]) -
+                   static_cast<int>(direct_expected.data()[i])) <= 1);
+  }
+  // Above the cutoff the destructive Box Blur equals the Box Blur Smart
+  // Filter's own sliding renderer on the same buffer.
   box.parameters["radius"] = std::int64_t{15};
-  auto destructive = rgba;
-  registry.apply(box, destructive);
-  const auto smart = patchy::render_box_blur(
+  auto destructive_box = rgba;
+  registry.apply(box, destructive_box);
+  const auto smart_box = patchy::render_box_blur(
       rgba, patchy::Rect{0, 0, rgba.width(), rgba.height()}, 15.0);
-  CHECK(std::equal(destructive.data().begin(), destructive.data().end(),
-                   smart.pixels.data().begin(), smart.pixels.data().end()));
-
-  // Photoshop's ranges: Gaussian to 1000 px, Box to 2000 px, and the layer
-  // grows by the full radius.
-  auto gaussian = registry.default_invocation("patchy.filters.gaussian_blur");
-  gaussian.parameters["radius"] = std::int64_t{1000};
-  CHECK(registry.normalize(gaussian).has_value());
-  CHECK(registry.output_margin(gaussian, 8, 8) == 1000);
+  CHECK(std::equal(destructive_box.data().begin(), destructive_box.data().end(),
+                   smart_box.pixels.data().begin(),
+                   smart_box.pixels.data().end()));
   box.parameters["radius"] = std::int64_t{2000};
   CHECK(registry.normalize(box).has_value());
   CHECK(registry.output_margin(box, 8, 8) == 2000);
+
+  // Gaussian: byte-identical to the Photoshop Gaussian Smart Filter renderer
+  // on the same buffer, on both sides of its direct/recursive split (8 px).
+  auto gaussian = registry.default_invocation("patchy.filters.gaussian_blur");
+  CHECK(std::get<double>(gaussian.parameters.at("radius")) == 2.0);
+  for (const double radius : {0.5, 2.5, 8.0, 40.0}) {
+    gaussian.parameters["radius"] = radius;
+    auto actual = rgba;
+    registry.apply(gaussian, actual);
+    const auto smart = patchy::render_photoshop_gaussian_blur(
+        rgba, patchy::Rect{0, 0, rgba.width(), rgba.height()}, radius);
+    CHECK(std::equal(actual.data().begin(), actual.data().end(),
+                     smart.pixels.data().begin(), smart.pixels.data().end()));
+  }
+  // RGB layers stage through opaque RGBA.
+  gaussian.parameters["radius"] = 3.0;
+  auto gaussian_rgb = rgb;
+  registry.apply(gaussian, gaussian_rgb);
+  auto staged = patchy::PixelBuffer(rgb.width(), rgb.height(),
+                                    patchy::PixelFormat::rgba8());
+  for (int y = 0; y < rgb.height(); ++y) {
+    for (int x = 0; x < rgb.width(); ++x) {
+      const auto *from = rgb.pixel(x, y);
+      auto *to = staged.pixel(x, y);
+      to[0] = from[0];
+      to[1] = from[1];
+      to[2] = from[2];
+      to[3] = 255;
+    }
+  }
+  const auto staged_smart = patchy::render_photoshop_gaussian_blur(
+      staged, patchy::Rect{0, 0, staged.width(), staged.height()}, 3.0);
+  for (int y = 0; y < rgb.height(); ++y) {
+    for (int x = 0; x < rgb.width(); ++x) {
+      for (int channel = 0; channel < 3; ++channel) {
+        CHECK(gaussian_rgb.pixel(x, y)[channel] ==
+              staged_smart.pixels.pixel(x, y)[channel]);
+      }
+    }
+  }
+  // A legacy integer radius renders exactly like the same decimal radius.
+  gaussian.parameters["radius"] = std::int64_t{3};
+  auto legacy = rgb;
+  registry.apply(gaussian, legacy);
+  CHECK(std::equal(legacy.data().begin(), legacy.data().end(),
+                   gaussian_rgb.data().begin(), gaussian_rgb.data().end()));
+  // The layer grows by three radii, the Gaussian's visible tail.
+  gaussian.parameters["radius"] = 2.5;
+  CHECK(registry.output_margin(gaussian, 8, 8) == 8);
+  gaussian.parameters["radius"] = 1000.0;
+  CHECK(registry.output_margin(gaussian, 8, 8) == 3000);
 }
 
 }  // namespace
 
 std::vector<patchy::test::TestCase> document_ops_filters_tests() {
   return {
-      {"catalog_large_radius_blurs_match_brute_force_reference",
-       catalog_large_radius_blurs_match_brute_force_reference},
+      {"catalog_large_radius_blurs_match_reference_renderers",
+       catalog_large_radius_blurs_match_reference_renderers},
       {"tool_flip_horizontal_changes_pixels_and_writes_artifact", tool_flip_horizontal_changes_pixels_and_writes_artifact},
       {"tool_flip_vertical_changes_pixels_and_writes_artifact", tool_flip_vertical_changes_pixels_and_writes_artifact},
       {"document_crop_to_selection_changes_canvas_and_writes_artifact",

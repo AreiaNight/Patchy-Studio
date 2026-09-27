@@ -709,11 +709,9 @@ FilterDialogSpec editable_smart_filter_dialog_spec(SmartFilterKind kind) {
   radius.label = QObject::tr("Radius");
   radius.object_name = QStringLiteral("filterRadius");
   radius.minimum = dust || median || surface ? 1 : 0;
-  // Gaussian Blur's slider covers 0.1..100 px like the destructive catalog;
-  // High Pass and Unsharp Mask keep their compact 12 px sliders.
-  radius.maximum = dust || median
-                       ? 500
-                       : (surface ? 25 : (high_pass || unsharp ? 12 : 100));
+  // Gaussian Blur, High Pass and Unsharp Mask sliders cover 0.1..100 px like
+  // the destructive catalog; the spin box takes Photoshop's full 1000 px.
+  radius.maximum = dust || median ? 500 : (surface ? 25 : 100);
   radius.value = surface ? 5 : (dust || median ? 1 : (high_pass ? 10 : 2));
   radius.suffix = QObject::tr(" px");
   radius.parameter_key = "radius";

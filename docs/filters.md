@@ -20,7 +20,7 @@ posterize: levels=4
 box_blur: radius=1
 sharpen: amount=100
 unsharp_mask: amount=150 radius=2 threshold=8
-gaussian_blur: radius=2
+gaussian_blur: radius=2.0
 motion_blur: angle=0 distance=12
 radial_blur: amount=35 samples=16 center_x=50.0 center_y=50.0
 edge_detect: strength=100
@@ -144,19 +144,19 @@ Ranges (`min..max`, practical slider limits in parentheses), growth, and transla
 
 ```text
 box_blur  radius int 1..2000 px (to 100); grows by radius; supp = radius
-gaussian_blur  radius int 1..1000 px (to 100), a tent (weights r+1-|d|); as box_blur
+gaussian_blur  radius 0.1..1000 px (to 100); grows/supp ceil(3*radius)
 sharpen, edge_detect  supp 1 px
 motion_blur  angle -360..360 deg (-180..180), distance 1..999 px (1..64); grows by distance; supp distance+1
              (one fixed premultiplied-alpha line kernel; the +1 covers bilinear sampling)
 radial_blur  amount 0..100, samples, center; growth notes below; supp none
 add_noise  amount 0.1..400 % (to 100), seed 0..999999999; bounds/alpha byte-identical; no growth/supp
-unsharp_mask  amount 1..500 %, radius 0.1..1000 px (to 12), threshold 0..255; no growth; supp ceil(3*radius)
-high_pass  radius 0.1..1000 px (to 12); bounds/alpha kept; supp 3*radius
+unsharp_mask  amount 1..500 %, radius 0.1..1000 px (to 100), threshold 0..255; no growth; supp ceil(3*radius)
+high_pass  radius 0.1..1000 px (to 100); bounds/alpha kept; supp 3*radius
 median  radius 1..500 px (full range); bounds kept; supp none
 dust_and_scratches  radius int 1..500 (full range, PS dialog max), threshold 0..255; bounds/alpha kept; supp none
 surface_blur  radius 1..100 px, 0.01 steps (to 25), threshold 2..255; grows <= effective radius; supp none
 lens_blur  radius 0..100 px (to 50), blades 3..8, curvature 0..100 %, rotation -180..180 deg; supp none
-iris_blur  blur 0..100 px (to 50), center 0..100 %, angle -180..180 deg, width/height 1..200 % of input
+iris_blur  blur 0..500 px (to 50), center 0..100 %, angle -180..180 deg, width/height 1..200 % of input
            W/H, focus 0..100 % of ellipse radius; Lens Blur's growth; supp none
 tilt_shift_blur  blur 0..500 px (to 50), center/focus_half_width/transition_width %; grows <= ceil(blur); supp none
 plastic_wrap  highlight_strength 0..20, detail 1..15, smoothness 1..15; bounds/alpha byte-exact; supp none
@@ -168,7 +168,8 @@ Calibration notes:
 
 - Radial Blur: historical centered growth kept for default compatibility; an edited center grows from the sampled corner sweep, uncapped, failing through the registry's checked padding path rather than clipping. Amount 0: no growth. Native Smart Filter mapping needs the default 50/50 center (Photoshop's `RdlB` stores no center), amount 1..100, and samples on a quality tier (Draft 8, Good 16, Best 32); Photoshop's Zoom method is unsupported and stays preview-locked.
 - Add Noise: deterministic position-hashed noise on RGB only, uniform or a sum-of-four-uniforms gaussian approximation with no transcendental calls. The seed feeds the hash so re-renders reproduce the same noise; amount does not scale for thumbnails (like Analog Grain).
-- Box/Gaussian Blur: radii through 12 keep the direct double path (pins, Box Smart Filter parity); larger radii run an exact int64 running sum (a tent is the difference of two box sums), O(1) per pixel at any radius.
+- Box Blur: radii to 12 keep the direct double path (pins, Smart Filter parity); larger ones use an exact int64 running sum.
+- Gaussian Blur: the Smart Filter's Photoshop Gaussian (`render_photoshop_gaussian_blur`); `accepts_legacy_integer` widens pre-decimal integer radii.
 - Unsharp Mask: Photoshop scales the signed detail before subtracting Threshold from its magnitude; the radius-2.5 low-pass has its own measured byte kernel.
 - Median: fractional radii floor for rendering without rewriting the stored value. Transparent pixels borrow straight RGB from the nearest visible source anywhere in the input (the shared nearest-visible extension; also Dust & Scratches, Surface Blur), so these, the ellipse/band blurs, Plastic Wrap, and Add Noise advertise no finite support and selected application renders with full-layer context.
 - Dust & Scratches: square per-channel RGB median over the extension; replaces the RGB triplet only when its maximum channel difference from the source exceeds Threshold.

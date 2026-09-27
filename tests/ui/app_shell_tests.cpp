@@ -357,7 +357,16 @@ void ui_main_window_renders_color_controls() {
   CHECK(layer_arrange_menu->actions().contains(require_action_by_text(window, QStringLiteral("Move Layer Up"))));
   CHECK(layer_arrange_menu->actions().contains(
       require_action_by_text(window, QStringLiteral("Flip Layer Horizontal"))));
-  CHECK(window.findChild<QSpinBox*>(QStringLiteral("selectionFeatherSpin")) != nullptr);
+  auto* feather_spin = window.findChild<QSpinBox*>(QStringLiteral("selectionFeatherSpin"));
+  CHECK(feather_spin != nullptr);
+  // Photoshop's 0..1000 px selection Feather.
+  CHECK(feather_spin->maximum() == 1000);
+  auto* feather_canvas = require_canvas(window);
+  feather_canvas->set_selection_feather_radius(1000);
+  CHECK(feather_canvas->selection_feather_radius() == 1000);
+  feather_canvas->set_selection_feather_radius(5000);
+  CHECK(feather_canvas->selection_feather_radius() == 1000);
+  feather_canvas->set_selection_feather_radius(0);
   for (auto* button : window.findChildren<QPushButton*>()) {
     CHECK(button->text() != QStringLiteral("Select and Mask..."));
   }
