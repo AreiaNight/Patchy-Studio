@@ -17,6 +17,7 @@
 #include "psd/psd_descriptor.hpp"
 #include "psd/psd_document_io.hpp"
 #include "psd/psd_smart_objects.hpp"
+#include "psd/psd_text_engine_block.hpp"
 #include "psd/psd_text_runs.hpp"
 
 #include <algorithm>
@@ -693,4 +694,10 @@ std::optional<std::vector<std::uint8_t>> photoshop_type_tool_payload_for_layer(c
                                                                                const Rect& bounds,
                                                                                std::optional<std::int32_t> text_index_override = std::nullopt);
 bool should_write_generated_text_block(const EncodedLayer& encoded);
+// The text, runs, fonts and frame a type layer's engine data is written from (the same values
+// the TySh gets), or nullopt for a layer without text. Feeds the Txt2 text object writer.
+std::optional<TextEngineInputs> text_engine_inputs_for_layer(const Layer& layer, const Rect& bounds);
+// True when the layer's TySh is re-emitted from its imported Photoshop bytes (untouched imported
+// geometry) rather than regenerated; its Txt2 object stays the imported one too.
+bool text_layer_keeps_photoshop_type_block(const Layer& layer);
 }  // namespace patchy::psd

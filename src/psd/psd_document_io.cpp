@@ -61,6 +61,70 @@ inline constexpr std::int32_t kRegeneratedTextIndexBase = 100000;
 
 namespace {
 
+// Rebuilds the document-level text engine block for this save (docs/txt2.md). Starts from the
+// preserved block (or the Photoshop 2026 template when the document has none), strips every
+// cached layout tree, authors an object for each regenerated type layer at the index its TySh
+// will carry (the layer's imported index when that object exists, else appended), keeps the
+// objects of untouched imported layers, and records each new index in the encoded layer so the
+// TySh writer stamps it. Returns nullopt when there is nothing to author (no type layers) or the
+// preserved block cannot be parsed; the caller then falls back to the old-text indices.
+std::optional<std::vector<std::uint8_t>> build_text_engine_block(std::vector<EncodedLayer>& encoded_layers,
+                                                                 const std::vector<UnknownPsdBlock>& global_blocks) {
+  std::vector<EncodedLayer*> text_layers;
+  for (auto& encoded : encoded_layers) {
+    if (encoded.layer != nullptr && encoded.kind == EncodedLayerKind::Pixel && layer_is_text(*encoded.layer)) {
+      const auto text = encoded.layer->metadata().find(kLayerMetadataText);
+      if (text != encoded.layer->metadata().end() && !text->second.empty()) {
+        text_layers.push_back(&encoded);
+      }
+    }
+  }
+  if (text_layers.empty()) {
+    return std::nullopt;
+  }
+  std::optional<TextEngineBlock> block;
+  for (const auto& global : global_blocks) {
+    if (global.key == "Txt2") {
+      block = TextEngineBlock::parse(global.payload);
+      if (!block.has_value()) {
+        return std::nullopt;
+      }
+      break;
+    }
+  }
+  if (!block.has_value()) {
+    block = TextEngineBlock::from_template();
+  }
+  block->strip_layout_caches();
+  for (auto* encoded : text_layers) {
+    const auto& layer = *encoded->layer;
+    std::optional<std::size_t> stored_index;
+    if (const auto stored = layer.metadata().find(kLayerMetadataPsdTextIndex); stored != layer.metadata().end()) {
+      char* end = nullptr;
+      const auto value = std::strtol(stored->second.c_str(), &end, 10);
+      if (end != stored->second.c_str() && *end == '\0' && value >= 0 &&
+          static_cast<std::size_t>(value) < block->object_count()) {
+        stored_index = static_cast<std::size_t>(value);
+      }
+    }
+    const bool generated = should_write_generated_text_block(*encoded);
+    const bool regenerated = generated && !text_layer_keeps_photoshop_type_block(layer);
+    if (!regenerated) {
+      if (stored_index.has_value() || !generated) {
+        // The imported object stays, or (a verbatim TySh with no object) nothing can be indexed.
+        continue;
+      }
+    }
+    const auto inputs = text_engine_inputs_for_layer(layer, encoded->bounds);
+    if (!inputs.has_value()) {
+      continue;
+    }
+    const auto index = stored_index.has_value() ? block->set_object(*stored_index, *inputs) : block->append_object(*inputs);
+    encoded->text_index_override = static_cast<std::int32_t>(index);
+  }
+  return block->serialize();
+}
+
 void append_document_channels_for_write(
     const Document& document, std::vector<std::span<const std::uint8_t>>& planes,
     std::vector<CompositeChannelInfo>& channel_info) {
@@ -1521,16 +1585,16 @@ std::vector<std::uint8_t> DocumentIo::write_layered_rgb8(const Document& documen
   // Photoshop's document-level text engine block ('Txt2') holds one text object per type layer,
   // addressed by the layer's TextIndex, and Photoshop trusts it over the layer's TySh: a layer
   // Patchy had retyped in Bahnschrift Light read back as Bahnschrift Bold, silently, through the
-  // stale object its index pointed at (September 2026 COM captures). The block cannot be
-  // authored or edited here (an undocumented numerically keyed serialization), so a regenerated
-  // TySh gets an index no object has: Photoshop then reads that one layer from its TySh (its
-  // old-text path, which asks whether to update the layer) while every untouched layer keeps
-  // its object, variable-font instances included. Dropping the block instead demoted every
-  // layer. Documents without the block keep index 0, byte-stable.
-  const bool keeps_text_engine_block =
+  // stale object its index pointed at (September 2026 COM captures). The block is rebuilt here
+  // (docs/txt2.md): every regenerated type layer gets an authored object at its index, untouched
+  // imported layers keep theirs, and a document without a block starts from the Photoshop 2026
+  // template, so Photoshop reads every layer as native text. When the preserved block cannot be
+  // parsed, a regenerated TySh falls back to an index no object has, which makes Photoshop read
+  // that one layer from its TySh (its old-text path) instead of the stale object.
+  const auto text_engine_payload = build_text_engine_block(encoded_layers, global_blocks);
+  if (!text_engine_payload.has_value() &&
       std::any_of(global_blocks.begin(), global_blocks.end(),
-                  [](const UnknownPsdBlock& block) { return block.key == "Txt2"; });
-  if (keeps_text_engine_block) {
+                  [](const UnknownPsdBlock& block) { return block.key == "Txt2"; })) {
     std::int32_t next_text_index = kRegeneratedTextIndexBase;
     for (auto& encoded : encoded_layers) {
       if (should_write_generated_text_block(encoded)) {
@@ -1674,11 +1738,17 @@ std::vector<std::uint8_t> DocumentIo::write_layered_rgb8(const Document& documen
                      [](const GlobalEmission& lhs, const GlobalEmission& rhs) {
                        return lhs.original_index < rhs.original_index;
                      });
+    bool text_engine_emitted = false;
     for (const auto& emission : emissions) {
       switch (emission.kind) {
         case GlobalEmissionKind::Unknown: {
           const auto& block = global_blocks[emission.item_index];
-          emit_global_payload(block.key, block.payload, block.long_length);
+          if (block.key == "Txt2" && text_engine_payload.has_value()) {
+            emit_global_payload(block.key, *text_engine_payload, block.long_length);
+            text_engine_emitted = true;
+          } else {
+            emit_global_payload(block.key, block.payload, block.long_length);
+          }
           break;
         }
         case GlobalEmissionKind::Link: {
@@ -1692,6 +1762,10 @@ std::vector<std::uint8_t> DocumentIo::write_layered_rgb8(const Document& documen
           break;
         }
       }
+    }
+    if (text_engine_payload.has_value() && !text_engine_emitted) {
+      // A document that never had a block (Patchy-born) gets its authored one after the others.
+      emit_global_payload("Txt2", *text_engine_payload, false);
     }
   }
   {

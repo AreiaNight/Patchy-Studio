@@ -38,15 +38,14 @@ Lives in [photoshop-com.md](photoshop-com.md): the PowerShell entry point, dialo
   (dropping it demoted every layer to the old-text path); each regenerated TySh gets
   `kRegeneratedTextIndexBase` + n instead, so Photoshop reads that layer from its TySh (its
   old-text path: `oldText = true`, the "Some text layers might need to be updated" prompt) while
-  untouched layers keep their objects, variable-font instances included. Pinned by
-  `psd_text_regenerated_layer_gets_an_index_outside_the_text_engine_block`. Patchy does not
-  author the block yet, so every Patchy-authored PSD shows that prompt on first selection of a
-  type layer, and **variable-font named instances are static-substituted on layers read through
-  the old-text path** ("Bahnschrift-SemiBold", the name Photoshop itself writes, reads back as
-  Regular; Photoshop's own objects carry the instance axes). Patchy renders named instances
+  untouched layers keep their objects, variable-font instances included. Since September 27,
+  2026 Patchy rebuilds the block on save with an authored object per regenerated layer, so
+  Photoshop reads Patchy type as native text (no prompt); the index fallback remains for a
+  block that fails to parse. **Variable-font named instances are static-substituted on layers
+  read through the old-text path** ("Bahnschrift-SemiBold", the name Photoshop itself writes,
+  reads back as Regular; Photoshop's own objects carry the instance axes); Patchy renders them
   correctly in both engines (the Bahnschrift weights share advance widths, so compare ink, not
-  bounds). Format, key map and the September 2026 probe results: [txt2.md](txt2.md).
-  Authoring the block is the remaining step for variable-font parity and lists.
+  bounds). Format, key map, probe results and the writer: [txt2.md](txt2.md).
 - **A gradient descriptor's `Trns` list is never empty.** Photoshop's gradients carry at least
   two transparency stops; an empty list (a scripted gradient fill without alphaStops) raises the
   "discard unknown data" prompt and the layer comes back empty. The vector fill writer supplies

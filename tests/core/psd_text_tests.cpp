@@ -1636,9 +1636,9 @@ void psd_text_heavy_legacy_face_keeps_the_gdi_family_if_available() {
 // Photoshop's document-level text engine block ('Txt2') is trusted over the layers' own TySh:
 // a preserved one made Photoshop read a layer Patchy had retyped in Bahnschrift Light as
 // Bahnschrift Bold, silently, through the stale object the layer's TextIndex pointed at
-// (September 2026 COM capture). The block stays (dropping it demotes every layer), and a
-// regenerated type layer gets an index no object has, so Photoshop reads that layer from its
-// TySh while untouched layers keep theirs. An untouched round trip keeps every index.
+// (September 2026 COM capture). The block is now rebuilt on save (docs/txt2.md): a regenerated
+// type layer keeps its index and gets a fresh object there, untouched layers keep theirs, and an
+// untouched round trip keeps every index. text_engine_block_tests pins the object contents.
 void psd_text_regenerated_layer_gets_an_index_outside_the_text_engine_block() {
   const auto path = patchy::test::committed_psd_fixture_path("photoshop-text-tracking.psd");
   auto document = patchy::psd::DocumentIo::read_file(path);
@@ -1688,7 +1688,7 @@ void psd_text_regenerated_layer_gets_an_index_outside_the_text_engine_block() {
   CHECK(has_text_engine_block(retyped));
   const auto regenerated_index = text_index_of(retyped, text_layer_indices[0]);
   const auto kept_index = text_index_of(retyped, text_layer_indices[1]);
-  CHECK(regenerated_index.has_value() && *regenerated_index >= 100000);
+  CHECK(regenerated_index.has_value() && regenerated_index == first_index);
   CHECK(kept_index.has_value() && kept_index == second_index);
 }
 

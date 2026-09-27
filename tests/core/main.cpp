@@ -148,6 +148,7 @@ int main(int argc, char** argv) {
            adjustments_curves_tests,
            psd_structure_tests,
            psd_text_tests,
+           text_engine_block_tests,
            layer_metadata_tests,
            layer_alignment_tests,
            brush_engine_tests,
