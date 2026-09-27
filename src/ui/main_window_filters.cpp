@@ -699,7 +699,7 @@ FilterDialogSpec editable_smart_filter_dialog_spec(SmartFilterKind kind) {
     distance.kind = FilterParameterKind::Integer;
     distance.default_value = std::int64_t{12};
     distance.typed_minimum = 1.0;
-    distance.typed_maximum = 999.0;
+    distance.typed_maximum = 2000.0;
     distance.step = 1.0;
     spec.controls.push_back(std::move(distance));
     return spec;
@@ -813,7 +813,7 @@ SmartFilterStack smart_filter_stack_with_invocation(
     motion->angle_degrees = smart_filter_integer_from_invocation(
         invocation, "angle", motion->angle_degrees, -360, 360);
     motion->distance_pixels = smart_filter_integer_from_invocation(
-        invocation, "distance", motion->distance_pixels, 1, 999);
+        invocation, "distance", motion->distance_pixels, 1, 2000);
   } else if (entry.kind == SmartFilterKind::PlasticWrap) {
     auto *plastic = std::get_if<PlasticWrapSmartFilter>(&entry.parameters);
     if (plastic == nullptr) {
@@ -1007,7 +1007,7 @@ SmartFilterEntry make_editable_smart_filter_entry(
     entry.parameters = MotionBlurSmartFilter{
         smart_filter_integer_from_invocation(invocation, "angle", 0, -360, 360),
         smart_filter_integer_from_invocation(invocation, "distance", 12, 1,
-                                             999)};
+                                             2000)};
   } else if (surface) {
     entry.parameters =
         SurfaceBlurSmartFilter{std::clamp(radius, 1.0, 100.0),
