@@ -1409,7 +1409,7 @@ void ui_smart_filter_unsharp_motion_add_edit_and_reopen() {
         dialog->findChild<QSpinBox *>(QStringLiteral("filterDistanceSpin"));
     CHECK(angle != nullptr && distance != nullptr);
     CHECK(angle->minimum() == -360 && angle->maximum() == 360);
-    CHECK(distance->minimum() == 1 && distance->maximum() == 999);
+    CHECK(distance->minimum() == 1 && distance->maximum() == 2000);
     angle->setValue(37);
     distance->setValue(12);
     motion_added = true;

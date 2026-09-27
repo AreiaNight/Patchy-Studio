@@ -2295,7 +2295,7 @@ void execute_builtin_filter(const FilterRegistry &registry,
     apply_motion_blur_to_pixels(
         pixels, original,
         std::clamp(filter_value(invocation, "angle", 0), -360, 360),
-        std::clamp(filter_value(invocation, "distance", 12), 1, 999), progress);
+        std::clamp(filter_value(invocation, "distance", 12), 1, 2000), progress);
     return;
   }
 
@@ -3274,7 +3274,7 @@ FilterCatalogMetadata builtin_filter_catalog(std::string_view identifier) {
     angle.practical_minimum = -180.0;
     angle.practical_maximum = 180.0;
     auto distance = integer_parameter("distance", "Distance", "filterDistance",
-                                      1, 999, 12, Unit::Pixels, Scale::Pixels);
+                                      1, 2000, 12, Unit::Pixels, Scale::Pixels);
     distance.practical_minimum = 1.0;
     distance.practical_maximum = 64.0;
     metadata = catalog_metadata(Category::Blur, false,
@@ -3483,11 +3483,11 @@ FilterCatalogMetadata builtin_filter_catalog(std::string_view identifier) {
   } else if (identifier == "patchy.filters.motion_blur") {
     metadata.output_margin = [](const FilterInvocation &invocation,
                                 std::int32_t, std::int32_t) {
-      return std::clamp(catalog_integer(invocation, "distance", 12), 1, 999);
+      return std::clamp(catalog_integer(invocation, "distance", 12), 1, 2000);
     };
     metadata.translation_support =
         [](const FilterInvocation &invocation) -> std::optional<int> {
-      return std::clamp(catalog_integer(invocation, "distance", 12), 1, 999) +
+      return std::clamp(catalog_integer(invocation, "distance", 12), 1, 2000) +
              1;
     };
   } else if (identifier == "patchy.filters.radial_blur") {

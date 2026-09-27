@@ -146,8 +146,8 @@ Ranges (`min..max`, practical slider limits in parentheses), growth, and transla
 box_blur  radius int 1..2000 px (to 100); grows by radius; supp = radius
 gaussian_blur  radius 0.1..1000 px (to 100); grows/supp ceil(3*radius)
 sharpen, edge_detect  supp 1 px
-motion_blur  angle -360..360 deg (-180..180), distance 1..999 px (1..64); grows by distance; supp distance+1
-             (one fixed premultiplied-alpha line kernel; the +1 covers bilinear sampling)
+motion_blur  angle -360..360 deg (-180..180), distance 1..2000 px (1..64, PS max); grows by distance;
+             supp distance+1 (+1 covers bilinear taps); kernels in smart-filters-native.md
 radial_blur  amount 0..100, samples, center; growth notes below; supp none
 add_noise  amount 0.1..400 % (to 100), seed 0..999999999; bounds/alpha byte-identical; no growth/supp
 unsharp_mask  amount 1..500 %, radius 0.1..1000 px (to 100), threshold 0..255; no growth; supp ceil(3*radius)

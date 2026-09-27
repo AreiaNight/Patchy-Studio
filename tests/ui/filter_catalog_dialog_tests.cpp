@@ -280,7 +280,7 @@ const std::vector<ExpectedFilterCatalogEntry>& expected_filter_catalog() {
        false,
        {{"angle", "filterAngle", -360, 360, 0, Unit::Degrees, Scale::None,
          Kind::Integer, 1.0, Presentation::Angle},
-        {"distance", "filterDistance", 1, 999, 12, Unit::Pixels,
+        {"distance", "filterDistance", 1, 2000, 12, Unit::Pixels,
          Scale::Pixels}}},
       {"patchy.filters.radial_blur",
        Category::Blur,

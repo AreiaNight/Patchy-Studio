@@ -1425,7 +1425,7 @@ void filter_catalog_defines_stable_named_contracts() {
       } else if (actual.identifier == "patchy.filters.motion_blur" &&
                  parameter.key == "distance") {
         CHECK(parameter.minimum == 1.0);
-        CHECK(parameter.maximum == 999.0);
+        CHECK(parameter.maximum == 2000.0);
         CHECK(parameter.practical_minimum == 1.0);
         CHECK(parameter.practical_maximum == 64.0);
       } else if (actual.identifier == "patchy.filters.emboss" &&
