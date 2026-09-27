@@ -1835,25 +1835,9 @@ void MainWindow::convert_smart_object_to_layers() {
     }
   }
 
-  // Drop the source once no other instance uses it: Photoshop 2026 refuses to
-  // open a Patchy-written file whose lnk2 holds an element no layer references
-  // ("program error"; September 2026 probe, docs/smart-object-editing.md).
-  const std::function<bool(const std::vector<Layer>&)> references_source =
-      [&](const std::vector<Layer>& layers) {
-        return std::any_of(layers.begin(), layers.end(), [&](const Layer& candidate) {
-          return (layer_is_smart_object(candidate) && smart_object_source_uuid(candidate) == placement->uuid) ||
-                 references_source(candidate.children());
-        });
-      };
-  if (!references_source(std::as_const(staged).layers())) {
-    auto& store = staged.metadata().smart_objects;
-    store.remove(placement->uuid);
-    // An emptied embedded block goes too (the probe that opened clean had no
-    // lnk2 at all); an emptied lnkE stays, as Embed Linked leaves it (E13).
-    std::erase_if(store.blocks, [](const SmartObjectLinkBlock& block) {
-      return block.key == "lnk2" && !block.opaque && block.sources.empty();
-    });
-  }
+  // The source element stays in the store like every orphan; the PSD writer
+  // leaves unreferenced Patchy-written elements out of the file, which
+  // Photoshop requires (docs/smart-objects.md).
   staged.set_active_layer(folder_id);
   push_undo_snapshot(tr("Convert to Layers"));
   document() = std::move(staged);

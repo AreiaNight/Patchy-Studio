@@ -1148,15 +1148,19 @@ void ui_smart_object_convert_to_layers_restores_layers_in_place() {
   CHECK(!patchy::layer_is_smart_object(red) && !patchy::layer_is_smart_object(blue));
   const auto after = patchy::ui::qimage_from_document(document, true);
   CHECK(before == after);
-  // No layer references the source any more, so it is dropped: Photoshop refuses
-  // a Patchy-written lnk2 element nothing references.
-  CHECK(document.metadata().smart_objects.find(source_uuid) == nullptr);
-  CHECK(document.metadata().smart_objects.empty());  // no empty lnk2 block left behind
+  // The orphaned source stays in the store, like Rasterize leaves it.
+  CHECK(document.metadata().smart_objects.find(source_uuid) != nullptr);
 
-  // The layered result must open in Photoshop like any other Patchy PSD.
+  // The layered result must open in Photoshop like any other Patchy PSD, so the
+  // writer leaves the unreferenced element (and its emptied lnk2) out.
   ensure_artifact_dir();
-  patchy::psd::DocumentIo::write_layered_rgb8_file(
-      document, std::filesystem::path("test-artifacts/ui_smart_object_converted_to_layers.psd"));
+  const std::filesystem::path artifact("test-artifacts/ui_smart_object_converted_to_layers.psd");
+  patchy::psd::DocumentIo::write_layered_rgb8_file(document, artifact);
+  {
+    std::ifstream stream(artifact, std::ios::binary);
+    const std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+    CHECK(patchy::psd::DocumentIo::read({bytes.data(), bytes.size()}).metadata().smart_objects.empty());
+  }
 
   require_action_by_text(window, QStringLiteral("Undo"))->trigger();
   QApplication::processEvents();
@@ -1171,6 +1175,43 @@ void ui_smart_object_convert_to_layers_restores_layers_in_place() {
   QApplication::processEvents();
   CHECK(document.layers().size() == 3U);
   CHECK(patchy::layer_is_smart_object(document.layers()[1]));
+}
+
+// Rasterize and Delete keep the now-unreferenced source in the store (Photoshop
+// keeps orphans too, and Undo brings the layer back), but the PSD writer leaves
+// a Patchy-authored element nothing references out of the file: Photoshop 2026
+// refuses to open such a file ("program error"; docs/smart-objects.md).
+void ui_smart_object_orphaned_source_is_not_written() {
+  ensure_artifact_dir();
+  for (const auto* action_name : {"layerSmartObjectToNormalAction", "layerDeleteAction"}) {
+    patchy::ui::MainWindow window;
+    show_window(window);
+    const auto smart_id = build_convert_to_layers_smart_object(window);
+    auto& document = patchy::ui::MainWindowTestAccess::document(window);
+    const auto source_uuid = patchy::smart_object_source_uuid(*document.find_layer(smart_id));
+    require_action(window, action_name)->trigger();
+    QApplication::processEvents();
+    const auto* remaining = document.find_layer(smart_id);
+    CHECK(remaining == nullptr || !patchy::layer_is_smart_object(*remaining));
+    CHECK(document.metadata().smart_objects.find(source_uuid) != nullptr);
+
+    const auto artifact = std::filesystem::path("test-artifacts") /
+                          (std::string("ui_smart_object_orphan_") +
+                           (std::string_view(action_name) == "layerDeleteAction" ? "deleted" : "rasterized") + ".psd");
+    patchy::psd::DocumentIo::write_layered_rgb8_file(document, artifact);
+    std::ifstream stream(artifact, std::ios::binary);
+    const std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+    CHECK(!bytes.empty());
+    const auto reread = patchy::psd::DocumentIo::read({bytes.data(), bytes.size()});
+    CHECK(reread.metadata().smart_objects.find(source_uuid) == nullptr);
+    CHECK(reread.metadata().smart_objects.empty());  // no empty lnk2 block either
+    CHECK(document.metadata().smart_objects.find(source_uuid) != nullptr);  // writing never mutates
+
+    require_action_by_text(window, QStringLiteral("Undo"))->trigger();
+    QApplication::processEvents();
+    const auto* restored = document.find_layer(smart_id);
+    CHECK(restored != nullptr && patchy::layer_is_smart_object(*restored));
+  }
 }
 
 // A scaled placement maps the unpacked layers through the same transform the
@@ -1899,6 +1940,7 @@ std::vector<patchy::test::TestCase> smart_object_tests() {
        ui_smart_object_convert_to_layers_restores_layers_in_place},
       {"ui_smart_object_convert_to_layers_follows_scaled_placement",
        ui_smart_object_convert_to_layers_follows_scaled_placement},
+      {"ui_smart_object_orphaned_source_is_not_written", ui_smart_object_orphaned_source_is_not_written},
       {"ui_smart_object_via_copy_diverges_and_transform_rerenders",
        ui_smart_object_via_copy_diverges_and_transform_rerenders},
       {"ui_smart_object_image_size_scales_placement_and_rerenders",

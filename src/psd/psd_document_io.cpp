@@ -32,6 +32,7 @@
 #include <iomanip>
 #include <iterator>
 #include <map>
+#include <set>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -1588,9 +1589,58 @@ std::vector<std::uint8_t> DocumentIo::write_layered_rgb8(const Document& documen
   {
     const auto& store = document.metadata().smart_objects;
     const auto& filter_store = document.metadata().smart_filter_effects;
+    // Photoshop 2026 refuses to open a file whose embedded link block carries an
+    // element no layer references ("program error"), whether Patchy or Photoshop
+    // wrote the element, and drops such elements itself when it saves (September
+    // 2026 probes, docs/smart-objects.md). Rasterize, Delete, and Convert to
+    // Layers leave them in the store (Undo needs them), so the writer leaves them
+    // out: a block with an orphan regenerates from its remaining elements (each
+    // keeps its own verbatim bytes), and an emptied block is not written at all.
+    // Fully referenced blocks stay verbatim. Any placed layer whose source is
+    // unknown (an unparsed SoLd, or a placed block that never became metadata)
+    // turns the pruning off, since it might reference any element.
+    std::set<std::string> referenced_sources;
+    bool sources_fully_known = true;
+    const auto collect_sources = [&](const std::vector<Layer>& layers, const auto& recurse) -> void {
+      for (const auto& layer : layers) {
+        if (layer_is_smart_object(layer)) {
+          auto uuid = smart_object_source_uuid(layer);
+          if (uuid.empty()) {
+            sources_fully_known = false;
+          } else {
+            referenced_sources.insert(std::move(uuid));
+          }
+        } else if (std::any_of(layer.unknown_psd_blocks().begin(), layer.unknown_psd_blocks().end(),
+                               [](const UnknownPsdBlock& block) {
+                                 return block.key == "SoLd" || block.key == "SoLE" || block.key == "PlLd";
+                               })) {
+          sources_fully_known = false;
+        }
+        recurse(layer.children(), recurse);
+      }
+    };
+    collect_sources(document.layers(), collect_sources);
+    std::vector<bool> link_block_written(store.blocks.size(), true);
     std::vector<std::vector<std::uint8_t>> link_payloads(store.blocks.size());
     for (std::size_t i = 0; i < store.blocks.size(); ++i) {
-      link_payloads[i] = serialize_linked_layer_block(store.blocks[i]);
+      const auto& block = store.blocks[i];
+      const bool embedded_block = block.key == "lnk2" || block.key == "lnkD" || block.key == "lnk3";
+      const auto orphan = [&referenced_sources](const SmartObjectSource& source) {
+        return !referenced_sources.contains(source.uuid);
+      };
+      if (sources_fully_known && embedded_block && !block.opaque &&
+          std::any_of(block.sources.begin(), block.sources.end(), orphan)) {
+        auto pruned = block;
+        pruned.original_payload.reset();  // the element list changed; regenerate
+        std::erase_if(pruned.sources, orphan);
+        if (pruned.sources.empty()) {
+          link_block_written[i] = false;
+          continue;
+        }
+        link_payloads[i] = serialize_linked_layer_block(pruned);
+        continue;
+      }
+      link_payloads[i] = serialize_linked_layer_block(block);
     }
     std::vector<std::vector<std::uint8_t>> filter_payloads(filter_store.blocks.size());
     for (std::size_t i = 0; i < filter_store.blocks.size(); ++i) {
@@ -1611,8 +1661,10 @@ std::vector<std::uint8_t> DocumentIo::write_layered_rgb8(const Document& documen
           {global_blocks[i].original_global_index, GlobalEmissionKind::Unknown, i});
     }
     for (std::size_t i = 0; i < store.blocks.size(); ++i) {
-      emissions.push_back(
-          {store.blocks[i].original_global_index, GlobalEmissionKind::Link, i});
+      if (link_block_written[i]) {
+        emissions.push_back(
+            {store.blocks[i].original_global_index, GlobalEmissionKind::Link, i});
+      }
     }
     for (std::size_t i = 0; i < filter_store.blocks.size(); ++i) {
       emissions.push_back({filter_store.blocks[i].original_global_index,
