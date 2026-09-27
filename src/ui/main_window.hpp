@@ -22,6 +22,7 @@
 #include <QByteArray>
 #include <QColor>
 #include <QDialog>
+#include <QElapsedTimer>
 #include <QKeySequence>
 #include <QListWidget>
 #include <QMainWindow>
@@ -30,6 +31,7 @@
 #include <QPoint>
 #include <QPointer>
 #include <QRect>
+#include <QSet>
 #include <QString>
 #include <QStringList>
 #include <array>
@@ -1541,12 +1543,16 @@ private:
   bool show_preview_dialog_edit_lock_message();
   void sync_brush_controls_from_canvas();
   void load_recent_files();
+  void set_recent_files_from_stored(QStringList stored);
+  bool reload_recent_history();
   void refresh_recent_history();
+  void schedule_recent_history_check(bool force);
   void add_recent_file(QString path);
   void rebuild_recent_files_menu();
   void apply_recent_files_filter(const QString& filter_text);
   bool handle_recent_files_filter_key(QKeyEvent& event);
   void load_recent_folders();
+  void set_recent_folders_from_stored(QStringList stored);
   void add_recent_folder(QString dir);
   void rebuild_recent_folders_menu();
   void configure_recent_files_context_menu(QMenu* menu);
@@ -2030,8 +2036,19 @@ private:
   std::optional<QByteArray> patchy_system_clipboard_signature_;
   std::vector<LayerId> pending_layer_opacity_ids_;
   std::vector<LayerId> pending_layer_fill_opacity_ids_;
+  // Displayed recent lists: the stored lists minus the entries the last
+  // background existence check found missing. Loading never stats the disk
+  // (a cold or unreachable volume would stall startup and the File menu).
   QStringList recent_files_;
   QStringList recent_folders_;
+  QStringList recent_files_stored_;
+  QStringList recent_folders_stored_;
+  QSet<QString> recent_missing_files_;
+  QSet<QString> recent_missing_folders_;
+  QSet<QString> recent_confirmed_paths_;  // opened or saved since the running check started
+  QElapsedTimer recent_check_clock_;
+  bool recent_check_in_flight_{false};
+  bool recent_check_pending_{false};
   std::optional<int> pending_layer_opacity_value_;
   std::optional<int> pending_layer_fill_opacity_value_;
   CanvasTool current_tool_{CanvasTool::Brush};

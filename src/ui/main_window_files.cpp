@@ -278,6 +278,25 @@ constexpr int kOpenProgressTitleMinimumFileNameWidth = 180;
 constexpr int kMaxRecentFiles = 200;
 constexpr int kMaxRecentFolders = 200;
 constexpr int kRecentFilesMenuPageSize = 50;
+// Minimum spacing of the background recent-history existence checks that
+// File menu opens and the start panel's refresh timer start.
+constexpr qint64 kRecentHistoryCheckIntervalMs = 30000;
+
+// Network entries are never stat'ed: an asleep or unreachable host blocks a
+// stat for the SMB timeout. They stay listed; clicking one that is gone
+// reports it missing and drops it, like any other missing entry.
+bool is_network_recent_path(const QString& path) {
+  if (path.startsWith(QStringLiteral("\\\\")) || path.startsWith(QStringLiteral("//"))) {
+    return true;
+  }
+#ifdef Q_OS_WIN
+  if (path.size() >= 2 && path[1] == QLatin1Char(':') && path[0].isLetter()) {
+    const wchar_t root[] = {static_cast<wchar_t>(path[0].unicode()), L':', L'\\', L'\0'};
+    return GetDriveTypeW(root) == DRIVE_REMOTE;
+  }
+#endif
+  return false;
+}
 
 QString elided_open_progress_title_file_name(const QWidget& widget, const QString& file_name) {
   const int available_width =
@@ -4034,21 +4053,100 @@ void MainWindow::begin_startup_update_check() {
 void MainWindow::load_recent_files() {
   auto settings = recent_history_settings();
   settings.sync();
-  recent_files_ = settings.value(QStringLiteral("recentFiles")).toStringList();
-  recent_files_.erase(std::remove_if(recent_files_.begin(), recent_files_.end(), [](const QString& path) {
-                        return path.trimmed().isEmpty() || !QFileInfo::exists(path);
-                      }),
-                      recent_files_.end());
-  trim_recent_files(recent_files_);
+  set_recent_files_from_stored(settings.value(QStringLiteral("recentFiles")).toStringList());
 }
 
-void MainWindow::refresh_recent_history() {
+void MainWindow::set_recent_files_from_stored(QStringList stored) {
+  trim_recent_files(stored);
+  recent_files_stored_ = stored;
+  stored.erase(std::remove_if(stored.begin(), stored.end(),
+                              [this](const QString& path) {
+                                return path.trimmed().isEmpty() || recent_missing_files_.contains(path);
+                              }),
+               stored.end());
+  recent_files_ = std::move(stored);
+}
+
+// Rereads the stored lists (no disk access beyond the settings file) and
+// rebuilds whichever menu's displayed list changed. Returns whether a stored
+// list changed, which is when a new existence check is worth running.
+bool MainWindow::reload_recent_history() {
   const auto files = recent_files_;
   const auto folders = recent_folders_;
+  const auto stored_files = recent_files_stored_;
+  const auto stored_folders = recent_folders_stored_;
   load_recent_files();
   load_recent_folders();
   if (files != recent_files_) rebuild_recent_files_menu();
   if (folders != recent_folders_) rebuild_recent_folders_menu();
+  return stored_files != recent_files_stored_ || stored_folders != recent_folders_stored_;
+}
+
+void MainWindow::refresh_recent_history() {
+  schedule_recent_history_check(reload_recent_history());
+}
+
+// Existence checks run on a worker: a stat of a cold, spun-down or absent
+// volume can take seconds, and the File menu and start panel used to pay that
+// on the UI thread for every entry. Entries show until a check finds them
+// missing; the stored lists keep them, so an unplugged drive's entries return
+// with the drive.
+void MainWindow::schedule_recent_history_check(bool force) {
+  if (recent_check_in_flight_) {
+    recent_check_pending_ = recent_check_pending_ || force;
+    return;
+  }
+  if (!force && recent_check_clock_.isValid() && recent_check_clock_.elapsed() < kRecentHistoryCheckIntervalMs) {
+    return;
+  }
+  recent_check_clock_.start();
+  recent_check_in_flight_ = true;
+  recent_check_pending_ = false;
+  recent_confirmed_paths_.clear();
+  auto* app = QApplication::instance();
+  QPointer<MainWindow> window(this);
+  run_tracked_background_worker([app, window, files = recent_files_stored_, folders = recent_folders_stored_] {
+    QSet<QString> missing_files;
+    QSet<QString> missing_folders;
+    for (const auto& path : files) {
+      if (!path.trimmed().isEmpty() && !is_network_recent_path(path) && !QFileInfo::exists(path)) {
+        missing_files.insert(path);
+      }
+    }
+    for (const auto& dir : folders) {
+      if (!dir.trimmed().isEmpty() && !is_network_recent_path(dir) && !QFileInfo(dir).isDir()) {
+        missing_folders.insert(dir);
+      }
+    }
+    if (app == nullptr) {
+      return;
+    }
+    QMetaObject::invokeMethod(
+        app,
+        [window, missing_files = std::move(missing_files), missing_folders = std::move(missing_folders)]() mutable {
+          if (window == nullptr) {
+            return;
+          }
+          // A path opened or saved while the check ran exists now, whatever
+          // the worker saw.
+          for (const auto& path : std::as_const(window->recent_confirmed_paths_)) {
+            missing_files.remove(path);
+            missing_folders.remove(path);
+          }
+          window->recent_missing_files_ = std::move(missing_files);
+          window->recent_missing_folders_ = std::move(missing_folders);
+          window->recent_check_in_flight_ = false;
+          // Rebuilding under an open menu would delete its live filter row; the
+          // next File menu open or start-panel tick applies the result instead.
+          if (QApplication::activePopupWidget() == nullptr) {
+            window->reload_recent_history();
+          }
+          if (window->recent_check_pending_) {
+            window->schedule_recent_history_check(true);
+          }
+        },
+        Qt::QueuedConnection);
+  });
 }
 
 void MainWindow::add_recent_file(QString path) {
@@ -4056,8 +4154,10 @@ void MainWindow::add_recent_file(QString path) {
   if (path.isEmpty()) {
     return;
   }
-  recent_files_ = update_recent_history(QStringLiteral("recentFiles"), kMaxRecentFiles,
-      [&path](QStringList& paths) { paths.removeAll(path); paths.prepend(path); });
+  recent_missing_files_.remove(path);
+  recent_confirmed_paths_.insert(path);
+  set_recent_files_from_stored(update_recent_history(QStringLiteral("recentFiles"), kMaxRecentFiles,
+      [&path](QStringList& paths) { paths.removeAll(path); paths.prepend(path); }));
   rebuild_recent_files_menu();
   add_recent_folder(QFileInfo(path).absolutePath());
 }
@@ -4147,8 +4247,8 @@ void MainWindow::rebuild_recent_files_menu() {
     auto* clear_action = recent_files_menu_->addAction(tr("Clear Recent Files"));
     clear_action->setObjectName(QStringLiteral("fileClearRecentAction"));
     connect(clear_action, &QAction::triggered, this, [this] {
-      recent_files_ = update_recent_history(QStringLiteral("recentFiles"), kMaxRecentFiles,
-          [](QStringList& paths) { paths.clear(); });
+      set_recent_files_from_stored(update_recent_history(QStringLiteral("recentFiles"), kMaxRecentFiles,
+          [](QStringList& paths) { paths.clear(); }));
       rebuild_recent_files_menu();
     });
   }
@@ -4259,15 +4359,20 @@ bool MainWindow::handle_recent_files_filter_key(QKeyEvent& event) {
 void MainWindow::load_recent_folders() {
   auto settings = recent_history_settings();
   settings.sync();
-  recent_folders_ = settings.value(QStringLiteral("recentFolders")).toStringList();
-  recent_folders_.erase(std::remove_if(recent_folders_.begin(), recent_folders_.end(),
-                                       [](const QString& dir) {
-                                         return dir.trimmed().isEmpty() || !QFileInfo(dir).isDir();
-                                       }),
-                        recent_folders_.end());
-  while (recent_folders_.size() > kMaxRecentFolders) {
-    recent_folders_.removeLast();
+  set_recent_folders_from_stored(settings.value(QStringLiteral("recentFolders")).toStringList());
+}
+
+void MainWindow::set_recent_folders_from_stored(QStringList stored) {
+  while (stored.size() > kMaxRecentFolders) {
+    stored.removeLast();
   }
+  recent_folders_stored_ = stored;
+  stored.erase(std::remove_if(stored.begin(), stored.end(),
+                              [this](const QString& dir) {
+                                return dir.trimmed().isEmpty() || recent_missing_folders_.contains(dir);
+                              }),
+               stored.end());
+  recent_folders_ = std::move(stored);
 }
 
 void MainWindow::add_recent_folder(QString dir) {
@@ -4275,8 +4380,10 @@ void MainWindow::add_recent_folder(QString dir) {
   if (dir.isEmpty()) {
     return;
   }
-  recent_folders_ = update_recent_history(QStringLiteral("recentFolders"), kMaxRecentFolders,
-      [&dir](QStringList& paths) { paths.removeAll(dir); paths.prepend(dir); });
+  recent_missing_folders_.remove(dir);
+  recent_confirmed_paths_.insert(dir);
+  set_recent_folders_from_stored(update_recent_history(QStringLiteral("recentFolders"), kMaxRecentFolders,
+      [&dir](QStringList& paths) { paths.removeAll(dir); paths.prepend(dir); }));
   rebuild_recent_folders_menu();
 }
 
@@ -4332,8 +4439,8 @@ void MainWindow::rebuild_recent_folders_menu() {
     auto* clear_action = recent_folders_menu_->addAction(tr("Clear Recent Folders"));
     clear_action->setObjectName(QStringLiteral("fileClearRecentFoldersAction"));
     connect(clear_action, &QAction::triggered, this, [this] {
-      recent_folders_ = update_recent_history(QStringLiteral("recentFolders"), kMaxRecentFolders,
-          [](QStringList& paths) { paths.clear(); });
+      set_recent_folders_from_stored(update_recent_history(QStringLiteral("recentFolders"), kMaxRecentFolders,
+          [](QStringList& paths) { paths.clear(); }));
       rebuild_recent_folders_menu();
     });
   }
@@ -4450,8 +4557,8 @@ void MainWindow::reveal_path_in_file_explorer(const QString& path, bool is_file)
 
 void MainWindow::open_recent_document(QString path) {
   if (!QFileInfo::exists(path)) {
-    recent_files_ = update_recent_history(QStringLiteral("recentFiles"), kMaxRecentFiles,
-        [&path](QStringList& paths) { paths.removeAll(path); });
+    set_recent_files_from_stored(update_recent_history(QStringLiteral("recentFiles"), kMaxRecentFiles,
+        [&path](QStringList& paths) { paths.removeAll(path); }));
     rebuild_recent_files_menu();
     show_status_error(tr("Recent file is missing"));
     return;

@@ -1366,13 +1366,17 @@ void ui_open_remembers_last_directory_and_lists_recent_folders() {
 
   auto* folders_menu = window.findChild<QMenu*>(QStringLiteral("fileOpenRecentFolderMenu"));
   CHECK(folders_menu != nullptr);
-  QStringList listed_folders;
-  for (auto* action : folders_menu->actions()) {
-    if (action != nullptr && !action->isSeparator() && !action->data().toString().isEmpty()) {
-      listed_folders << action->data().toString();
+  const auto listed_folders = [folders_menu] {
+    QStringList listed;
+    for (auto* action : folders_menu->actions()) {
+      if (action != nullptr && !action->isSeparator() && !action->data().toString().isEmpty()) {
+        listed << action->data().toString();
+      }
     }
-  }
-  CHECK(listed_folders == QStringList({folder_a, folder_b}));
+    return listed;
+  };
+  // The stale entry drops once the background existence check reports back.
+  CHECK(process_events_until([&] { return listed_folders() == QStringList({folder_a, folder_b}); }));
   CHECK(folders_menu->actions().contains(require_action(window, "fileClearRecentFoldersAction")));
 
   // The Open dialog starts in the remembered directory.
@@ -1398,7 +1402,6 @@ void ui_open_remembers_last_directory_and_lists_recent_folders() {
     saw_recent_folder_dialog = true;
     dialog->reject();
   });
-  listed_folders.clear();
   for (auto* action : folders_menu->actions()) {
     if (action != nullptr && action->data().toString() == folder_b) {
       action->trigger();
@@ -1418,6 +1421,78 @@ void ui_open_remembers_last_directory_and_lists_recent_folders() {
     auto settings = patchy::ui::app_settings();
     CHECK(settings.value(QStringLiteral("recentFolders")).toStringList().isEmpty());
   }
+}
+
+// Recent-history existence checks run on a worker and skip network paths: an
+// unreachable share used to block startup and every File menu open for the SMB
+// timeout. The unroutable TEST-NET host would hold a stat far past the wait
+// below, so the missing local entry dropping in time proves the share was not
+// stat'ed, and the share entry stays listed.
+void ui_recent_history_checks_in_background_and_skips_network_paths() {
+  ensure_artifact_dir();
+  const auto live_file = QFileInfo(QStringLiteral("test-artifacts/recent-bg-live.png")).absoluteFilePath();
+  const auto missing_file = QFileInfo(QStringLiteral("test-artifacts/recent-bg-missing.png")).absoluteFilePath();
+  const auto live_folder = QFileInfo(QStringLiteral("test-artifacts/recent-bg-dir")).absoluteFilePath();
+  const auto missing_folder = QFileInfo(QStringLiteral("test-artifacts/recent-bg-dir-missing")).absoluteFilePath();
+  const auto network_file = QStringLiteral("//192.0.2.1/share/recent-bg.psd");
+  const auto network_folder = QStringLiteral("//192.0.2.1/share");
+  {
+    QImage image(8, 8, QImage::Format_RGB32);
+    image.fill(QColor(60, 120, 180));
+    CHECK(image.save(live_file));
+  }
+  QFile::remove(missing_file);
+  CHECK(QDir().mkpath(live_folder));
+  QDir(missing_folder).removeRecursively();
+
+  SettingsValueRestorer recent_files_restorer(QStringLiteral("recentFiles"));
+  SettingsValueRestorer recent_folders_restorer(QStringLiteral("recentFolders"));
+  const QStringList stored_files{network_file, missing_file, live_file};
+  const QStringList stored_folders{network_folder, missing_folder, live_folder};
+  {
+    auto settings = patchy::ui::app_settings();
+    settings.setValue(QStringLiteral("recentFiles"), stored_files);
+    settings.setValue(QStringLiteral("recentFolders"), stored_folders);
+    settings.sync();
+  }
+
+  patchy::ui::MainWindow window;
+  show_window(window);
+
+  auto* files_menu = window.findChild<QMenu*>(QStringLiteral("fileOpenRecentMenu"));
+  auto* folders_menu = window.findChild<QMenu*>(QStringLiteral("fileOpenRecentFolderMenu"));
+  CHECK(files_menu != nullptr);
+  CHECK(folders_menu != nullptr);
+  auto* file_menu = qobject_cast<QMenu*>(files_menu->parent());
+  CHECK(file_menu != nullptr);
+  const auto listed = [](QMenu* menu) {
+    QStringList paths;
+    for (auto* action : menu->actions()) {
+      if (action != nullptr && !action->isSeparator() && !action->data().toString().isEmpty()) {
+        paths << action->data().toString();
+      }
+    }
+    return paths;
+  };
+
+  CHECK(process_events_until([&] {
+    return listed(files_menu) == QStringList({network_file, live_file}) &&
+           listed(folders_menu) == QStringList({network_folder, live_folder});
+  }));
+
+  // Opening the File menu rereads the lists without touching the disk.
+  QElapsedTimer timer;
+  timer.start();
+  emit file_menu->aboutToShow();
+  CHECK(timer.elapsed() < 1000);
+  CHECK(listed(files_menu) == QStringList({network_file, live_file}));
+  CHECK(listed(folders_menu) == QStringList({network_folder, live_folder}));
+
+  // Hidden entries stay stored, so an unplugged drive's entries come back.
+  auto settings = patchy::ui::app_settings();
+  settings.sync();
+  CHECK(settings.value(QStringLiteral("recentFiles")).toStringList() == stored_files);
+  CHECK(settings.value(QStringLiteral("recentFolders")).toStringList() == stored_folders);
 }
 
 void ui_open_dialog_hides_name_filter_details() {
@@ -3085,7 +3160,8 @@ void ui_start_panel_recent_files_open_on_click() {
   CHECK(info != nullptr);
   CHECK(panel->isVisible());
   CHECK(recent_list->isVisible());
-  CHECK(recent_list->count() == 1);
+  // The dead entry drops once the background existence check reports back.
+  CHECK(process_events_until([&] { return recent_list->count() == 1; }));
   CHECK(recent_list->item(0)->text() == QStringLiteral("start_panel_recent.png"));
 
   auto* layers = window.findChild<QListWidget*>(QStringLiteral("layerList"));
@@ -4137,6 +4213,8 @@ std::vector<patchy::test::TestCase> app_shell_tests() {
        ui_save_as_remembers_last_save_directory_between_windows},
       {"ui_open_remembers_last_directory_and_lists_recent_folders",
        ui_open_remembers_last_directory_and_lists_recent_folders},
+      {"ui_recent_history_checks_in_background_and_skips_network_paths",
+       ui_recent_history_checks_in_background_and_skips_network_paths},
       {"ui_open_dialog_hides_name_filter_details", ui_open_dialog_hides_name_filter_details},
       {"ui_open_dialog_opens_every_selected_file", ui_open_dialog_opens_every_selected_file},
       {"update_manifest_parser_handles_supported_cases", update_manifest_parser_handles_supported_cases},

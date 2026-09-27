@@ -7081,6 +7081,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   rebuild_recent_files_menu();
   load_recent_folders();
   rebuild_recent_folders_menu();
+  // The first existence check waits for the event loop, off the startup path.
+  QTimer::singleShot(0, this, [this] { schedule_recent_history_check(true); });
   auto* recent_history_timer = new QTimer(this);
   recent_history_timer->setInterval(2000);
   connect(recent_history_timer, &QTimer::timeout, this, [this] {

@@ -439,11 +439,9 @@ void StartPanel::set_recent_files(const QStringList& paths) {
     if (recent_paths_.size() >= kMaxRecentEntries) {
       break;
     }
-    const QFileInfo info(path);
-    if (!info.isFile()) {
-      continue;  // Recent entries can outlive their files; dead rows would just error on click.
-    }
-    recent_paths_ << info.absoluteFilePath();
+    // No stat here: MainWindow drops missing entries after its background
+    // existence check, and a click on one that vanished since reports it.
+    recent_paths_ << QFileInfo(path).absoluteFilePath();
   }
   rebuild_recent_rows();
 }

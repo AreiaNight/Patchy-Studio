@@ -122,5 +122,14 @@ with owned MCP workspaces while their other preferences stay temporary. Native
 updates lock the complete read/modify/write transaction and merge against the
 latest stored list, so another process's additions or Clear command survive.
 The File menu and Save As refresh before opening; the empty start panel refreshes
-every two seconds while no popup is active and when it reappears. Rebuilds occur
-only when the stored list changes, preserving a live start-panel filter.
+every two seconds while no popup is active and when it reappears. A refresh only
+rereads settings and never stats an entry: a cold, spun-down or unreachable volume
+used to stall startup and every File menu open. Existence checks run on a tracked
+worker (`schedule_recent_history_check`), right after startup, whenever a stored
+list changes, and otherwise at most every 30 seconds. Entries show until a check
+finds them missing, and a result that arrives under an open popup waits for the
+next refresh. Network paths (UNC, and `DRIVE_REMOTE` drive letters on Windows) are
+never checked, and missing entries stay stored so an unplugged drive's entries
+return. A click on a vanished entry reports "Recent file is missing" and removes it.
+Rebuilds occur only when the displayed list changes, preserving a live start-panel
+filter.
