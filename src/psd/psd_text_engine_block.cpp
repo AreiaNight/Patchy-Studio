@@ -310,7 +310,6 @@ EngineNode TextEngineBlock::author_object(const TextEngineInputs& inputs, std::s
   };
   auto style_runs = engine_list();
   int position = 0;
-  std::size_t run_number = 0;
   for (const auto& [run, length] : styles) {
     const auto run_index = static_cast<std::size_t>(run - (inputs.runs.empty() ? &style_fallback : inputs.runs.data()));
     std::string font_name = run == &style_fallback || run_index >= inputs.run_font_names.size()
@@ -329,7 +328,6 @@ EngineNode TextEngineBlock::author_object(const TextEngineInputs& inputs, std::s
     style_runs.list.push_back(
         engine_dict_of({{"0", engine_dict_of({{"0", std::move(sheet)}})}, {"1", engine_integer(length)}}));
     position += length;
-    ++run_number;
   }
 
   // Standard Vertical Roman Alignment (rotated Latin) is the object's /10 /0 = 4 in Photoshop's
