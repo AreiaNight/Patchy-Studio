@@ -730,6 +730,30 @@ void ui_selection_stroke_region_bands_have_exact_widths() {
 
   // The separable dilation matches the square structuring element exactly.
   CHECK(patchy::ui::expanded_region(QRegion(QRect(10, 10, 1, 1)), 2, bounds) == QRegion(QRect(8, 8, 5, 5)));
+  // Radii past 16 px dilate a mask instead of uniting translated regions; the
+  // pixels must equal the union reference, clipped to the bounds, including a
+  // ragged ellipse and a shape that runs off the bounds.
+  {
+    const auto shape = QRegion(QRect(30, 40, 50, 20), QRegion::Ellipse)
+                           .united(QRect(120, 10, 7, 90))
+                           .united(QRect(-20, 150, 40, 12))
+                           .united(QRect(200, 5, 1, 1));
+    for (const int radius : {17, 40}) {
+      QRegion horizontal;
+      for (int dx = -radius; dx <= radius; ++dx) {
+        horizontal = horizontal.united(shape.translated(dx, 0));
+      }
+      QRegion reference;
+      for (int dy = -radius; dy <= radius; ++dy) {
+        reference = reference.united(horizontal.translated(0, dy));
+      }
+      CHECK(patchy::ui::expanded_region(shape, radius, bounds) == reference.intersected(bounds));
+    }
+    // Photoshop's 500 px Expand maximum.
+    const QRect wide(-2000, -2000, 5000, 5000);
+    CHECK(patchy::ui::expanded_region(QRegion(QRect(0, 0, 1, 1)), 800, wide) ==
+          QRegion(QRect(-500, -500, 1001, 1001)));
+  }
   CHECK(selection_stroke_region(QRegion(), 5, SelectionStrokeLocation::Center, bounds).isEmpty());
   CHECK(selection_stroke_region(selection, 0, SelectionStrokeLocation::Center, bounds).isEmpty());
 }

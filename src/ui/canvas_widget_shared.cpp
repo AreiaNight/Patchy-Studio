@@ -367,7 +367,7 @@ QImage box_blur_mask(const QImage& source, int radius) {
     return source;
   }
 
-  radius = std::clamp(radius, 0, 250);
+  radius = std::clamp(radius, 0, kMaxSelectionFeatherRadius);
   const auto window = radius * 2 + 1;
   QImage horizontal(source.size(), QImage::Format_Grayscale8);
   QImage blurred(source.size(), QImage::Format_Grayscale8);
@@ -418,7 +418,7 @@ QImage box_blur_mask(const QImage& source, int radius) {
 }
 
 int feather_blur_pass_radius(int feather_radius) {
-  return std::max(1, (std::clamp(feather_radius, 0, 250) + 1) / 2);
+  return std::max(1, (std::clamp(feather_radius, 0, kMaxSelectionFeatherRadius) + 1) / 2);
 }
 
 }  // namespace

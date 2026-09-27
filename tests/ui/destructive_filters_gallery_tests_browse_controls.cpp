@@ -2062,10 +2062,10 @@ void ui_filter_gallery_smart_filter_badges_and_tooltips() {
     CHECK(outcome->text() == plain_outcome);
     looks->setCurrentItem(gaussian);
     QApplication::processEvents();
-    auto* radius = dialog->findChild<QSpinBox*>(
+    auto* radius = dialog->findChild<QDoubleSpinBox*>(
         QStringLiteral("filterRadiusSpin"));
     CHECK(radius != nullptr);
-    radius->setValue(5);
+    radius->setValue(5.0);
     QApplication::processEvents();
     CHECK(outcome->text() == plain_outcome);
 

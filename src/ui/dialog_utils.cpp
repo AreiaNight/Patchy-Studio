@@ -49,6 +49,7 @@
 #include <QScreen>
 #include <QScrollArea>
 #include <QSettings>
+#include <QSignalBlocker>
 #include <QSize>
 #include <QSlider>
 #include <QSpinBox>
@@ -1051,7 +1052,11 @@ namespace {
 QSpinBox* add_dialog_slider_spin_row_with(QFormLayout* form, QWidget* parent, const QString& label,
                                           const QString& slider_object_name, QSpinBox* spin, int minimum,
                                           int maximum, int value, int spin_width, int row_spacing,
-                                          bool step_buttons) {
+                                          bool step_buttons,
+                                          int slider_maximum = std::numeric_limits<int>::max()) {
+  // The default (and any value at or past `maximum`) means no cap. A negative
+  // sentinel would collide with ranges like an angle's -180..180.
+  const auto slider_top = std::clamp(std::min(slider_maximum, maximum), minimum, maximum);
   auto* row = new QWidget(parent);
   auto* row_layout = new QHBoxLayout(row);
   row_layout->setContentsMargins(0, 0, 0, 0);
@@ -1060,8 +1065,8 @@ QSpinBox* add_dialog_slider_spin_row_with(QFormLayout* form, QWidget* parent, co
   }
   auto* slider = new QSlider(Qt::Horizontal, row);
   slider->setObjectName(slider_object_name);
-  slider->setRange(minimum, maximum);
-  slider->setValue(value);
+  slider->setRange(minimum, slider_top);
+  slider->setValue(std::min(value, slider_top));
   spin->setParent(row);
   spin->setRange(minimum, maximum);
   spin->setValue(value);
@@ -1080,7 +1085,16 @@ QSpinBox* add_dialog_slider_spin_row_with(QFormLayout* form, QWidget* parent, co
     row_layout->addWidget(spin);
   }
   QObject::connect(slider, &QSlider::valueChanged, spin, &QSpinBox::setValue);
-  QObject::connect(spin, qOverload<int>(&QSpinBox::valueChanged), slider, &QSlider::setValue);
+  if (slider_top == maximum) {
+    QObject::connect(spin, qOverload<int>(&QSpinBox::valueChanged), slider, &QSlider::setValue);
+  } else {
+    // A typed value past the slider's end must not echo back through the
+    // clamped slider and overwrite the spin box.
+    QObject::connect(spin, qOverload<int>(&QSpinBox::valueChanged), slider, [slider, slider_top](int value) {
+      const QSignalBlocker blocker(slider);
+      slider->setValue(std::min(value, slider_top));
+    });
+  }
   form->addRow(label, row);
   return spin;
 }
@@ -1090,14 +1104,14 @@ QSpinBox* add_dialog_slider_spin_row_with(QFormLayout* form, QWidget* parent, co
 QSpinBox* add_dialog_slider_spin_row(QFormLayout* form, QWidget* parent, const QString& label,
                                      const QString& slider_object_name, const QString& spin_object_name,
                                      int minimum, int maximum, int value, const QString& suffix,
-                                     int spin_width, int row_spacing, bool step_buttons) {
+                                     int spin_width, int row_spacing, bool step_buttons, int slider_maximum) {
   auto* spin = new QSpinBox();
   spin->setObjectName(spin_object_name);
   if (!suffix.isEmpty()) {
     spin->setSuffix(suffix);
   }
   return add_dialog_slider_spin_row_with(form, parent, label, slider_object_name, spin, minimum, maximum, value,
-                                         spin_width, row_spacing, step_buttons);
+                                         spin_width, row_spacing, step_buttons, slider_maximum);
 }
 
 UnitIntSpinBox* add_dialog_slider_spin_row(QFormLayout* form, QWidget* parent, const QString& label,
