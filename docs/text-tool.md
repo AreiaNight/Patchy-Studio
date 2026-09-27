@@ -31,6 +31,15 @@ the caret out at the raw size while the glyphs draw scaled
 (`ui_psd_frame_text_highlight_matches_scaled_glyphs`, which probes by clicking mid-INK from the
 render: click and caret share a layout and agree even when it is wrong).
 
+**A face's natural width is `QFont::AnyStretch`, never stretch 100.** Qt synthesizes
+request / face width class, so asking a Condensed face (width class 75, Futura Bold Condensed BT)
+for stretch 100 stretches it 133 percent. Every advance-ratio reference in main_window.cpp
+(`set_stretch_for_advance_ratio`, `scale_font_width`, `dominant_run_width_residual`, the
+pixel-aligned glyph drawer) measures against AnyStretch; measuring against 100 made the
+Photoshop-layout residual stretch Title02's tracked, unstretched WWW.COCKPITMASTER.COM line a
+third wider than the caret layout (September 28, 2026, `ui_title02_tracked_legacy_text_caret_matches_glyphs_if_available`,
+`ui_psd_text_tracking_click_lands_on_glyphs`).
+
 Mouse hit-testing goes through the same plan; `QTextEdit::cursorForPosition` must never resolve a
 click inside a session (the widget hit-tests its own integer-pixel, Qt-spaced layout).
 `MainWindow::handle_text_editor_viewport_mouse_event` intercepts left press/drag/double-click for

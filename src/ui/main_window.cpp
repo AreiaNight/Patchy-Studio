@@ -1840,7 +1840,7 @@ void set_stretch_for_advance_ratio(QFont& font, double ratio, int naive_value) {
     return;
   }
   QFont unstretched = font;
-  unstretched.setStretch(100);
+  unstretched.setStretch(QFont::AnyStretch);
   const auto reference = QFontMetricsF(unstretched).horizontalAdvance(QLatin1Char('H'));
   if (!(reference > 0.0)) {
     font.setStretch(naive_value);
@@ -1867,7 +1867,7 @@ void scale_font_width(QFont& font, double scale) {
   // The current advance ratio is MEASURED rather than decoded from the stored value, so a
   // sqrt-compensated stretch (see set_stretch_for_advance_ratio) rescales correctly too.
   QFont unstretched = font;
-  unstretched.setStretch(100);
+  unstretched.setStretch(QFont::AnyStretch);
   const auto reference = QFontMetricsF(unstretched).horizontalAdvance(QLatin1Char('H'));
   const auto current = QFontMetricsF(font).horizontalAdvance(QLatin1Char('H'));
   const auto current_ratio =
@@ -4080,8 +4080,13 @@ double dominant_run_width_residual(const QTextDocument& document) {
       scale_property(kTextHorizontalScaleFormatProperty) / scale_property(kTextVerticalScaleFormatProperty);
   QFont stretched = best.font();
   stretched.setLetterSpacing(QFont::AbsoluteSpacing, 0.0);
+  // The face at its OWN width is QFont::AnyStretch, never stretch 100: Qt synthesizes
+  // request / face-width-class, so 100 on a Condensed face (width class 75, Futura Bold
+  // Condensed BT) is a 133% stretch. Measuring that as the reference reported a 4/3 residual
+  // for a font with no stretch at all and drew Title02's WWW.COCKPITMASTER.COM a third wider
+  // than the caret layout (Seth's "the letter appears at the end of the string" report).
   QFont unstretched = stretched;
-  unstretched.setStretch(100);
+  unstretched.setStretch(QFont::AnyStretch);
   const auto reference = QFontMetricsF(unstretched).horizontalAdvance(QLatin1Char('H'));
   const auto current = QFontMetricsF(stretched).horizontalAdvance(QLatin1Char('H'));
   if (!(reference > 0.0) || !(current > 0.0) || !std::isfinite(wanted) || wanted <= 0.0) {
@@ -4436,7 +4441,7 @@ void draw_line_glyphs_pixel_aligned(const QTextBlock& block, const BoxTextLineRe
     double image_scale = 1.0;
     if (unstretched.stretch() != 100 && unstretched.stretch() != QFont::AnyStretch) {
       const auto current = QFontMetricsF(unstretched).horizontalAdvance(QLatin1Char('H'));
-      unstretched.setStretch(100);
+      unstretched.setStretch(QFont::AnyStretch);
       const auto reference = QFontMetricsF(unstretched).horizontalAdvance(QLatin1Char('H'));
       if (reference > 0.0 && current > 0.0) {
         image_scale = current / reference;
