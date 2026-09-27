@@ -60,6 +60,10 @@ Offscreen does not clear `QApplication::keyboardModifiers()` after synthetic key
   A fixed sleep is never a synchronization primitive; wait for the state itself
   (`process_events_until`, or the marker file a script writes, as `protocol_edges` in
   `tests/mcp_client_tests.py` does before it cancels).
+- A debounced worker's start is not a fixed offset from the trigger. To prove work runs
+  off the event loop, park the worker, wait for it to start, and check that a UI timer
+  fires while it is still parked
+  (`ui_filter_gallery_heavy_thumbnail_queue_yields_to_event_loop`).
 
 - The test `CHECK()` macro throws. A failure while a MainWindow still owns an open inline text editor can abort during unwind without printing a `[FAIL]` line. Commit or close the editor before assertions that may throw.
 - The test binaries can exit 0 even when tests fail. Never trust the exit code alone; grep the output for `[FAIL]` to judge a run. Both runners print `[PASS]` on stdout and `[FAIL]` on stderr, so when a run is captured to files, grep the stderr capture (a stdout-only grep reports zero failures for any run).
