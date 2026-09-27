@@ -1,4 +1,6 @@
 4c6e0fcdb5d7cbaa 0cc0c4c365647c1c arrows.psd
+f0e4b6fa1a4a423f 7b0b17b25ffc630d patchy-compound-group.psd
+284d06ae2c65ce6d 82b3b2f76a478139 patchy-gradient-empty-transparency.psd
 d9abf014b16ca2f3 d416c48ba5c4bc3d patchy-open-path-strokes.psd
 2b395ed4c9c29125 db597474773a16b5 photoshop-bevel-default.psd
 d7827ce82dff1295 4f9d639a6c4e7af3 photoshop-bevel-gloss.psd
@@ -16,6 +18,7 @@ dbe44fcc955c8025 241f758e61704165 photoshop-channel-restrictions.psd
 f980a29156bff7cf 5eb6a1308b31a4eb photoshop-cmyk-style-colors.psd
 cf8b789d734b2b2d 3a35db9013be5915 photoshop-color-balance-full.psd
 cf8b789d734b2b2d 3a35db9013be5915 photoshop-color-balance.psd
+432be6fb3533c8d8 c6dfa66168a0e490 photoshop-compound-text.psd
 9566d90f9991a025 48484118f51d9c65 photoshop-curves-clipped.psd
 eed6fe7f2ba81d25 60373566b39eefe5 photoshop-curves-masked.psd
 66abb1ecd47ae989 2621b901bd1dc22d photoshop-emboss-styles.psd

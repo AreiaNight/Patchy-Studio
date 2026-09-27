@@ -244,7 +244,10 @@ the session contract.
 - **One Type tool, an orientation toggle.** `textOrientationButton` (and the layer context
   menu entry) switches a live session in place, converts the selected layer through the
   Character-panel hidden session (one undo step), or arms the NEXT new layer once; never
-  persisted, a fresh session starts horizontal. `textDirectionCombo` is per paragraph.
+  persisted, a fresh session starts horizontal. With no session it reads the first layer of
+  `text_character_target_layer_ids()`, so a selected vertical row keeps it checked even with no
+  active layer; only Deselect Layers makes it read the armed default
+  (`ui_new_text_starts_horizontal_after_vertical_layer`). `textDirectionCombo` is per paragraph.
 - **The plan is the authority, again.** `vertical_text_layout_plan` (ui/text_layout.hpp)
   re-places every grapheme cluster of the horizontally shaped NoWrap document into a cell;
   `TextLineGeometry::from_vertical_plan` answers caret, selection and hit-testing from the plan
