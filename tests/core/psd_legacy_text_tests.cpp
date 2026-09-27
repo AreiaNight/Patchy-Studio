@@ -291,6 +291,47 @@ void psd_legacy_type_tool_edited_layer_writes_modern_type_block() {
   }
 }
 
+// The presence of a document-level 'Txt2' block makes Photoshop drop every untouched tySh
+// layer to a plain pixel layer (COM readback of a Patchy resave, September 28, 2026), so a
+// document that still carries one gets no block; the edited layer's TySh stands on its own.
+void psd_legacy_type_tool_kept_record_suppresses_the_text_engine_block() {
+  const auto payload = legacy_type_tool_payload(two_line_spec());
+  auto document = patchy::psd::DocumentIo::read(single_text_layer_psd(payload, "tySh"));
+  patchy::Layer* layer = nullptr;
+  for (auto& candidate : document.layers()) {
+    if (candidate.name() == "Text Layer") {
+      layer = &candidate;
+    }
+  }
+  CHECK(layer != nullptr);
+  if (layer == nullptr) {
+    return;
+  }
+  patchy::Layer edited(document.allocate_layer_id(), "Edited", patchy::test::solid_rgba(60, 30, 0, 0, 0, 0));
+  edited.set_bounds(patchy::Rect{20, 80, 60, 30});
+  for (const auto& [key, value] : layer->metadata()) {
+    edited.metadata()[key] = value;
+  }
+  edited.metadata()[patchy::kLayerMetadataText] = "MENU";
+  edited.metadata()[patchy::kLayerMetadataTextRasterStatus] = "patchy_raster";
+  edited.unknown_psd_blocks() = layer->unknown_psd_blocks();
+  document.add_layer(std::move(edited));
+
+  const auto bytes = patchy::psd::DocumentIo::write_layered_rgb8(document);
+  const std::string marker = "8BIMTxt2";
+  CHECK(std::search(bytes.begin(), bytes.end(), marker.begin(), marker.end()) == bytes.end());
+  const auto untouched = psd_layer_block_payload(psd_layer_extra_data(bytes, 0), "tySh");
+  CHECK(untouched.has_value() && *untouched == payload);
+  CHECK(psd_layer_block_payload(psd_layer_extra_data(bytes, 1), "TySh").has_value());
+  CHECK(!psd_layer_block_payload(psd_layer_extra_data(bytes, 1), "tySh").has_value());
+
+  const auto reread = patchy::psd::DocumentIo::read(bytes);
+  const auto* kept = find_layer_named(reread.layers(), "Text Layer");
+  const auto* regenerated = find_layer_named(reread.layers(), "Edited");
+  CHECK(kept != nullptr && metadata_or_empty(*kept, patchy::kLayerMetadataText) == "FLY!\nQUIT");
+  CHECK(regenerated != nullptr && metadata_or_empty(*regenerated, patchy::kLayerMetadataText) == "MENU");
+}
+
 void psd_legacy_type_tool_truncated_payload_stays_a_pixel_layer() {
   const auto payload = legacy_type_tool_payload(two_line_spec());
   for (std::size_t length = 0; length < payload.size(); ++length) {
@@ -445,6 +486,9 @@ void psd_title02_legacy_text_layers_import_if_available() {
   }
   CHECK(legacy_blocks == 6);
   CHECK(std::search(bytes.begin(), bytes.end(), modern_marker.begin(), modern_marker.end()) == bytes.end());
+  // No 'Txt2' either: with one present Photoshop opens every kept tySh layer as pixels.
+  const std::string engine_marker = "8BIMTxt2";
+  CHECK(std::search(bytes.begin(), bytes.end(), engine_marker.begin(), engine_marker.end()) == bytes.end());
 }
 
 }  // namespace
@@ -456,6 +500,8 @@ std::vector<patchy::test::TestCase> psd_legacy_text_tests() {
        psd_legacy_type_tool_untouched_save_keeps_the_block_verbatim},
       {"psd_legacy_type_tool_edited_layer_writes_modern_type_block",
        psd_legacy_type_tool_edited_layer_writes_modern_type_block},
+      {"psd_legacy_type_tool_kept_record_suppresses_the_text_engine_block",
+       psd_legacy_type_tool_kept_record_suppresses_the_text_engine_block},
       {"psd_legacy_type_tool_truncated_payload_stays_a_pixel_layer",
        psd_legacy_type_tool_truncated_payload_stays_a_pixel_layer},
       {"psd_legacy_type_tool_style_version_word_parses", psd_legacy_type_tool_style_version_word_parses},

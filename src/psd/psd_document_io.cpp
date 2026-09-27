@@ -82,6 +82,22 @@ std::optional<std::vector<std::uint8_t>> build_text_engine_block(std::vector<Enc
   if (text_layers.empty()) {
     return std::nullopt;
   }
+  // A Photoshop 5.x 'tySh' record only reads as text through Photoshop's old-text path, and
+  // the mere presence of a 'Txt2' block switches the whole document to the new engine: every
+  // untouched legacy layer then opens as a plain NORMAL layer (Title02.psd resaved through
+  // Patchy, COM readback, September 28, 2026; stripping the block restored all six). A document
+  // that keeps a verbatim tySh therefore gets no block unless it already had one; a regenerated
+  // TySh beside it is still read from its own bytes (docs/psd-legacy-text.md).
+  const bool keeps_legacy_type_record = std::any_of(text_layers.begin(), text_layers.end(), [](const EncodedLayer* encoded) {
+    return !should_write_generated_text_block(*encoded) &&
+           std::any_of(encoded->layer->unknown_psd_blocks().begin(), encoded->layer->unknown_psd_blocks().end(),
+                       [](const UnknownPsdBlock& block) { return block.key == "tySh"; });
+  });
+  const bool has_preserved_block = std::any_of(global_blocks.begin(), global_blocks.end(),
+                                               [](const UnknownPsdBlock& block) { return block.key == "Txt2"; });
+  if (keeps_legacy_type_record && !has_preserved_block) {
+    return std::nullopt;
+  }
   std::optional<TextEngineBlock> block;
   for (const auto& global : global_blocks) {
     if (global.key == "Txt2") {

@@ -38,7 +38,9 @@ The style-section ambiguity is resolved by validation, not assumption: the reade
 
 ## Saving
 
-An untouched legacy layer re-emits its original `tySh` bytes verbatim (no generated block is written for a `psd_raster_preview` layer whose transform is unchanged), so a round trip through Patchy leaves the file's text records byte-identical and Photoshop keeps reading them. An edited layer is written like any other regenerated type layer: a modern `TySh` (the `tySh` is dropped beside it) plus an authored object in the document's `Txt2` block, which the writer builds from the Photoshop 2026 template when the file has none, so Photoshop reads the edit as native text.
+An untouched legacy layer re-emits its original `tySh` bytes verbatim (no generated block is written for a `psd_raster_preview` layer whose transform is unchanged), so a round trip through Patchy leaves the file's text records byte-identical. An edited layer is written like any other regenerated type layer: a modern `TySh`, with the `tySh` dropped beside it.
+
+**A document that still carries a verbatim `tySh` gets no `Txt2` block** (`build_text_engine_block`, psd_document_io.cpp), unless the file already had one. Photoshop reads a `tySh` only through its old-text path, and the mere presence of a document-level text engine block switches the whole document to the new engine: a Title02 resave with the template block opened in Photoshop 2026 with every untouched type layer demoted to a plain NORMAL layer, and stripping that one block restored all six (COM readback, September 28, 2026). Without the block Photoshop reads the kept records and the regenerated `TySh` alike from their own bytes; it shows its usual "Some text layers might need to be updated" prompt, exactly as it does for the original file. Once every legacy layer has been edited, no `tySh` remains and the normal Txt2 authoring applies again.
 
 ## Tests
 

@@ -23,7 +23,10 @@ psd_document_io.cpp rebuilds the block for the write: the preserved block (or th
 with every layout cache stripped, an authored object for each regenerated type layer at the
 index its TySh will carry (its imported `patchy.psd.text.index` when that object exists, else
 appended), the objects of untouched imported layers kept, and the block appended to the global
-section when the document never had one. A block that fails to parse is kept verbatim and the
+section when the document never had one. Exception: a document that keeps a verbatim Photoshop
+5.x `tySh` record gets no block at all unless it already had one, because the block's presence
+alone makes Photoshop open every such layer as pixels ([psd-legacy-text.md](psd-legacy-text.md)).
+A block that fails to parse is kept verbatim and the
 regenerated layers fall back to indices no object has (`kRegeneratedTextIndexBase`), the
 old-text path. Objects a deleted layer leaves behind stay (Photoshop drops them on resave).
 Tests: `tests/core/text_engine_block_tests.cpp`.
