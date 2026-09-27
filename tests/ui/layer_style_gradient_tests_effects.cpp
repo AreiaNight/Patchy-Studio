@@ -636,19 +636,21 @@ void ui_layer_style_shadow_distances_accept_photoshop_30000() {
       categories->setCurrentItem(items.front());
     };
     select_category(QStringLiteral("Drop Shadow"));
-    // Photoshop's typed 0..30000 px; the sliders keep their historical reach.
-    CHECK(drop->maximum() == 30000 && drop_slider->maximum() == 2000);
-    CHECK(inner_spin->maximum() == 30000 && inner_slider->maximum() == 1000);
+    // Photoshop's typed 0..30000 px; the curved sliders keep their historical
+    // reach (2000 and 1000 at the track's end).
+    CHECK(drop->maximum() == 30000 && drop_slider->maximum() == patchy::ui::kCurvedSliderPositions);
+    CHECK(inner_spin->maximum() == 30000 && inner_slider->maximum() == patchy::ui::kCurvedSliderPositions);
     // A typed value past the slider parks the slider at its end without
     // echoing back into the spin box.
     drop->setValue(5000);
-    CHECK(drop->value() == 5000 && drop_slider->value() == 2000);
-    drop_slider->setValue(120);
+    CHECK(drop->value() == 5000 && drop_slider->value() == patchy::ui::kCurvedSliderPositions);
+    CHECK(patchy::ui::slider_value(*drop_slider) == 2000);
+    patchy::ui::set_slider_to_value(*drop_slider, 120);
     CHECK(drop->value() == 120);
     drop->setValue(25000);
     select_category(QStringLiteral("Inner Shadow"));
     inner_spin->setValue(20000);
-    CHECK(inner_spin->value() == 20000 && inner_slider->value() == 1000);
+    CHECK(inner_spin->value() == 20000 && patchy::ui::slider_value(*inner_slider) == 1000);
     drove_dialog = true;
     dialog->accept();
   });
@@ -694,7 +696,7 @@ void ui_layer_style_dialog_coalesces_rapid_slider_preview_callbacks() {
     categories->setCurrentItem(shadow_items.front());
     for (int value = 1; value <= 24; ++value) {
       opacity_slider->setValue(value);
-      shadow_distance_slider->setValue(value);
+      patchy::ui::set_slider_to_value(*shadow_distance_slider, value);
       CHECK(opacity->value() == value);
       CHECK(shadow_distance->value() == value);
     }
@@ -721,7 +723,7 @@ void ui_layer_style_dialog_coalesces_rapid_slider_preview_callbacks() {
             CHECK(shadow_distance_slider != nullptr);
             for (int value = 25; value <= 48; ++value) {
               opacity_slider->setValue(value);
-              shadow_distance_slider->setValue(value + 6);
+              patchy::ui::set_slider_to_value(*shadow_distance_slider, value + 6);
             }
           });
           QElapsedTimer slow_preview;

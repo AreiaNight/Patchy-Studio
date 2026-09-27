@@ -336,16 +336,20 @@ private:
 
     if constexpr (std::is_same_v<SpinBox, QSpinBox>) {
       const int maximum = static_cast<int>(std::lround(slider_maximum));
-      slider->setRange(spin_->minimum(), maximum);
-      slider->setPageStep(std::max(1, (maximum - spin_->minimum()) / 20));
-      slider->setValue(spin_->value());
-      QObject::connect(slider, &QSlider::valueChanged, spin_,
-                       &QSpinBox::setValue);
-      QObject::connect(spin_, &QSpinBox::valueChanged, popup,
-                       [slider](int new_value) {
-                         const QSignalBlocker blocker(slider);
-                         slider->setValue(new_value);
-                       });
+      if (spin_->property(kToolbarSpinboxSliderCurvedProperty).toBool()) {
+        bind_curved_slider(*slider, *spin_, maximum);
+      } else {
+        slider->setRange(spin_->minimum(), maximum);
+        slider->setPageStep(std::max(1, (maximum - spin_->minimum()) / 20));
+        slider->setValue(spin_->value());
+        QObject::connect(slider, &QSlider::valueChanged, spin_,
+                         &QSpinBox::setValue);
+        QObject::connect(spin_, &QSpinBox::valueChanged, popup,
+                         [slider](int new_value) {
+                           const QSignalBlocker blocker(slider);
+                           slider->setValue(new_value);
+                         });
+      }
     } else {
       const int decimal_places = std::clamp(spin_->decimals(), 0, 3);
       const double scale = std::pow(10.0, decimal_places);
@@ -1052,8 +1056,7 @@ namespace {
 QSpinBox* add_dialog_slider_spin_row_with(QFormLayout* form, QWidget* parent, const QString& label,
                                           const QString& slider_object_name, QSpinBox* spin, int minimum,
                                           int maximum, int value, int spin_width, int row_spacing,
-                                          bool step_buttons,
-                                          int slider_maximum = std::numeric_limits<int>::max()) {
+                                          bool step_buttons, int slider_maximum, SliderCurve curve) {
   // The default (and any value at or past `maximum`) means no cap. A negative
   // sentinel would collide with ranges like an angle's -180..180.
   const auto slider_top = std::clamp(std::min(slider_maximum, maximum), minimum, maximum);
@@ -1065,8 +1068,6 @@ QSpinBox* add_dialog_slider_spin_row_with(QFormLayout* form, QWidget* parent, co
   }
   auto* slider = new QSlider(Qt::Horizontal, row);
   slider->setObjectName(slider_object_name);
-  slider->setRange(minimum, slider_top);
-  slider->setValue(std::min(value, slider_top));
   spin->setParent(row);
   spin->setRange(minimum, maximum);
   spin->setValue(value);
@@ -1084,6 +1085,13 @@ QSpinBox* add_dialog_slider_spin_row_with(QFormLayout* form, QWidget* parent, co
   } else {
     row_layout->addWidget(spin);
   }
+  if (curve == SliderCurve::FineLowEnd) {
+    bind_curved_slider(*slider, *spin, slider_top);
+    form->addRow(label, row);
+    return spin;
+  }
+  slider->setRange(minimum, slider_top);
+  slider->setValue(std::min(value, slider_top));
   QObject::connect(slider, &QSlider::valueChanged, spin, &QSpinBox::setValue);
   if (slider_top == maximum) {
     QObject::connect(spin, qOverload<int>(&QSpinBox::valueChanged), slider, &QSlider::setValue);
@@ -1104,26 +1112,27 @@ QSpinBox* add_dialog_slider_spin_row_with(QFormLayout* form, QWidget* parent, co
 QSpinBox* add_dialog_slider_spin_row(QFormLayout* form, QWidget* parent, const QString& label,
                                      const QString& slider_object_name, const QString& spin_object_name,
                                      int minimum, int maximum, int value, const QString& suffix,
-                                     int spin_width, int row_spacing, bool step_buttons, int slider_maximum) {
+                                     int spin_width, int row_spacing, bool step_buttons, int slider_maximum,
+                                     SliderCurve curve) {
   auto* spin = new QSpinBox();
   spin->setObjectName(spin_object_name);
   if (!suffix.isEmpty()) {
     spin->setSuffix(suffix);
   }
   return add_dialog_slider_spin_row_with(form, parent, label, slider_object_name, spin, minimum, maximum, value,
-                                         spin_width, row_spacing, step_buttons, slider_maximum);
+                                         spin_width, row_spacing, step_buttons, slider_maximum, curve);
 }
 
 UnitIntSpinBox* add_dialog_slider_spin_row(QFormLayout* form, QWidget* parent, const QString& label,
                                            const QString& slider_object_name, const QString& spin_object_name,
                                            int minimum, int maximum, int value, SpinUnit unit,
                                            UnitIntSpinBox::ContextProvider provider, int spin_width,
-                                           int row_spacing, bool step_buttons) {
+                                           int row_spacing, bool step_buttons, SliderCurve curve) {
   auto* spin = new UnitIntSpinBox(unit);
   spin->setObjectName(spin_object_name);
   spin->set_context_provider(std::move(provider));
   add_dialog_slider_spin_row_with(form, parent, label, slider_object_name, spin, minimum, maximum, value,
-                                  spin_width, row_spacing, step_buttons);
+                                  spin_width, row_spacing, step_buttons, std::numeric_limits<int>::max(), curve);
   return spin;
 }
 

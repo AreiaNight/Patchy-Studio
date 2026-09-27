@@ -54,6 +54,7 @@
 #include "ui/gradient_stops_editor.hpp"
 #include "ui/gradient_library.hpp"
 #include "ui/gradient_manager_dialog.hpp"
+#include "ui/curved_slider.hpp"
 #include "ui/dialog_utils.hpp"
 #include "ui/document_float_window.hpp"
 #include "ui/font_picker.hpp"
@@ -473,7 +474,7 @@ void MainWindow::sync_tool_option_controls_from_canvas() {
   const auto set_slider_value = [this](const QString& name, int value) {
     if (auto* slider = findChild<QSlider*>(name); slider != nullptr) {
       const QSignalBlocker blocker(slider);
-      slider->setValue(value);
+      set_slider_to_value(*slider, value);
     }
   };
   const auto set_checked = [](QCheckBox* check, bool value) {

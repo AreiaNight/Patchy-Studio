@@ -1844,12 +1844,12 @@ void accept_layer_style_dialog(bool stroke_enabled, bool gradient_enabled, bool 
       bevel_size_slider->setValue(7);
       CHECK(bevel_size->value() == 7);
       categories->setCurrentItem(outer_glow_item);
-      outer_glow_size_slider->setValue(8);
+      patchy::ui::set_slider_to_value(*outer_glow_size_slider, 8);
       CHECK(outer_glow_size->value() == 8);
       outer_glow_blue_slider->setValue(210);
       CHECK(outer_glow_blue->value() == 210);
       categories->setCurrentItem(inner_glow_item);
-      inner_glow_size_slider->setValue(9);
+      patchy::ui::set_slider_to_value(*inner_glow_size_slider, 9);
       CHECK(inner_glow_size->value() == 9);
       categories->setCurrentItem(gradient_enabled ? gradient_item : blending_item);
       gradient_angle_slider->setValue(0);
@@ -1861,7 +1861,7 @@ void accept_layer_style_dialog(bool stroke_enabled, bool gradient_enabled, bool 
       CHECK(shadow_red->value() == 245);
       shadow_green->setValue(246);
       shadow_blue->setValue(247);
-      shadow_distance_slider->setValue(10);
+      patchy::ui::set_slider_to_value(*shadow_distance_slider, 10);
       CHECK(shadow_distance->value() == 10);
       categories->setCurrentItem(gradient_enabled ? gradient_item : blending_item);
       CHECK(gradient_stop_location->value() == 0);
@@ -1872,7 +1872,7 @@ void accept_layer_style_dialog(bool stroke_enabled, bool gradient_enabled, bool 
       send_key(*gradient_stop_hex, Qt::Key_Return);
       CHECK(gradient_stop_hex->text() == QStringLiteral("#FFA000"));
       categories->setCurrentItem(inner_shadow_item);
-      inner_shadow_distance_slider->setValue(3);
+      patchy::ui::set_slider_to_value(*inner_shadow_distance_slider, 3);
       CHECK(inner_shadow_distance->value() == 3);
       categories->setCurrentItem(inner_glow_item);
       add_inner_glow_instance->click();

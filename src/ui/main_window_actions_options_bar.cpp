@@ -50,6 +50,7 @@
 #include "ui/gradient_stops_editor.hpp"
 #include "ui/gradient_library.hpp"
 #include "ui/gradient_manager_dialog.hpp"
+#include "ui/curved_slider.hpp"
 #include "ui/dialog_utils.hpp"
 #include "ui/document_float_window.hpp"
 #include "ui/font_picker.hpp"
@@ -1100,6 +1101,7 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   feather->setObjectName(QStringLiteral("selectionFeatherSpin"));
   feather->setRange(0, kMaxSelectionFeatherRadius);
   feather->setValue(current_selection_feather_radius_);
+  feather->setProperty(kToolbarSpinboxSliderCurvedProperty, true);
   configure_toolbar_spinbox(feather, 64);
   feather_layout->addWidget(feather);
   add_option_widget(feather_group, {CanvasTool::Marquee, CanvasTool::EllipticalMarquee, CanvasTool::Lasso,
@@ -1411,6 +1413,7 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   brush_size->setObjectName(QStringLiteral("brushSizeSpin"));
   brush_size->setRange(1, kMaxBrushSize);
   brush_size->setValue(canvas_defaults->brush_size());
+  brush_size->setProperty(kToolbarSpinboxSliderCurvedProperty, true);
   configure_toolbar_spinbox(brush_size, 58);
   add_option_widget(brush_size,
                     {CanvasTool::Brush, CanvasTool::MixerBrush, CanvasTool::PatternStamp, CanvasTool::Clone, CanvasTool::Healing, CanvasTool::SpotHealing, CanvasTool::Smudge,
@@ -1419,8 +1422,7 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
                      CanvasTool::Eraser, CanvasTool::Line, CanvasTool::Rectangle, CanvasTool::Ellipse});
   auto* brush_size_slider = new QSlider(Qt::Horizontal, toolbar);
   brush_size_slider->setObjectName(QStringLiteral("brushSizeSlider"));
-  brush_size_slider->setRange(1, kMaxBrushSize);
-  brush_size_slider->setValue(canvas_defaults->brush_size());
+  bind_curved_slider(*brush_size_slider, *brush_size);
   // 130 (was 150): the Brush row must keep one Options-bar line at ordinary
   // window widths now that it also carries the Smoothing spin and gear
   // (ui_brush_tip_picker_keeps_options_bar_height).
@@ -1491,8 +1493,6 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
                                        brush_opacity_slider, brush_softness, brush_softness_slider}) {
     vector_pixel_only_option_widgets_.push_back(raster_only);
   }
-  connect(brush_size, &QSpinBox::valueChanged, brush_size_slider, &QSlider::setValue);
-  connect(brush_size_slider, &QSlider::valueChanged, brush_size, &QSpinBox::setValue);
   connect(brush_size, &QSpinBox::valueChanged, this, [this](int value) {
     if (canvas_ != nullptr) {
       canvas_->set_brush_size(value);
@@ -2242,13 +2242,10 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   add_option_widget(quick_select_size, {CanvasTool::QuickSelect});
   auto* quick_select_size_slider = new QSlider(Qt::Horizontal, toolbar);
   quick_select_size_slider->setObjectName(QStringLiteral("quickSelectSizeSlider"));
-  quick_select_size_slider->setRange(1, 512);
-  quick_select_size_slider->setValue(canvas_defaults->quick_select_size());
+  bind_curved_slider(*quick_select_size_slider, *quick_select_size);
   quick_select_size_slider->setFixedWidth(150);
   bind_tooltip(quick_select_size_slider, QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Quick Select brush size: press [ or ]"));
   add_option_widget(quick_select_size_slider, {CanvasTool::QuickSelect});
-  connect(quick_select_size, &QSpinBox::valueChanged, quick_select_size_slider, &QSlider::setValue);
-  connect(quick_select_size_slider, &QSlider::valueChanged, quick_select_size, &QSpinBox::setValue);
   connect(quick_select_size, &QSpinBox::valueChanged, this, [this](int value) {
     if (canvas_ != nullptr) {
       canvas_->set_quick_select_size(value);
@@ -2543,6 +2540,7 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   vector_line_weight->setRange(1, 1000);
   vector_line_weight->setValue(current_vector_line_weight_);
   bind_tooltip(vector_line_weight, QT_TR_NOOP("Line thickness"));
+  vector_line_weight->setProperty(kToolbarSpinboxSliderCurvedProperty, true);
   configure_toolbar_spinbox(vector_line_weight, 58);
   add_option_widget(vector_line_weight, {CanvasTool::Line});
   vector_vector_mode_option_widgets_.push_back(vector_line_weight);

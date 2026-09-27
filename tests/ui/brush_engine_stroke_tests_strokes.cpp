@@ -1659,7 +1659,7 @@ void ui_pattern_stamp_alignment_palette_and_psd_round_trip() {
       auto* slider = window.findChild<QSlider*>(base_name + QStringLiteral("PopupSlider"));
       CHECK(popup != nullptr && popup->isVisible());
       CHECK(slider != nullptr);
-      slider->setValue(value);
+      patchy::ui::set_slider_to_value(*slider, value);
       CHECK(spin->value() == value);
       popup->close();
       QApplication::processEvents();

@@ -938,6 +938,8 @@ ${PATCHY_LUPDATE_MANIFEST_SOURCES}
       src/ui/color_panel.cpp
       src/ui/compatibility_report.cpp
       src/ui/coalesced_preview_emitter.hpp
+      src/ui/curved_slider.hpp
+      src/ui/curved_slider.cpp
       src/ui/dialog_utils.cpp
       src/ui/document_float_window.hpp
       src/ui/document_float_window.cpp

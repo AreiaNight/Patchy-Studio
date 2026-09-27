@@ -761,6 +761,17 @@ void ui_liquify_dialog_exposes_manual_tools_and_brush_controls() {
     CHECK(size != nullptr && pressure != nullptr && density != nullptr);
     CHECK(preview != nullptr && show_mask != nullptr && restore != nullptr);
     CHECK(size->minimum() == 5 && size->maximum() == 2000);
+    // Size uses the fine-low-end curve: the middle of the track is a quarter
+    // of the range, not half.
+    auto* size_slider = dialog->findChild<QSlider*>(QStringLiteral("liquifySizeSlider"));
+    CHECK(size_slider != nullptr);
+    CHECK(size_slider->maximum() == patchy::ui::kCurvedSliderPositions);
+    const int original_size = size->value();
+    CHECK(patchy::ui::slider_value(*size_slider) == original_size);
+    size_slider->setValue(patchy::ui::kCurvedSliderPositions / 2);
+    CHECK(size->value() == 504);
+    size->setValue(original_size);
+    CHECK(patchy::ui::slider_value(*size_slider) == original_size);
     CHECK(pressure->minimum() == 1 && pressure->maximum() == 100);
     CHECK(density->minimum() == 1 && density->maximum() == 100);
     CHECK(show_mask->isChecked());

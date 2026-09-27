@@ -53,6 +53,7 @@
 #include "ui/gradient_library.hpp"
 #include "ui/gradient_manager_dialog.hpp"
 #include "ui/gradient_preset_popup.hpp"
+#include "ui/curved_slider.hpp"
 #include "ui/dialog_utils.hpp"
 #include "ui/document_float_window.hpp"
 #include "ui/font_picker.hpp"
@@ -2655,7 +2656,7 @@ void MainWindow::refresh_options_bar() {
     }
     if (auto* slider = findChild<QSlider*>(QStringLiteral("quickSelectSizeSlider")); slider != nullptr) {
       QSignalBlocker blocker(slider);
-      slider->setValue(canvas_->quick_select_size());
+      set_slider_to_value(*slider, canvas_->quick_select_size());
     }
     if (auto* spin = findChild<QSpinBox*>(QStringLiteral("magneticLassoWidthSpin")); spin != nullptr) {
       QSignalBlocker blocker(spin);
@@ -2758,7 +2759,7 @@ void MainWindow::sync_brush_controls_from_canvas() {
   if (auto* brush_size_slider = findChild<QSlider*>(QStringLiteral("brushSizeSlider"));
       brush_size_slider != nullptr) {
     QSignalBlocker blocker(brush_size_slider);
-    brush_size_slider->setValue(canvas_->brush_size());
+    set_slider_to_value(*brush_size_slider, canvas_->brush_size());
   }
   if (auto* brush_opacity = findChild<QSpinBox*>(QStringLiteral("brushOpacitySpin")); brush_opacity != nullptr) {
     QSignalBlocker blocker(brush_opacity);
