@@ -1,6 +1,6 @@
 # Layers panel
 
-Read this before changing layer rows, layer thumbnails, panel click selection, the folder disclosure arrow, the visibility eye, or the blend and opacity row. Generic item-widget row rules (selection painting, transparent containers, `bind_widget_text`) stay in [ui-conventions.md](ui-conventions.md).
+Read this before changing layer rows, thumbnails, click selection, the disclosure arrow, the visibility eye, or the blend and opacity row. Generic item-widget row rules (selection painting, transparent containers, `bind_widget_text`) stay in [ui-conventions.md](ui-conventions.md).
 
 ## Row styling
 
@@ -8,7 +8,7 @@ Layer rows use dynamic properties and application rules such as `QWidget#layerRo
 
 ## Thumbnails
 
-In document-mapped mode (the zoom preference below turned off), layer-panel previews show the whole document, shaped like it and centered in a fixed slot, the way Photoshop does: a layer smaller than the canvas appears at its own position inside that rect with checkerboard around it. `thumbnail_tile_size` and `thumbnail_preview_space` in `src/ui/main_window_layer_panel.cpp` do the fitting and the document-space mapping; the content, mask, vector-mask, and Smart Filter mask previews all go through them, so the previews in one row share a shape. The folder, text, and adjustment thumbnails are the deliberate exception; they are glyphs drawn against fixed 28px coordinates, so they stay square. Because the tile depends on the canvas extent, `LayerThumbnailCacheEntry` keys on it alongside the layer revision and `refresh_layer_thumbnails` restamps every row when it changes: growing the canvas reshapes a small layer's thumbnail without moving its revision. `layerTargetActive` frames the slot rather than the pixmap, which keeps switching the edit target a property flip with no thumbnail rebuild. `ui_layer_thumbnails_preview_the_whole_document` pins all of this. The `view/zoomLayerThumbnailsToContent` preference (default on, Preferences > Application) swaps the document space for a per-layer crop: the visible-alpha extent (revision-cached in core), else the declared pixel bounds, else the raster mask bounds. `MainWindow::layer_thumbnail_crop` gates it and every preview in a row (content, mask, vector mask, Smart Filter mask) shares the crop so the row keeps one shape; glyph thumbnails are still exempt. Toggling the preference clears `layer_thumbnail_cache_` and rebuilds, since the mode is a shape input the revision keys do not track. `ui_layer_thumbnails_zoom_to_content_preference` pins the zoomed mode.
+In document-mapped mode (the zoom preference below turned off), layer-panel previews show the whole document, shaped like it and centered in a fixed slot (Photoshop): a layer smaller than the canvas sits at its own position inside that rect with checkerboard around it. `thumbnail_tile_size` and `thumbnail_preview_space` in `src/ui/main_window_layer_panel.cpp` do the fitting and the document-space mapping; the content, mask, vector-mask, and Smart Filter mask previews all go through them, so the previews in one row share a shape. The folder, text, and adjustment thumbnails are the deliberate exception; they are glyphs drawn against fixed 28px coordinates, so they stay square. Because the tile depends on the canvas extent, `LayerThumbnailCacheEntry` keys on it alongside the layer revision and `refresh_layer_thumbnails` restamps every row when it changes: growing the canvas reshapes a small layer's thumbnail without moving its revision. `layerTargetActive` frames the slot rather than the pixmap, which keeps switching the edit target a property flip with no thumbnail rebuild. `ui_layer_thumbnails_preview_the_whole_document` pins all of this. The `view/zoomLayerThumbnailsToContent` preference (default on, Preferences > Application) swaps the document space for a per-layer crop: the visible-alpha extent (revision-cached in core), else the declared pixel bounds, else the raster mask bounds. `MainWindow::layer_thumbnail_crop` gates it and every preview in a row (content, mask, vector mask, Smart Filter mask) shares the crop so the row keeps one shape; glyph thumbnails are still exempt. Toggling the preference clears `layer_thumbnail_cache_` and rebuilds, since the mode is a shape input the revision keys do not track. `ui_layer_thumbnails_zoom_to_content_preference` pins the zoomed mode.
 
 ## Rebuilds and absent rows
 
@@ -21,8 +21,8 @@ persistent editor index that every LATER model insert pays an update walk over,
 which made interleaved insert-and-attach quadratic in row count (~2.2 s per
 rebuild for the 622-row Affinity card template, ~0.4 s batched). Never mutate an inserted
 item mid-rebuild and never attach a row widget before the last item is in.
-The profiling knobs and the `layerpanel` / `manylayers` perf scenarios that
-reproduce the numbers are listed in [performance.md](performance.md).
+Profiling knobs and the `layerpanel` / `manylayers` perf scenarios live in
+[performance.md](performance.md).
 
 New sessions build rows once. Their row-attachment callback pumps paints/timers
 with input excluded and the preview edit lock held; recursive rebuilds are refused.
@@ -64,12 +64,10 @@ The canvas requests panel selection changes through `CanvasWidget::set_layer_sel
 
 Range selection normalizes selected ancestors with one const tree traversal
 (`root_drop_layer_ids`), preserving requested order and rejecting missing ids.
-Thumbnail target styles repolish only when their active state changes. Selection
-updates use the delayed **Selecting layers...** canvas processing message when
-control/row refresh takes long enough; fast selections show no overlay. The shared
-selection handler and single-layer reveal path report the selected layer count
-in the status bar, covering canvas clicks, rectangle selection, and panel
-selection. A selected folder includes itself and every descendant, including
+Thumbnail target styles repolish only when their active state changes. Slow selection
+updates show the delayed **Selecting layers...** canvas message; fast ones show no
+overlay. The selection handler and single-layer reveal path report the selected layer
+count in the status bar for canvas clicks, rectangle and panel selection. A selected folder includes itself and every descendant, including
 nested folders and hidden, locked, collapsed, or filtered-out layers. A selected
 parent and child never count a layer twice; one const traversal computes the count
 without touching selection or history, so expanding a folder cannot change it.
@@ -82,8 +80,7 @@ Clipping controls and row badges use `effective_clip_base`: pixel layers and
 folders can host a clipped run. Adjustments clipped above a folder affect its
 merged content. The folder itself cannot be a clipped member.
 
-Every New Adjustment Layer entry, including Hue/Saturation and Invert, inserts
-directly above the topmost selected row. A selected child keeps the adjustment
+Every New Adjustment Layer entry inserts directly above the topmost selected row. A selected child keeps the adjustment
 in that child's folder; a selected folder places it above the folder. With no
 selected rows, the active layer is the anchor, falling back to the document top.
 Live previews use the same placement and preserve the original active layer.
@@ -92,8 +89,8 @@ removes the preview without changing the selection or history.
 
 New adjustments always carry an enabled raster mask. An active pixel selection
 supplies its coverage, with black outside the selection; otherwise the mask
-covers the canvas in white and defaults to white outside it. This is shared by
-previews and committed layers in `main_window_adjustments.cpp`.
+covers the canvas in white and defaults to white outside it. Previews and
+committed layers share it in `main_window_adjustments.cpp`.
 `ui_adjustment_layer_inserts_above_selection_with_white_mask` and
 `ui_adjustment_layer_preview_uses_topmost_selection_and_cancels_cleanly` cover
 placement, masks, preview toggling, cancellation, and undo/redo. The
@@ -107,20 +104,18 @@ section of the shared canvas context menu, see "Canvas right-click menu" in
 [tools.md](tools.md)). It lists the hit leaf layers from top to bottom, including occluded
 layers and children of collapsed or filtered folders. Folder paths distinguish
 nested names. Picking a row replaces the layer selection; **Select All Layers
-Here** appears for multiple hits and selects them with the topmost active. This
-works with Auto-Select off. Locks do not prevent explicit selection.
+Here** appears for multiple hits and selects them with the topmost active. Works
+with Auto-Select off; locks do not block explicit selection.
 
 Hit testing reads the const tree once, using raster alpha and masks or the text
 rectangle. Hidden and zero-opacity trees, transparent pixels, and masked-out
-folder contents are excluded. Empty canvas space opens no menu. Selection goes
-through the same panel callback as rectangle selection, revealing its rows and
-updating the count without editing pixels or history.
+folder contents are excluded. Empty canvas space opens no menu. Selection uses the
+rectangle-selection panel callback (rows revealed, count updated, no pixel or history edits).
 
-Crossing Qt's drag threshold commits to right-button panning, even if the
-pointer returns to its starting position. Rulers, tablet-button actions,
+Crossing Qt's drag threshold commits to right-button panning even when the
+pointer returns to its start. Rulers, tablet-button actions,
 Space/middle-button panning, and active transform sessions keep their handling. Tool/document changes and edit locks
-close the popup; focus loss cancels a pending click. The `ui_move_layer_menu`
-tests cover selection, eligibility, panel reveal, and gesture/lifetime behavior.
+close the popup; focus loss cancels a pending click. The `ui_move_layer_menu` tests pin it.
 
 ## Disclosure arrow, double-click, visibility eye
 
@@ -183,13 +178,17 @@ canvas, activates the target session and selects the copies. `ui_layer_drag_*`
 `ui_layer_drag_to_float_canvas_centers_at_drop_point` (float_window_tests.cpp) pin it;
 `send_layer_drop_to_widget` synthesizes the drag.
 
+Duplicate Layer (`layerDuplicateAction`, the footer button and its drop target) runs
+`MainWindow::duplicate_layers`: the copies land as one block directly above the topmost
+selected root, in its parent and in source order (Photoshop; GitHub issue 38 was add-to-top),
+and become the selection. `ui_duplicate_layer_inserts_copies_above_source` pins it.
+
 Inside the panel, an Alt-drop duplicates instead of moving (Photoshop's Alt-drag):
 `LayerListWidget::dropEvent` records `LayerDropRequest::copy` from the event's
 modifiers (the enter/move handlers report CopyAction so the cursor shows the badge), and
-`MainWindow::duplicate_layers_for_drop` clones each dragged root directly above its
-source, then runs the ordinary `move_layers_for_drop` on the CLONES, so the originals
-never move; the copies become the selection under one "Duplicate layer" snapshot.
-`ui_layer_alt_drag_duplicates_in_panel` pins it.
+`MainWindow::duplicate_layers_for_drop` clones each dragged root above its source, then
+runs `move_layers_for_drop` on the CLONES, so the originals never move; the copies become
+the selection under one snapshot. `ui_layer_alt_drag_duplicates_in_panel` pins it.
 
 The same core backs Duplicate Layer to Document... (`layerDuplicateToDocumentAction`, hotkey
 id `layer.duplicate_to_document`, in the layer context menu and added to the window itself

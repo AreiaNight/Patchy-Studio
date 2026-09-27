@@ -803,6 +803,101 @@ void ui_duplicate_layer_copies_text_and_folder_trees() {
   save_widget_artifact("ui_duplicate_text_folder_tree", window);
 }
 
+// GitHub issue 38: Duplicate Layer stacks the copies as one block directly above
+// the topmost selected layer, inside its parent and in source order, and the
+// copies become the selection. The old behavior appended them to the top.
+void ui_duplicate_layer_inserts_copies_above_source() {
+  const auto format = patchy::PixelFormat::rgba8();
+  patchy::Document document(64, 48, format);
+  document.add_pixel_layer("Background", solid_pixels(64, 48, format, QColor(Qt::white)));
+  document.add_pixel_layer("Middle", solid_pixels(64, 48, format, QColor(Qt::red)));
+  patchy::Layer folder(document.allocate_layer_id(), "Folder", patchy::LayerKind::Group);
+  folder.add_child(patchy::Layer(document.allocate_layer_id(), "Inner Low", solid_pixels(8, 8, format, QColor(Qt::blue))));
+  folder.add_child(
+      patchy::Layer(document.allocate_layer_id(), "Inner High", solid_pixels(8, 8, format, QColor(Qt::green))));
+  document.add_layer(std::move(folder));
+  document.add_pixel_layer("Top", solid_pixels(64, 48, format, QColor(Qt::black)));
+
+  patchy::ui::MainWindow window;
+  show_window(window);
+  window.add_document_session(std::move(document), QStringLiteral("Duplicate Placement"));
+  auto* layer_list = window.findChild<QListWidget*>(QStringLiteral("layerList"));
+  CHECK(layer_list != nullptr);
+  auto& doc = patchy::ui::MainWindowTestAccess::document(window);
+
+  const auto rows = [layer_list] {
+    QStringList out;
+    for (int row = 0; row < layer_list->count(); ++row) {
+      out << layer_list->item(row)->text();
+    }
+    return out;
+  };
+  const auto selected_rows = [layer_list] {
+    QStringList out;
+    for (int row = 0; row < layer_list->count(); ++row) {
+      if (layer_list->item(row)->isSelected()) {
+        out << layer_list->item(row)->text();
+      }
+    }
+    return out;
+  };
+  const auto active_name = [&doc] {
+    const auto id = doc.active_layer_id();
+    const auto* layer = id.has_value() ? std::as_const(doc).find_layer(*id) : nullptr;
+    return layer != nullptr ? QString::fromStdString(layer->name()) : QString();
+  };
+  const auto select_only = [layer_list](QListWidgetItem* item) {
+    layer_list->clearSelection();
+    layer_list->setCurrentItem(item);
+    item->setSelected(true);
+  };
+
+  CHECK((rows() == QStringList{QStringLiteral("Top"), QStringLiteral("Folder"), QStringLiteral("Inner High"),
+                              QStringLiteral("Inner Low"), QStringLiteral("Middle"), QStringLiteral("Background")}));
+
+  // A single layer in the middle of the stack: the copy sits directly above it.
+  select_only(require_layer_item(*layer_list, QStringLiteral("Middle")));
+  require_action(window, "layerDuplicateAction")->trigger();
+  QApplication::processEvents();
+  CHECK((rows() == QStringList{QStringLiteral("Top"), QStringLiteral("Folder"), QStringLiteral("Inner High"),
+                              QStringLiteral("Inner Low"), QStringLiteral("Middle copy"), QStringLiteral("Middle"),
+                              QStringLiteral("Background")}));
+  CHECK(active_name() == QStringLiteral("Middle copy"));
+  CHECK((selected_rows() == QStringList{QStringLiteral("Middle copy")}));
+
+  // A child of a folder: the copy stays inside the folder, above its source.
+  select_only(require_layer_item(*layer_list, QStringLiteral("Inner Low")));
+  require_action(window, "layerDuplicateAction")->trigger();
+  QApplication::processEvents();
+  CHECK((rows() == QStringList{QStringLiteral("Top"), QStringLiteral("Folder"), QStringLiteral("Inner High"),
+                              QStringLiteral("Inner Low copy"), QStringLiteral("Inner Low"),
+                              QStringLiteral("Middle copy"), QStringLiteral("Middle"), QStringLiteral("Background")}));
+  CHECK(require_layer_item(*layer_list, QStringLiteral("Inner Low copy"))->data(patchy::ui::kLayerDepthRole).toInt() ==
+        1);
+  CHECK(active_name() == QStringLiteral("Inner Low copy"));
+
+  // A non-contiguous multi-selection: one block above the topmost selected
+  // layer, in source order, and the copies are the new selection.
+  const auto before_multi = rows();
+  layer_list->clearSelection();
+  require_layer_item(*layer_list, QStringLiteral("Top"))->setSelected(true);
+  require_layer_item(*layer_list, QStringLiteral("Background"))->setSelected(true);
+  require_action(window, "layerDuplicateAction")->trigger();
+  QApplication::processEvents();
+  CHECK((rows() == QStringList{QStringLiteral("Top copy"), QStringLiteral("Background copy"), QStringLiteral("Top"),
+                              QStringLiteral("Folder"), QStringLiteral("Inner High"), QStringLiteral("Inner Low copy"),
+                              QStringLiteral("Inner Low"), QStringLiteral("Middle copy"), QStringLiteral("Middle"),
+                              QStringLiteral("Background")}));
+  CHECK(active_name() == QStringLiteral("Top copy"));
+  CHECK((selected_rows() == QStringList{QStringLiteral("Top copy"), QStringLiteral("Background copy")}));
+
+  // One undo entry removes the whole block.
+  require_action_by_text(window, QStringLiteral("Undo"))->trigger();
+  QApplication::processEvents();
+  CHECK(rows() == before_multi);
+  save_widget_artifact("ui_duplicate_layer_inserts_copies_above_source", window);
+}
+
 void ui_copy_paste_layer_panel_copies_layers_and_folder_trees() {
   patchy::Document document(120, 90, patchy::PixelFormat::rgba8());
   document.add_pixel_layer("Background", solid_pixels(120, 90, patchy::PixelFormat::rgba8(), QColor(Qt::white)));
@@ -3659,6 +3754,7 @@ std::vector<patchy::test::TestCase> layer_panel_organization_tests() {
       {"ui_document_with_only_folders_opens_with_no_layer_selected",
        ui_document_with_only_folders_opens_with_no_layer_selected},
       {"ui_duplicate_layer_copies_text_and_folder_trees", ui_duplicate_layer_copies_text_and_folder_trees},
+      {"ui_duplicate_layer_inserts_copies_above_source", ui_duplicate_layer_inserts_copies_above_source},
       {"ui_copy_paste_layer_panel_copies_layers_and_folder_trees",
        ui_copy_paste_layer_panel_copies_layers_and_folder_trees},
       {"ui_layer_rows_toggle_visibility_and_drag_reorder", ui_layer_rows_toggle_visibility_and_drag_reorder},

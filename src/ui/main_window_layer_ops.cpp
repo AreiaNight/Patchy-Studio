@@ -1833,31 +1833,63 @@ void MainWindow::duplicate_layers(std::vector<LayerId> ids) {
         tr("Smart Filter cache data could not be duplicated safely"));
     return;
   }
+
+  // Photoshop's Duplicate Layer: the copies land as one block directly above
+  // the topmost selected layer, in source order, inside that layer's parent
+  // (GitHub issue 38 was the old add-to-top). Walk the tree top to bottom so
+  // the block order follows the document, whatever order the caller passed.
+  const std::set<LayerId> selected(ids.begin(), ids.end());
+  std::vector<const Layer*> sources_top_to_bottom;
+  sources_top_to_bottom.reserve(ids.size());
+  const auto collect_sources = [&](const auto& self, const std::vector<Layer>& siblings) -> void {
+    for (auto it = siblings.rbegin(); it != siblings.rend(); ++it) {
+      if (selected.contains(it->id())) {
+        sources_top_to_bottom.push_back(&*it);
+        continue;  // root_drop_layer_ids already dropped selected descendants
+      }
+      self(self, it->children());
+    }
+  };
+  collect_sources(collect_sources, std::as_const(doc).layers());
+  if (sources_top_to_bottom.empty()) {
+    return;
+  }
+
+  // The snapshot precedes cloning: a clone adopts Smart Filter records into the
+  // document's metadata, which undo must roll back on failure. Clone everything
+  // before inserting anything so a failure never leaves a half-duplicated stack.
+  push_undo_snapshot(tr("Duplicate layer"));
   std::set<std::string> existing_names;
   collect_layer_names(doc.layers(), existing_names);
-
-  push_undo_snapshot(tr("Duplicate layer"));
-  for (auto it = ids.rbegin(); it != ids.rend(); ++it) {
-    const auto id = *it;
-    const auto* source = doc.find_layer(id);
-    if (source == nullptr) {
-      continue;
-    }
-
-    auto duplicate = clone_layer_tree_with_document_ids(doc, *source);
+  std::vector<Layer> clones_bottom_to_top;
+  clones_bottom_to_top.reserve(sources_top_to_bottom.size());
+  for (auto it = sources_top_to_bottom.rbegin(); it != sources_top_to_bottom.rend(); ++it) {
+    auto duplicate = clone_layer_tree_with_document_ids(doc, **it);
     if (!duplicate.has_value()) {
       undo();
       show_status_error(
           tr("Smart Filter cache data could not be duplicated safely"));
       return;
     }
-    duplicate->set_name(next_duplicate_name(source->name(), existing_names));
+    duplicate->set_name(next_duplicate_name((*it)->name(), existing_names));
     existing_names.insert(duplicate->name());
-    doc.add_layer(std::move(*duplicate));
+    clones_bottom_to_top.push_back(std::move(*duplicate));
   }
+
+  std::optional<LayerId> anchor = sources_top_to_bottom.front()->id();
+  std::vector<LayerId> copy_ids_top_to_bottom;
+  copy_ids_top_to_bottom.reserve(clones_bottom_to_top.size());
+  for (auto& clone : clones_bottom_to_top) {
+    const auto id = clone.id();
+    insert_layer_after_anchor(doc, std::move(clone), anchor);
+    anchor = id;
+    copy_ids_top_to_bottom.insert(copy_ids_top_to_bottom.begin(), id);
+  }
+  doc.set_active_layer(copy_ids_top_to_bottom.front());
   refresh_layer_list();
   refresh_layer_controls();
   canvas_->document_changed();
+  select_layers_in_layer_list(copy_ids_top_to_bottom, copy_ids_top_to_bottom.front());
 }
 
 namespace {
