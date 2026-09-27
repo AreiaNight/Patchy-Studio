@@ -1256,14 +1256,27 @@ void MainWindow::set_active_layer_blend(int index) {
     refresh_layer_controls();
     return;
   }
-  const auto ids = selected_or_active_layer_ids();
-  if (ids.empty()) {
-    return;
+  // Stepping through modes with the arrow keys or the wheel is one run and one
+  // undo entry, like an Opacity drag; the run ends after a pause or at the next
+  // history change or layer-control refresh.
+  if (!pending_layer_blend_edit_active_) {
+    if (!has_active_document()) {
+      return;
+    }
+    auto ids = selected_or_active_layer_ids();
+    if (ids.empty()) {
+      return;
+    }
+    push_undo_snapshot(tr("Blend mode"));
+    pending_layer_blend_ids_ = std::move(ids);
+    pending_layer_blend_edit_active_ = true;
+  }
+  if (layer_blend_idle_timer_ != nullptr) {
+    layer_blend_idle_timer_->start();
   }
   auto& doc = document();
-  push_undo_snapshot(tr("Blend mode"));
   Rect affected;
-  for (const auto id : ids) {
+  for (const auto id : pending_layer_blend_ids_) {
     auto* layer = doc.find_layer(id);
     if (layer == nullptr) {
       continue;
@@ -1272,6 +1285,14 @@ void MainWindow::set_active_layer_blend(int index) {
     affected = unite_rect(affected, layer_render_bounds(*layer));
   }
   canvas_->document_changed(to_qrect(affected));
+}
+
+void MainWindow::finish_pending_layer_blend_edit() {
+  if (layer_blend_idle_timer_ != nullptr) {
+    layer_blend_idle_timer_->stop();
+  }
+  pending_layer_blend_ids_.clear();
+  pending_layer_blend_edit_active_ = false;
 }
 
 void MainWindow::set_active_layer_visible(bool visible) {

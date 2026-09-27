@@ -1290,6 +1290,7 @@ private:
   void finish_pending_layer_fill_opacity_edit();
   void reset_pending_layer_fill_opacity_edit();
   void set_active_layer_blend(int index);
+  void finish_pending_layer_blend_edit();
   void set_active_layer_visible(bool visible);
   void set_layer_lock_flag_state(LayerId id, LayerLockFlags flag, bool locked);
   void set_active_layer_lock_flag(LayerLockFlags flag, bool locked);
@@ -1722,6 +1723,7 @@ private:
   QTimer* layer_opacity_idle_timer_{nullptr};
   QTimer* layer_fill_opacity_apply_timer_{nullptr};
   QTimer* layer_fill_opacity_idle_timer_{nullptr};
+  QTimer* layer_blend_idle_timer_{nullptr};
   QTimer* tool_settings_save_timer_{nullptr};
   QComboBox* blend_combo_{nullptr};
   QCheckBox* visible_check_{nullptr};
@@ -2036,6 +2038,7 @@ private:
   std::optional<QByteArray> patchy_system_clipboard_signature_;
   std::vector<LayerId> pending_layer_opacity_ids_;
   std::vector<LayerId> pending_layer_fill_opacity_ids_;
+  std::vector<LayerId> pending_layer_blend_ids_;
   // Displayed recent lists: the stored lists minus the entries the last
   // background existence check found missing. Loading never stats the disk
   // (a cold or unreachable volume would stall startup and the File menu).
@@ -2200,6 +2203,7 @@ private:
   bool updating_layer_list_{false};
   bool pending_layer_opacity_edit_active_{false};
   bool pending_layer_fill_opacity_edit_active_{false};
+  bool pending_layer_blend_edit_active_{false};
   bool right_dock_resizing_{false};
   QPoint right_dock_resize_start_global_;
   int right_dock_resize_start_width_{0};

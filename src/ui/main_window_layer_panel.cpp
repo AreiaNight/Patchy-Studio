@@ -3533,6 +3533,7 @@ void MainWindow::refresh_layer_controls() {
   if (!updating_layer_controls_) {
     finish_pending_layer_opacity_edit();
     finish_pending_layer_fill_opacity_edit();
+    finish_pending_layer_blend_edit();
   }
   updating_layer_controls_ = true;
   const auto reset = [this] {

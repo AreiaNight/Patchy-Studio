@@ -1,6 +1,6 @@
 # Layers panel
 
-Read this before changing layer rows, layer thumbnails, panel click selection, the folder disclosure arrow, or the visibility eye. Generic item-widget row rules (selection painting, transparent containers, `bind_widget_text`) stay in [ui-conventions.md](ui-conventions.md).
+Read this before changing layer rows, layer thumbnails, panel click selection, the folder disclosure arrow, the visibility eye, or the blend and opacity row. Generic item-widget row rules (selection painting, transparent containers, `bind_widget_text`) stay in [ui-conventions.md](ui-conventions.md).
 
 ## Row styling
 
@@ -19,8 +19,7 @@ items, then attach the row widgets. The order is load-bearing twice over: a
 answers with layout work, and - the expensive one - `setItemWidget` registers a
 persistent editor index that every LATER model insert pays an update walk over,
 which made interleaved insert-and-attach quadratic in row count (~2.2 s per
-rebuild for the 622-row Affinity card template, ~0.4 s batched; the remaining
-cost is genuine widget construction + QSS polish). Never mutate an inserted
+rebuild for the 622-row Affinity card template, ~0.4 s batched). Never mutate an inserted
 item mid-rebuild and never attach a row widget before the last item is in.
 The profiling knobs and the `layerpanel` / `manylayers` perf scenarios that
 reproduce the numbers are listed in [performance.md](performance.md).
@@ -39,11 +38,15 @@ keeps the full rebuild (badges and details may genuinely change).
 
 During guarded automation, script-originated rebuilds call `refresh_layer_list(true)` to capture old row widgets before clearing the list and deliver their deferred deletion after detachment. Manual callbacks and editable pauses use ordinary deferred deletion to preserve the current input receiver's lifetime. `ui_mcp_layer_rows_stay_bounded_during_long_script` pins the live-widget bound during execution.
 
-Canvas-driven selection must not rebuild rows that already exist. `reveal_layer_in_layer_list` (Move-tool auto-select, `active_layer_changed_callback`) and `select_layers_in_layer_list` (rectangle and modifier selection) call `refresh_layer_list` only when a collapsed ancestor has to open, the name filter has to clear, or a target has no row; otherwise they select the existing row (`layer_row_item`) and let the ordinary selection handler run. Pinned by `ui_move_auto_select_click_keeps_existing_layer_rows`, which also checks that a click on a child of a collapsed folder still rebuilds and reveals it. Measured offscreen on the 2056-layer Little-Everywhere-fixed.psd (`patchy_perf_tests.exe manylayers`, September 2026): canvas auto-select click 6.3 s to 0.08 s, panel row click 0.77 s to 0.05 s, Move-tool press 0.88 s to 0.01 s, drag frames about 12 ms after a one-time 110 ms first frame. A passive-box HANDLE press at zoom <= 50% still pays the scaled-document build in `prepare_free_transform_source` (about 200 ms; `PATCHY_ZOOM_TRACE=1` phase `move_press.handle_transform_start`).
+Canvas-driven selection must not rebuild rows that already exist. `reveal_layer_in_layer_list` (Move-tool auto-select, `active_layer_changed_callback`) and `select_layers_in_layer_list` (rectangle and modifier selection) call `refresh_layer_list` only when a collapsed ancestor has to open, the name filter has to clear, or a target has no row; otherwise they select the existing row (`layer_row_item`) and let the ordinary selection handler run. Pinned by `ui_move_auto_select_click_keeps_existing_layer_rows`, which also checks that a click on a child of a collapsed folder still rebuilds and reveals it. On the 2056-layer Little-Everywhere-fixed.psd (`patchy_perf_tests.exe manylayers`) this took a canvas auto-select click from 6.3 s to 0.08 s. A passive-box HANDLE press at zoom <= 50% still pays the scaled-document build in `prepare_free_transform_source` (about 200 ms; `PATCHY_ZOOM_TRACE=1` phase `move_press.handle_transform_start`).
 
 Row masks: `LayerListWidget::update_row_viewport_masks` (run on scroll, resize, scroll-range and value changes, and focus changes) masks the rows that sit under the raised scroll bars. The scroll-bar rects are mapped through global coordinates because the bars live in QAbstractScrollArea's own container widgets, siblings of the viewport rather than ancestors of the rows. Only rows intersecting the viewport are touched; rows scrolled in later get their mask from that scroll's pass. Pinned by `ui_layer_list_row_masks_map_scroll_bars_without_warnings`.
 
 The layer list may omit rows entirely: collapsed folders and the Layers panel name filter (`layerNameFilterEdit`) both rebuild without rows for excluded layers. Never assume every document layer has a row, and never introduce a "row exists but hidden" state; absent rows are the single not-shown state all consumers are hardened for. While the name filter is active, `LayerListWidget::set_drag_blocked` refuses drag reordering because a reorder would silently move filtered-out layers; each refused attempt reports through `show_status_error` and leftover held-button moves are swallowed so the base view cannot start a drag-selection sweep.
+
+## Blend and opacity row
+
+Combos from `add_blend_mode_items` also step with Left/Right. Panel blend changes merge into one undo entry until a pause or another history change (`ui_layer_blend_mode_steps_coalesce_into_one_undo_entry`).
 
 ## Click selection
 

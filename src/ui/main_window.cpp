@@ -268,6 +268,8 @@ namespace {
 
 constexpr int kLayerOpacityApplyDelayMs = 33;
 constexpr int kLayerOpacityIdleFinishDelayMs = 250;
+// Longer than the opacity pause: people read each mode name between arrow presses.
+constexpr int kLayerBlendIdleFinishDelayMs = 1000;
 // Tool-option sliders apply to the canvas live but persist to disk only this
 // long after the last change, so dragging a slider does not write the whole
 // settings file on every intermediate value.
@@ -7065,6 +7067,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   layer_fill_opacity_idle_timer_->setInterval(kLayerOpacityIdleFinishDelayMs);
   connect(layer_fill_opacity_idle_timer_, &QTimer::timeout, this,
           [this] { finish_pending_layer_fill_opacity_edit(); });
+  layer_blend_idle_timer_ = new QTimer(this);
+  layer_blend_idle_timer_->setSingleShot(true);
+  layer_blend_idle_timer_->setInterval(kLayerBlendIdleFinishDelayMs);
+  connect(layer_blend_idle_timer_, &QTimer::timeout, this, [this] { finish_pending_layer_blend_edit(); });
   tool_settings_save_timer_ = new QTimer(this);
   tool_settings_save_timer_->setSingleShot(true);
   tool_settings_save_timer_->setInterval(kToolSettingsSaveDelayMs);

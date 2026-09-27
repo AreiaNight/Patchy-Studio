@@ -1245,6 +1245,7 @@ private:
     const auto index = w.blend_combo_ != nullptr ? w.blend_combo_->findData(static_cast<int>(mode)) : -1;
     if (index >= 0) {
       w.set_active_layer_blend(index);
+      w.finish_pending_layer_blend_edit();
     }
   }
 

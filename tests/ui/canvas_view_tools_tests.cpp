@@ -27,6 +27,7 @@
 #include "ui/brush_tip_manager_dialog.hpp"
 #include "ui/brush_tip_picker.hpp"
 #include "ui/blend_if_range_editor.hpp"
+#include "ui/blend_mode_ui.hpp"
 #include "ui/color_panel.hpp"
 #include "ui/default_brush_tips.hpp"
 #include "ui/dialog_utils.hpp"
@@ -2283,6 +2284,111 @@ void ui_layer_opacity_control_defers_slow_rendering_and_undoes_once() {
   CHECK(std::abs(edited_layer->opacity() - 1.0F) <= 0.001F);
 }
 
+// Every blend-mode combo steps with Left/Right like Up/Down, closed and with
+// the list open, as the Opacity and Fill fields beside it do.
+void ui_blend_mode_combos_step_with_left_and_right_arrows() {
+  QComboBox combo;
+  patchy::ui::add_blend_mode_items(&combo);
+  patchy::ui::add_blend_mode_items(&combo);  // a refill must not install the filter twice
+  combo.clear();
+  patchy::ui::add_blend_mode_items(&combo);
+  combo.show();
+  QApplication::processEvents();
+  CHECK(combo.currentText() == QStringLiteral("Normal"));
+  send_key(combo, Qt::Key_Right);
+  CHECK(combo.currentText() == QStringLiteral("Dissolve"));
+  send_key(combo, Qt::Key_Right);
+  CHECK(combo.currentText() == QStringLiteral("Darken"));
+  send_key(combo, Qt::Key_Left);
+  CHECK(combo.currentText() == QStringLiteral("Dissolve"));
+  send_key(combo, Qt::Key_Left);
+  send_key(combo, Qt::Key_Left);  // clamps at the first mode like Up does
+  CHECK(combo.currentIndex() == 0);
+  send_key(combo, Qt::Key_Right, Qt::ControlModifier);  // modified arrows keep their own meaning
+  CHECK(combo.currentIndex() == 0);
+
+  combo.showPopup();
+  QApplication::processEvents();
+  auto* view = combo.view();
+  CHECK(view != nullptr);
+  CHECK(view->currentIndex().row() == 0);
+  send_key(*view, Qt::Key_Right);
+  send_key(*view, Qt::Key_Right);
+  CHECK(view->currentIndex().row() == 2);
+  send_key(*view, Qt::Key_Left);
+  CHECK(view->currentIndex().row() == 1);
+  CHECK(combo.currentIndex() == 0);  // the open list only moves its highlight
+  combo.hidePopup();
+  QApplication::processEvents();
+}
+
+// Stepping the Layers-panel blend mode is one undo entry per run, like an
+// Opacity drag, and the run ends on a pause or at the next separate edit.
+void ui_layer_blend_mode_steps_coalesce_into_one_undo_entry() {
+  patchy::Document document(120, 90, patchy::PixelFormat::rgba8());
+  document.add_pixel_layer("Background", solid_pixels(120, 90, patchy::PixelFormat::rgba8(), QColor(Qt::white)));
+  patchy::Layer layer(document.allocate_layer_id(), "Blend Target",
+                      solid_pixels(60, 40, patchy::PixelFormat::rgba8(), QColor(30, 150, 220, 255)));
+  const auto layer_id = layer.id();
+  layer.set_bounds(patchy::Rect{20, 20, 60, 40});
+  document.add_layer(std::move(layer));
+  document.set_active_layer(layer_id);
+
+  patchy::ui::MainWindow window;
+  window.add_document_session(std::move(document), QStringLiteral("Blend Steps"));
+  show_window(window);
+  QApplication::processEvents();
+
+  using Access = patchy::ui::MainWindowTestAccess;
+  auto* blend_combo = window.findChild<QComboBox*>(QStringLiteral("layerBlendModeCombo"));
+  CHECK(blend_combo != nullptr);
+  CHECK(blend_combo->currentText() == QStringLiteral("Normal"));
+  const auto blend_of_target = [&window, layer_id] {
+    const auto* target = std::as_const(Access::document(window)).find_layer(layer_id);
+    CHECK(target != nullptr);
+    return target->blend_mode();
+  };
+
+  const auto depth_before = Access::active_session_undo_depth(window);
+  send_key(*blend_combo, Qt::Key_Right);
+  send_key(*blend_combo, Qt::Key_Right);
+  send_key(*blend_combo, Qt::Key_Down);
+  CHECK(blend_combo->currentText() == QStringLiteral("Multiply"));
+  CHECK(blend_of_target() == patchy::BlendMode::Multiply);
+  CHECK(Access::active_session_undo_depth(window) == depth_before + 1);
+  CHECK(Access::layer_blend_edit_pending(window));
+
+  // A pause ends the run: the next step is a new entry.
+  QElapsedTimer pause;
+  pause.start();
+  while (Access::layer_blend_edit_pending(window) && pause.elapsed() < 3000) {
+    QApplication::processEvents(QEventLoop::AllEvents, 20);
+  }
+  CHECK(!Access::layer_blend_edit_pending(window));
+  send_key(*blend_combo, Qt::Key_Right);
+  CHECK(blend_of_target() == patchy::BlendMode::ColorBurn);
+  CHECK(Access::active_session_undo_depth(window) == depth_before + 2);
+
+  // A separate edit also ends the run instead of folding into it.
+  auto* opacity_spin = window.findChild<QSpinBox*>(QStringLiteral("layerOpacitySpin"));
+  CHECK(opacity_spin != nullptr);
+  opacity_spin->setValue(50);
+  QApplication::processEvents();
+  CHECK(!Access::layer_blend_edit_pending(window));
+  CHECK(Access::active_session_undo_depth(window) == depth_before + 3);
+
+  Access::undo(window);  // opacity
+  QApplication::processEvents();
+  CHECK(blend_of_target() == patchy::BlendMode::ColorBurn);
+  Access::undo(window);  // the single step after the pause
+  QApplication::processEvents();
+  CHECK(blend_of_target() == patchy::BlendMode::Multiply);
+  Access::undo(window);  // the whole first run at once
+  QApplication::processEvents();
+  CHECK(blend_of_target() == patchy::BlendMode::Normal);
+  CHECK(blend_combo->currentText() == QStringLiteral("Normal"));
+}
+
 void ui_collapsed_right_docks_keep_deep_layer_rows_readable() {
   patchy::Document document(128, 128, patchy::PixelFormat::rgba8());
   patchy::Layer root(document.allocate_layer_id(), "Root Folder", patchy::LayerKind::Group);
@@ -2993,6 +3099,9 @@ std::vector<patchy::test::TestCase> canvas_view_tools_tests() {
        ui_right_docks_collapse_layers_show_metadata_and_info_updates},
       {"ui_layer_opacity_control_defers_slow_rendering_and_undoes_once",
        ui_layer_opacity_control_defers_slow_rendering_and_undoes_once},
+      {"ui_blend_mode_combos_step_with_left_and_right_arrows", ui_blend_mode_combos_step_with_left_and_right_arrows},
+      {"ui_layer_blend_mode_steps_coalesce_into_one_undo_entry",
+       ui_layer_blend_mode_steps_coalesce_into_one_undo_entry},
       {"ui_collapsed_right_docks_keep_deep_layer_rows_readable",
        ui_collapsed_right_docks_keep_deep_layer_rows_readable},
       {"ui_right_dock_panels_expand_within_window_height", ui_right_dock_panels_expand_within_window_height},

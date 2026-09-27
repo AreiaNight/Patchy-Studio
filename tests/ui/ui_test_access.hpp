@@ -327,6 +327,11 @@ public:
     window.undo();
   }
 
+  // True while Layers-panel blend mode changes are still merging into one undo entry.
+  static bool layer_blend_edit_pending(const MainWindow& window) {
+    return window.pending_layer_blend_edit_active_;
+  }
+
   // Layer > Arrange > Align / Distribute entry points and their persisted
   // Align To choice (docs/alignment.md).
   static void align_selected_layers(MainWindow& window, AlignEdge edge) {
