@@ -181,13 +181,19 @@ rem single node directory the SDK keeps (see docs/wasm.md).
 rem Pick a node dir that actually contains bin\node.exe: newer emsdk node
 rem packages (24.x) put node.exe at the directory root, and a second version
 rem directory appears whenever an alternate emsdk release was provisioned, so
-rem a blind last-directory glob can land on a layout without bin\.
+rem a blind last-directory glob can land on a layout without bin\. A checkout
+rem whose only node is the root layout (the Windows offload host) uses that.
 set "NODE_EXE="
 for /d %%D in ("%REPO%\.deps\emsdk\node\*") do (
   if exist "%%D\bin\node.exe" set "NODE_EXE=%%D\bin\node.exe"
 )
 if not defined NODE_EXE (
-  echo No node with a bin\node.exe layout was found under .deps\emsdk\node.
+  for /d %%D in ("%REPO%\.deps\emsdk\node\*") do (
+    if exist "%%D\node.exe" set "NODE_EXE=%%D\node.exe"
+  )
+)
+if not defined NODE_EXE (
+  echo No node.exe was found under .deps\emsdk\node.
   goto fail
 )
 "%NODE_EXE%" "%REPO%\scripts\wasm\precompress-site.mjs" "%SITE_DIR%" || goto fail
