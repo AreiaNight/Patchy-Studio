@@ -79,3 +79,12 @@ The text engine's font lookup and the PSD reader's naming rules. The session mac
     `family + face` path and WIN32 normalization as every other face (Black/Heavy subfamily
     words set the flag); returning DirectWrite's FULL_NAME early stored "Futura Extra Black BT",
     a family no database lists, so an unchanged edit re-rendered in a substitute.
+
+## Photoshop 5.x `tySh` faces
+
+A PS 5 type record names each face three ways: PostScript name, GDI family and style string
+([psd-legacy-text.md](psd-legacy-text.md)). The PostScript name goes through
+`resolve_photoshop_font_name` like a modern TySh font; when only the suffix heuristic answers
+(neither DirectWrite nor the registry knows the name), the record's own family and style strings
+are used instead, with bold and italic parsed from the style string, because those are the names
+Windows lists the face under and the heuristic's humanized guess is not.

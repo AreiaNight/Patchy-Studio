@@ -1009,7 +1009,13 @@ std::vector<Layer> read_layer_info_records(BigEndianReader& layer_reader, std::i
         layer.metadata()[kLayerMetadataPsdTextBoundingBox] = serialize_text_bounds(record.text_geometry->bounding_box);
         layer.metadata()[kLayerMetadataPsdTextBoxBounds] = serialize_text_bounds(record.text_geometry->box_bounds);
         layer.metadata()[kLayerMetadataPsdTextTailBounds] = serialize_int_array(record.text_geometry->tail_bounds);
-        layer.metadata()[kLayerMetadataPsdTextIndex] = std::to_string(record.text_geometry->text_index);
+        // A PS 5.x 'tySh' record has no TextIndex. Storing its default 0 would make every
+        // edited legacy layer claim object 0 of the rebuilt 'Txt2' block (build_text_engine_block
+        // replaces a stored index in place), so the second edited layer's text would overwrite
+        // the first's; with no stored index each one appends its own object.
+        if (record.text_source_block != "tySh") {
+          layer.metadata()[kLayerMetadataPsdTextIndex] = std::to_string(record.text_geometry->text_index);
+        }
         if (record.text_box_baseline_inset.has_value()) {
           layer.metadata()[kLayerMetadataTextBoxBaselineInset] = serialize_paragraph_metric(*record.text_box_baseline_inset);
         }

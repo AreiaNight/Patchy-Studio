@@ -535,7 +535,7 @@ LayerRecord read_layer_record(BigEndianReader& reader, bool large_document,
           record.name = *unicode_name;
         }
       }
-      if (key == "TySh" || key == "tySh") {
+      if (key == "TySh") {
         record.text_source_block = key;
         const auto& text_payload = record.additional_blocks.back().payload;
         record.text_patchy_generated_type_block =
@@ -615,6 +615,32 @@ LayerRecord read_layer_record(BigEndianReader& reader, bool large_document,
               record.text_box_baseline_inset = inset;
             }
           }
+        }
+      } else if (key == "tySh") {
+        // Photoshop 5.0/5.5 "Type tool info": a fixed-layout record with no descriptor and no
+        // EngineData, so none of the TySh extractors above apply (extract_type_tool_geometry
+        // would misread its font section as a descriptor). psd_text_legacy.cpp decodes it into
+        // the same run model; the geometry keeps only the transform (tx/ty = the first
+        // baseline at the alignment point) with degenerate bounds, which the UI's CS-era
+        // fallback pins to the imported raster. Vertical PS 5 type stays a pixel layer.
+        record.text_source_block = key;
+        if (const auto legacy = extract_legacy_type_tool(record.additional_blocks.back().payload, cmyk);
+            legacy.has_value() && !legacy->unsupported_orientation && !legacy->runs.empty()) {
+          record.text = legacy->text;
+          const auto& first_run = legacy->runs.front();
+          record.text_font = first_run.family;
+          record.text_size = std::clamp(static_cast<int>(std::lround(first_run.size)), 1, kMaxTextSizePixels);
+          record.text_color = legacy->color;
+          record.text_bold = first_run.bold;
+          record.text_italic = first_run.italic;
+          record.text_anti_alias = legacy_type_tool_anti_alias(legacy->anti_alias_raw);
+          record.text_runs = serialize_patchy_text_runs(legacy->runs);
+          record.text_paragraph_runs = serialize_patchy_paragraph_runs(legacy->paragraph_runs);
+          record.text_html = html_from_text_runs(*record.text, legacy->runs, legacy->paragraph_runs);
+          PsdTextGeometry geometry;
+          geometry.transform = legacy->transform;
+          geometry.box_bounds = PsdTextBoundsD{0.0, 0.0, 1.0, 1.0};  // what a degenerate TySh 'bounds' yields
+          record.text_geometry = geometry;
         }
       }
       if (key == "lmfx") {

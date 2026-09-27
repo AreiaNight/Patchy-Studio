@@ -1137,8 +1137,6 @@ std::optional<ResolvedPhotoshopFont> installed_font_for_name(std::string_view na
 #endif
 }
 
-namespace {
-
 ResolvedPhotoshopFont resolve_photoshop_font_name(std::string_view font_name) {
 #ifdef _WIN32
   if (const auto resolved = directwrite_resolved_photoshop_font(font_name); resolved.has_value()) {
@@ -1160,6 +1158,8 @@ ResolvedPhotoshopFont resolve_photoshop_font_name(std::string_view font_name) {
 #endif
   return heuristic_resolved_photoshop_font(font_name);
 }
+
+namespace {
 
 // Auto-leading fraction from the normal paragraph sheet inside a ResourceDict (or the full
 // engine text); Photoshop's default is 1.2 (auto leading = 1.2 x font size).

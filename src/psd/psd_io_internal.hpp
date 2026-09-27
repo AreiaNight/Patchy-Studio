@@ -372,6 +372,14 @@ bool is_source_color_channel(std::uint16_t channel_id, std::uint16_t source_colo
 std::string read_pascal_string(BigEndianReader& reader, std::size_t padded_multiple);
 void write_pascal_string(BigEndianWriter& writer, const std::string& value, std::size_t padded_multiple);
 std::vector<std::uint16_t> utf8_to_utf16(std::string_view text);
+// UTF-16 code units to UTF-8; a surrogate pair becomes one code point, a lone
+// surrogate U+FFFD (definition in engine_data.cpp).
+std::string utf16_units_to_utf8(const std::vector<std::uint16_t>& units);
+// Photoshop's unsigned 16.16 fixed-point number (definition in psd_image_resources.cpp).
+double fixed_16_16_to_double(std::uint32_t value) noexcept;
+// Photoshop's 10-byte color (u16 color space + four u16 components) as written by the
+// PS 5.x 'lrFX' effects and 'tySh' type records (definition in psd_layer_styles.cpp).
+RgbColor read_legacy_effect_color(BigEndianReader& reader, const CmykColorConverter& cmyk);
 std::optional<std::string> read_unicode_string_payload(std::span<const std::uint8_t> payload);
 std::vector<std::uint8_t> unicode_string_payload(std::string_view text);
 #ifdef _WIN32
@@ -667,6 +675,35 @@ std::optional<PsdTextBoundsD> visible_text_local_bounds_from_layer_pixels(const 
 int estimate_text_size_from_alpha(const PixelBuffer& pixels);
 std::optional<PsdTextGeometry> extract_type_tool_geometry(std::span<const std::uint8_t> payload);
 std::optional<Rect> extract_type_tool_text_box(std::span<const std::uint8_t> payload);
+// A Photoshop PostScript font name resolved to the installed face (DirectWrite, then the
+// registry, then the suffix heuristic on Windows; the app's font-database resolver, then the
+// heuristic elsewhere). Definition in psd_text_read.cpp.
+ResolvedPhotoshopFont resolve_photoshop_font_name(std::string_view font_name);
+
+// Photoshop 5.0/5.5 'tySh' type record ("Type tool info"), decoded into the same model the
+// modern TySh path feeds (docs/psd-legacy-text.md). Definitions in psd_text_legacy.cpp.
+struct LegacyTypeToolInfo {
+  // Text space to document pixels; tx/ty is the first line's baseline anchor at the
+  // alignment point (left edge, center, or right edge of the line).
+  std::array<double, 6> transform{1.0, 0.0, 0.0, 1.0, 0.0, 0.0};
+  // UTF-8 with '\n' line separators (the record's '\r' line ends, one UTF-16 unit each).
+  std::string text;
+  // Style runs in UTF-16 unit indices of `text`; one run per stretch of equal style mark.
+  std::vector<PsdTextStyleRun> runs;
+  // One paragraph run per line, carrying the line's alignment.
+  std::vector<PsdTextParagraphRun> paragraph_runs;
+  // The record's single fill color (PS 5 has one color per type layer).
+  RgbColor color{0, 0, 0};
+  // The record's anti-alias byte (0 off, 1 on); legacy_type_tool_anti_alias maps it.
+  std::uint8_t anti_alias_raw{0};
+  // Any line whose orientation is not horizontal (PS 5 vertical type): not modeled.
+  bool unsupported_orientation{false};
+};
+std::optional<LegacyTypeToolInfo> extract_legacy_type_tool(std::span<const std::uint8_t> payload,
+                                                           const CmykColorConverter& cmyk);
+// The modern engine-data /AntiAlias value for a PS 5 anti-alias byte: 0 stays None, anything
+// else is Sharp (4), which is what Photoshop 2026 assigns when it upgrades the record.
+int legacy_type_tool_anti_alias(std::uint8_t raw) noexcept;
 
 // Text write-prep and TySh generation: metadata field serialization, the
 // imported-text preview regeneration, and the generated engine-data/TySh

@@ -201,6 +201,16 @@ void serialize_into(const EngineNode& node, std::string& out) {
   }
 }
 
+EngineNode scalar_node(std::string raw) {
+  EngineNode node;
+  node.kind = EngineNode::Kind::Scalar;
+  node.ws = " ";
+  node.raw = std::move(raw);
+  return node;
+}
+
+}  // namespace
+
 std::string utf16_units_to_utf8(const std::vector<std::uint16_t>& units) {
   std::string out;
   out.reserve(units.size() * 2);
@@ -235,16 +245,6 @@ std::string utf16_units_to_utf8(const std::vector<std::uint16_t>& units) {
   }
   return out;
 }
-
-EngineNode scalar_node(std::string raw) {
-  EngineNode node;
-  node.kind = EngineNode::Kind::Scalar;
-  node.ws = " ";
-  node.raw = std::move(raw);
-  return node;
-}
-
-}  // namespace
 
 const EngineNode* EngineNode::find(std::string_view key) const {
   if (kind != Kind::Dict) {
