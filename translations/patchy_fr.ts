@@ -9979,6 +9979,22 @@ RVB : %2, %3, %4</translation>
         <source>Remove Object was cancelled</source>
         <translation>Supprimer l&apos;objet a été annulé</translation>
     </message>
+    <message>
+        <source>Guide X: %1</source>
+        <translation>Repère X : %1</translation>
+    </message>
+    <message>
+        <source>Guide Y: %1</source>
+        <translation>Repère Y : %1</translation>
+    </message>
+    <message>
+        <source>X: %1</source>
+        <translation>X : %1</translation>
+    </message>
+    <message>
+        <source>Y: %1</source>
+        <translation>Y : %1</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::ChannelPanel</name>
@@ -17661,6 +17677,45 @@ Y : %2
     <message>
         <source>Paragraph panel (alignment, indents, spacing)</source>
         <translation>Panneau Paragraphe (alignement, retraits, espacement)</translation>
+    </message>
+    <message>
+        <source>Convert to Layers</source>
+        <translation>Convertir en calques</translation>
+    </message>
+    <message>
+        <source>Replace the smart object with a folder holding the layers of its contents</source>
+        <translation>Remplace l&apos;objet dynamique par un dossier contenant les calques de son contenu</translation>
+    </message>
+    <message>
+        <source>Embed the linked Smart Object before converting it to layers</source>
+        <translation>Incorporez l&apos;objet dynamique lié avant de le convertir en calques</translation>
+    </message>
+    <message>
+        <source>Delete the Smart Filters before converting this Smart Object to layers</source>
+        <translation>Supprimez les filtres dynamiques avant de convertir cet objet dynamique en calques</translation>
+    </message>
+    <message>
+        <source>A warped or perspective Smart Object can&apos;t be converted to layers; rasterize it instead</source>
+        <translation>Un objet dynamique déformé ou en perspective ne peut pas être converti en calques ; pixellisez-le plutôt</translation>
+    </message>
+    <message>
+        <source>The smart object&apos;s contents have no layers to convert</source>
+        <translation>Le contenu de l&apos;objet dynamique ne contient aucun calque à convertir</translation>
+    </message>
+    <message>
+        <source>The contents contain Smart Filters, which can&apos;t be moved out of the Smart Object yet</source>
+        <translation>Le contenu comporte des filtres dynamiques, qui ne peuvent pas encore être sortis de l&apos;objet dynamique</translation>
+    </message>
+    <message>
+        <source>Could not convert the smart object to layers</source>
+        <translation>Impossible de convertir l&apos;objet dynamique en calques</translation>
+    </message>
+    <message numerus="yes">
+        <source>Converted the smart object to %n layer(s)</source>
+        <translation>
+            <numerusform>Objet dynamique converti en %n calque</numerusform>
+            <numerusform>Objet dynamique converti en %n calques</numerusform>
+        </translation>
     </message>
 </context>
 <context>

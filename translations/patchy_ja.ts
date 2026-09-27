@@ -9952,6 +9952,22 @@ Mixed selection</source>
         <source>Remove Object was cancelled</source>
         <translation>オブジェクトを除去はキャンセルされました</translation>
     </message>
+    <message>
+        <source>Guide X: %1</source>
+        <translation>ガイド X: %1</translation>
+    </message>
+    <message>
+        <source>Guide Y: %1</source>
+        <translation>ガイド Y: %1</translation>
+    </message>
+    <message>
+        <source>X: %1</source>
+        <translation>X: %1</translation>
+    </message>
+    <message>
+        <source>Y: %1</source>
+        <translation>Y: %1</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::ChannelPanel</name>
@@ -17610,6 +17626,44 @@ Clipped to the layer below</source>
     <message>
         <source>Paragraph panel (alignment, indents, spacing)</source>
         <translation>段落パネル（配置・インデント・間隔）</translation>
+    </message>
+    <message>
+        <source>Convert to Layers</source>
+        <translation>レイヤーに変換</translation>
+    </message>
+    <message>
+        <source>Replace the smart object with a folder holding the layers of its contents</source>
+        <translation>スマートオブジェクトを、その内容のレイヤーを収めたフォルダーに置き換えます</translation>
+    </message>
+    <message>
+        <source>Embed the linked Smart Object before converting it to layers</source>
+        <translation>レイヤーに変換する前に、リンクされたスマートオブジェクトを埋め込んでください</translation>
+    </message>
+    <message>
+        <source>Delete the Smart Filters before converting this Smart Object to layers</source>
+        <translation>このスマートオブジェクトをレイヤーに変換する前に、スマートフィルターを削除してください</translation>
+    </message>
+    <message>
+        <source>A warped or perspective Smart Object can&apos;t be converted to layers; rasterize it instead</source>
+        <translation>ワープまたは遠近法が適用されたスマートオブジェクトはレイヤーに変換できません。代わりにラスタライズしてください</translation>
+    </message>
+    <message>
+        <source>The smart object&apos;s contents have no layers to convert</source>
+        <translation>スマートオブジェクトの内容に変換できるレイヤーがありません</translation>
+    </message>
+    <message>
+        <source>The contents contain Smart Filters, which can&apos;t be moved out of the Smart Object yet</source>
+        <translation>内容にスマートフィルターが含まれているため、まだスマートオブジェクトの外に移動できません</translation>
+    </message>
+    <message>
+        <source>Could not convert the smart object to layers</source>
+        <translation>スマートオブジェクトをレイヤーに変換できませんでした</translation>
+    </message>
+    <message numerus="yes">
+        <source>Converted the smart object to %n layer(s)</source>
+        <translation>
+            <numerusform>スマートオブジェクトを %n 個のレイヤーに変換しました</numerusform>
+        </translation>
     </message>
 </context>
 <context>

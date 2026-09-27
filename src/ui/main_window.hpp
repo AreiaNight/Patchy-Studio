@@ -990,6 +990,11 @@ private:
     // Shift-drop, tab drop, dialog, scripts: keep the source coordinates when
     // the documents share dimensions, else center on the target canvas.
     bool keep_source_position{false};
+    // Convert to Layers: translate the copies by exactly this offset (the
+    // Smart Object's placement) instead of either rule above.
+    std::optional<QPoint> exact_offset;
+    // Convert to Layers: every copy keeps its name, colliding or not.
+    bool keep_names{false};
   };
   // Mutates target.document only: no undo push, no refresh, no activation.
   // before_mutation runs after validation and before the first target
@@ -1193,6 +1198,10 @@ private:
   // write fails; every failure path reports its own error.
   bool convert_layers_to_smart_object(const std::vector<LayerId>& selected_ids);
   void new_smart_object_via_copy();
+  // Layer > Smart Objects > Convert to Layers: replaces the active embedded Smart
+  // Object with a folder holding its contents' layers, mapped through the
+  // placement (docs/smart-object-editing.md).
+  void convert_smart_object_to_layers();
   void place_embedded_file();
   void place_embedded_file_with_path(const QString& path);
   void delete_active_layer();
@@ -1921,6 +1930,7 @@ private:
   QAction* layer_smart_object_embed_action_{nullptr};
   // A discoverable alias for Rasterize in the Smart Objects menus.
   QAction* layer_smart_object_to_normal_action_{nullptr};
+  QAction* layer_smart_object_to_layers_action_{nullptr};
   QAction* delete_layer_mask_action_{nullptr};
   QAction* link_layer_mask_action_{nullptr};
   QAction* disable_layer_mask_action_{nullptr};

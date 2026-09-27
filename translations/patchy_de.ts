@@ -9979,6 +9979,22 @@ RGB: %2, %3, %4</translation>
         <source>Remove Object was cancelled</source>
         <translation>Objekt entfernen wurde abgebrochen</translation>
     </message>
+    <message>
+        <source>Guide X: %1</source>
+        <translation>Hilfslinie X: %1</translation>
+    </message>
+    <message>
+        <source>Guide Y: %1</source>
+        <translation>Hilfslinie Y: %1</translation>
+    </message>
+    <message>
+        <source>X: %1</source>
+        <translation>X: %1</translation>
+    </message>
+    <message>
+        <source>Y: %1</source>
+        <translation>Y: %1</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::ChannelPanel</name>
@@ -17661,6 +17677,45 @@ Y: %2
     <message>
         <source>Paragraph panel (alignment, indents, spacing)</source>
         <translation>Absatz-Bedienfeld (Ausrichtung, Einzüge, Abstände)</translation>
+    </message>
+    <message>
+        <source>Convert to Layers</source>
+        <translation>In Ebenen konvertieren</translation>
+    </message>
+    <message>
+        <source>Replace the smart object with a folder holding the layers of its contents</source>
+        <translation>Ersetzt das Smartobjekt durch einen Ordner mit den Ebenen seines Inhalts</translation>
+    </message>
+    <message>
+        <source>Embed the linked Smart Object before converting it to layers</source>
+        <translation>Betten Sie das verknüpfte Smartobjekt ein, bevor Sie es in Ebenen konvertieren</translation>
+    </message>
+    <message>
+        <source>Delete the Smart Filters before converting this Smart Object to layers</source>
+        <translation>Löschen Sie die Smartfilter, bevor Sie dieses Smartobjekt in Ebenen konvertieren</translation>
+    </message>
+    <message>
+        <source>A warped or perspective Smart Object can&apos;t be converted to layers; rasterize it instead</source>
+        <translation>Ein verkrümmtes oder perspektivisch verzerrtes Smartobjekt kann nicht in Ebenen konvertiert werden; rastern Sie es stattdessen</translation>
+    </message>
+    <message>
+        <source>The smart object&apos;s contents have no layers to convert</source>
+        <translation>Der Inhalt des Smartobjekts enthält keine Ebenen zum Konvertieren</translation>
+    </message>
+    <message>
+        <source>The contents contain Smart Filters, which can&apos;t be moved out of the Smart Object yet</source>
+        <translation>Der Inhalt enthält Smartfilter, die noch nicht aus dem Smartobjekt herausgelöst werden können</translation>
+    </message>
+    <message>
+        <source>Could not convert the smart object to layers</source>
+        <translation>Das Smartobjekt konnte nicht in Ebenen konvertiert werden</translation>
+    </message>
+    <message numerus="yes">
+        <source>Converted the smart object to %n layer(s)</source>
+        <translation>
+            <numerusform>Smartobjekt in %n Ebene konvertiert</numerusform>
+            <numerusform>Smartobjekt in %n Ebenen konvertiert</numerusform>
+        </translation>
     </message>
 </context>
 <context>

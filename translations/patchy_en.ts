@@ -9970,6 +9970,22 @@ RGB: %2, %3, %4</source>
         <source>Remove Object was cancelled</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Guide X: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Guide Y: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>X: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Y: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::ChannelPanel</name>
@@ -17615,6 +17631,45 @@ Y: %2
     <message>
         <source>Paragraph panel (alignment, indents, spacing)</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Convert to Layers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Replace the smart object with a folder holding the layers of its contents</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Embed the linked Smart Object before converting it to layers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete the Smart Filters before converting this Smart Object to layers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>A warped or perspective Smart Object can&apos;t be converted to layers; rasterize it instead</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The smart object&apos;s contents have no layers to convert</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The contents contain Smart Filters, which can&apos;t be moved out of the Smart Object yet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not convert the smart object to layers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>Converted the smart object to %n layer(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
     </message>
 </context>
 <context>

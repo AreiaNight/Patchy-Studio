@@ -836,6 +836,9 @@ void MainWindow::build_menu_bar_actions(ActionBuildContext& ctx) {
   // still find "make this a plain layer again" where they look for it.
   layer_smart_object_to_normal_action_ = new QAction(tr("Convert to Normal Layer (Rasterize)"), this);
   bind_action_text(layer_smart_object_to_normal_action_, QT_TR_NOOP("Convert to Normal Layer (Rasterize)"));
+  // Photoshop's Convert to Layers: the contents' own layers replace the Smart Object.
+  layer_smart_object_to_layers_action_ = new QAction(tr("Convert to Layers"), this);
+  bind_action_text(layer_smart_object_to_layers_action_, QT_TR_NOOP("Convert to Layers"));
   auto* layer_smart_objects_menu = layer_menu->addMenu(tr("Smart Objects"));
   layer_smart_objects_menu->setObjectName(QStringLiteral("layerSmartObjectsMenu"));
   layer_smart_objects_menu->addAction(layer_convert_smart_object_action_);
@@ -847,6 +850,7 @@ void MainWindow::build_menu_bar_actions(ActionBuildContext& ctx) {
   layer_smart_objects_menu->addAction(layer_smart_object_export_action_);
   layer_smart_objects_menu->addAction(layer_smart_object_via_copy_action_);
   layer_smart_objects_menu->addSeparator();
+  layer_smart_objects_menu->addAction(layer_smart_object_to_layers_action_);
   layer_smart_objects_menu->addAction(layer_smart_object_to_normal_action_);
   // Commands on existing shapes (docs/vector-commands.md). A submenu keeps the
   // Layer menu inside its wasm-viewport row bound.
@@ -1050,6 +1054,11 @@ void MainWindow::build_menu_bar_actions(ActionBuildContext& ctx) {
   layer_smart_object_relink_action_->setObjectName(QStringLiteral("layerSmartObjectRelinkAction"));
   layer_smart_object_embed_action_->setObjectName(QStringLiteral("layerSmartObjectEmbedAction"));
   layer_smart_object_to_normal_action_->setObjectName(QStringLiteral("layerSmartObjectToNormalAction"));
+  layer_smart_object_to_layers_action_->setObjectName(QStringLiteral("layerSmartObjectToLayersAction"));
+  layer_smart_object_to_layers_action_->setStatusTip(
+      tr("Replace the smart object with a folder holding the layers of its contents"));
+  bind_translated_status_tip(layer_smart_object_to_layers_action_,
+                             "Replace the smart object with a folder holding the layers of its contents");
   duplicate_layer_action->setObjectName(QStringLiteral("layerDuplicateAction"));
   delete_layer_action->setObjectName(QStringLiteral("layerDeleteAction"));
   fill_layer_action->setObjectName(QStringLiteral("layerFillForegroundAction"));
@@ -1173,6 +1182,8 @@ void MainWindow::build_menu_bar_actions(ActionBuildContext& ctx) {
   connect(layer_smart_object_export_action_, &QAction::triggered, this, [this] { export_smart_object_contents(); });
   connect(layer_smart_object_via_copy_action_, &QAction::triggered, this, [this] { new_smart_object_via_copy(); });
   connect(layer_smart_object_to_normal_action_, &QAction::triggered, this, [this] { rasterize_active_layers(); });
+  connect(layer_smart_object_to_layers_action_, &QAction::triggered, this,
+          [this] { convert_smart_object_to_layers(); });
   connect(layer_smart_object_update_action_, &QAction::triggered, this, [this] { update_smart_object_content(); });
   connect(layer_smart_object_relink_action_, &QAction::triggered, this,
           [this] { relink_smart_object_contents(); });

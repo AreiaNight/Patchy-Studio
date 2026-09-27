@@ -1302,8 +1302,9 @@ void CanvasWidget::mouseMoveEvent(QMouseEvent* event) {
 
   if (dragging_guide_) {
     clear_move_hover_outline();
-    update_guide_drag(event->pos(), event->modifiers());
+    // The position readout anchors on the pointer, so record it first.
     last_mouse_position_ = event->pos();
+    update_guide_drag(event->pos(), event->modifiers());
     return;
   }
 

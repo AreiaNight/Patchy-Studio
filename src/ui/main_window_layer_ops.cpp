@@ -1999,7 +1999,7 @@ std::vector<LayerId> MainWindow::copy_layers_between_documents(const Document& s
     }
     // Photoshop keeps the name on a cross-document copy; only a collision earns
     // the copy suffix.
-    if (existing_names.contains(it->name())) {
+    if (!placement.keep_names && existing_names.contains(it->name())) {
       clone->set_name(next_duplicate_name(it->name(), existing_names));
     }
     existing_names.insert(clone->name());
@@ -2026,7 +2026,10 @@ std::vector<LayerId> MainWindow::copy_layers_between_documents(const Document& s
     }
     const bool same_size = source_document.width() == target_document.width() &&
                            source_document.height() == target_document.height();
-    if (extent.has_value() && !(placement.keep_source_position && same_size)) {
+    if (placement.exact_offset.has_value()) {
+      dx = placement.exact_offset->x();
+      dy = placement.exact_offset->y();
+    } else if (extent.has_value() && !(placement.keep_source_position && same_size)) {
       const auto center_x = placement.drop_document_point.has_value() ? placement.drop_document_point->x()
                                                                         : target_document.width() / 2;
       const auto center_y = placement.drop_document_point.has_value() ? placement.drop_document_point->y()
@@ -2931,9 +2934,14 @@ void MainWindow::show_layer_context_menu(QPoint position) {
       layer_smart_object_via_copy_action_->setEnabled(editable);
       smart_objects_menu->addAction(layer_smart_object_via_copy_action_);
     }
+    smart_objects_menu->addSeparator();
+    if (layer_smart_object_to_layers_action_ != nullptr) {
+      layer_smart_object_to_layers_action_->setEnabled(editable &&
+                                                       !layer_tree_contains_smart_filters(*active_layer));
+      smart_objects_menu->addAction(layer_smart_object_to_layers_action_);
+    }
     if (layer_smart_object_to_normal_action_ != nullptr) {
       layer_smart_object_to_normal_action_->setEnabled(is_smart_object && has_rasterizable_layer);
-      smart_objects_menu->addSeparator();
       smart_objects_menu->addAction(layer_smart_object_to_normal_action_);
     }
   }

@@ -2199,6 +2199,24 @@ std::optional<CanvasWidget::DragReadout> CanvasWidget::transform_drag_readout() 
     return std::nullopt;
   }
   DragReadout readout;
+  if (dragging_guide_) {
+    // Guide drag: the guide's position in the ruler unit, measured the way the
+    // ruler along its axis measures it. Nothing while the drop would remove it.
+    if (document_ == nullptr || guide_drag_remove_) {
+      return std::nullopt;
+    }
+    const bool vertical = guide_drag_orientation_ == GuideOrientation::Vertical;
+    const auto pixels = static_cast<double>(guide_drag_position_32_) / 32.0;
+    const auto value = pixels / std::max(ruler_pixels_per_unit(vertical), 1e-9);
+    // Guides sit on 1/32 px steps: whole pixels print plainly, fractions with two places.
+    const auto decimals = ruler_unit_ == MeasurementUnit::Pixels
+                              ? (guide_drag_position_32_ % 32 == 0 ? 0 : 2)
+                              : measurement_unit_decimals(ruler_unit_);
+    const auto position = format_measurement(value, ruler_unit_, decimals);
+    readout.lines << (vertical ? tr("Guide X: %1") : tr("Guide Y: %1")).arg(position);
+    readout.canvas_lines << (vertical ? tr("X: %1") : tr("Y: %1")).arg(position);
+    return readout;
+  }
   if (moving_layer_ && move_readout_base_rect_.has_value()) {
     // Move drag: the reference point of the moving set's box, plus the delta.
     const auto rect = move_readout_base_rect_->translated(QPointF(move_preview_delta_));

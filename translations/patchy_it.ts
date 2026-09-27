@@ -9979,6 +9979,22 @@ RGB: %2, %3, %4</translation>
         <source>Remove Object was cancelled</source>
         <translation>Rimuovi oggetto è stato annullato</translation>
     </message>
+    <message>
+        <source>Guide X: %1</source>
+        <translation>Guida X: %1</translation>
+    </message>
+    <message>
+        <source>Guide Y: %1</source>
+        <translation>Guida Y: %1</translation>
+    </message>
+    <message>
+        <source>X: %1</source>
+        <translation>X: %1</translation>
+    </message>
+    <message>
+        <source>Y: %1</source>
+        <translation>Y: %1</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::ChannelPanel</name>
@@ -17608,7 +17624,7 @@ Y: %2
     </message>
     <message>
         <source>Paragraph alignment; Justify spreads every line but the last across the box</source>
-        <translation>Allineamento del paragrafo; Giustifica distribuisce ogni riga tranne l'ultima sulla larghezza della casella</translation>
+        <translation>Allineamento del paragrafo; Giustifica distribuisce ogni riga tranne l&apos;ultima sulla larghezza della casella</translation>
     </message>
     <message>
         <source>Alignment:</source>
@@ -17628,7 +17644,7 @@ Y: %2
     </message>
     <message>
         <source>Space between the box edge and every line&apos;s start</source>
-        <translation>Spazio tra il bordo della casella e l'inizio di ogni riga</translation>
+        <translation>Spazio tra il bordo della casella e l&apos;inizio di ogni riga</translation>
     </message>
     <message>
         <source>Right indent:</source>
@@ -17661,6 +17677,45 @@ Y: %2
     <message>
         <source>Paragraph panel (alignment, indents, spacing)</source>
         <translation>Pannello Paragrafo (allineamento, rientri, spaziatura)</translation>
+    </message>
+    <message>
+        <source>Convert to Layers</source>
+        <translation>Converti in livelli</translation>
+    </message>
+    <message>
+        <source>Replace the smart object with a folder holding the layers of its contents</source>
+        <translation>Sostituisce l&apos;oggetto avanzato con una cartella contenente i livelli del suo contenuto</translation>
+    </message>
+    <message>
+        <source>Embed the linked Smart Object before converting it to layers</source>
+        <translation>Incorpora l&apos;oggetto avanzato collegato prima di convertirlo in livelli</translation>
+    </message>
+    <message>
+        <source>Delete the Smart Filters before converting this Smart Object to layers</source>
+        <translation>Elimina i filtri avanzati prima di convertire questo oggetto avanzato in livelli</translation>
+    </message>
+    <message>
+        <source>A warped or perspective Smart Object can&apos;t be converted to layers; rasterize it instead</source>
+        <translation>Un oggetto avanzato alterato o in prospettiva non può essere convertito in livelli; rasterizzalo invece</translation>
+    </message>
+    <message>
+        <source>The smart object&apos;s contents have no layers to convert</source>
+        <translation>Il contenuto dell&apos;oggetto avanzato non ha livelli da convertire</translation>
+    </message>
+    <message>
+        <source>The contents contain Smart Filters, which can&apos;t be moved out of the Smart Object yet</source>
+        <translation>Il contenuto include filtri avanzati, che non possono ancora essere estratti dall&apos;oggetto avanzato</translation>
+    </message>
+    <message>
+        <source>Could not convert the smart object to layers</source>
+        <translation>Impossibile convertire l&apos;oggetto avanzato in livelli</translation>
+    </message>
+    <message numerus="yes">
+        <source>Converted the smart object to %n layer(s)</source>
+        <translation>
+            <numerusform>Oggetto avanzato convertito in %n livello</numerusform>
+            <numerusform>Oggetto avanzato convertito in %n livelli</numerusform>
+        </translation>
     </message>
 </context>
 <context>

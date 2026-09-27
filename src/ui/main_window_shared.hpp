@@ -268,6 +268,12 @@ std::optional<Layer> clone_layer_tree_with_document_ids(
 // main_window.cpp.
 void insert_layer_after_anchor(Document& document, Layer layer, std::optional<LayerId> anchor_id);
 
+// Re-rasterizes a text layer through its stored (already composed) transform; false
+// keeps the caller's raster (missing font, imported warped text). Defined in
+// main_window.cpp; shared by the free-transform commit callback, Image Size, and
+// Convert to Layers.
+bool rerender_text_layer_through_stored_transform(Layer& layer);
+
 // Photoshop-style "<name> copy" / "<name> copy N" naming (an existing
 // " copy"/" copy N" stem is stripped first so "X copy" duplicates to
 // "X copy 2", not "X copy copy"). Shared by layer duplication in

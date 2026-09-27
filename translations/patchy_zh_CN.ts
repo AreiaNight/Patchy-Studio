@@ -9952,6 +9952,22 @@ RGB：%2, %3, %4</translation>
         <source>Remove Object was cancelled</source>
         <translation>移除对象已取消</translation>
     </message>
+    <message>
+        <source>Guide X: %1</source>
+        <translation>参考线 X: %1</translation>
+    </message>
+    <message>
+        <source>Guide Y: %1</source>
+        <translation>参考线 Y: %1</translation>
+    </message>
+    <message>
+        <source>X: %1</source>
+        <translation>X: %1</translation>
+    </message>
+    <message>
+        <source>Y: %1</source>
+        <translation>Y: %1</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::ChannelPanel</name>
@@ -17610,6 +17626,44 @@ Y: %2
     <message>
         <source>Paragraph panel (alignment, indents, spacing)</source>
         <translation>段落面板 (对齐、缩进、间距)</translation>
+    </message>
+    <message>
+        <source>Convert to Layers</source>
+        <translation>转换为图层</translation>
+    </message>
+    <message>
+        <source>Replace the smart object with a folder holding the layers of its contents</source>
+        <translation>用包含其内容图层的文件夹替换智能对象</translation>
+    </message>
+    <message>
+        <source>Embed the linked Smart Object before converting it to layers</source>
+        <translation>请先嵌入链接的智能对象，再将其转换为图层</translation>
+    </message>
+    <message>
+        <source>Delete the Smart Filters before converting this Smart Object to layers</source>
+        <translation>请先删除智能滤镜，再将此智能对象转换为图层</translation>
+    </message>
+    <message>
+        <source>A warped or perspective Smart Object can&apos;t be converted to layers; rasterize it instead</source>
+        <translation>变形或透视的智能对象无法转换为图层；请改为栅格化</translation>
+    </message>
+    <message>
+        <source>The smart object&apos;s contents have no layers to convert</source>
+        <translation>智能对象的内容中没有可转换的图层</translation>
+    </message>
+    <message>
+        <source>The contents contain Smart Filters, which can&apos;t be moved out of the Smart Object yet</source>
+        <translation>内容中包含智能滤镜，目前还无法将其移出智能对象</translation>
+    </message>
+    <message>
+        <source>Could not convert the smart object to layers</source>
+        <translation>无法将智能对象转换为图层</translation>
+    </message>
+    <message numerus="yes">
+        <source>Converted the smart object to %n layer(s)</source>
+        <translation>
+            <numerusform>已将智能对象转换为 %n 个图层</numerusform>
+        </translation>
     </message>
 </context>
 <context>

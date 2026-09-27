@@ -9979,6 +9979,22 @@ RGB: %2, %3, %4</translation>
         <source>Remove Object was cancelled</source>
         <translation>Se ha cancelado Eliminar objeto</translation>
     </message>
+    <message>
+        <source>Guide X: %1</source>
+        <translation>Guía X: %1</translation>
+    </message>
+    <message>
+        <source>Guide Y: %1</source>
+        <translation>Guía Y: %1</translation>
+    </message>
+    <message>
+        <source>X: %1</source>
+        <translation>X: %1</translation>
+    </message>
+    <message>
+        <source>Y: %1</source>
+        <translation>Y: %1</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::ChannelPanel</name>
@@ -17661,6 +17677,45 @@ Y: %2
     <message>
         <source>Paragraph panel (alignment, indents, spacing)</source>
         <translation>Panel Párrafo (alineación, sangrías, espaciado)</translation>
+    </message>
+    <message>
+        <source>Convert to Layers</source>
+        <translation>Convertir en capas</translation>
+    </message>
+    <message>
+        <source>Replace the smart object with a folder holding the layers of its contents</source>
+        <translation>Sustituye el objeto inteligente por una carpeta con las capas de su contenido</translation>
+    </message>
+    <message>
+        <source>Embed the linked Smart Object before converting it to layers</source>
+        <translation>Incruste el objeto inteligente vinculado antes de convertirlo en capas</translation>
+    </message>
+    <message>
+        <source>Delete the Smart Filters before converting this Smart Object to layers</source>
+        <translation>Elimine los filtros inteligentes antes de convertir este objeto inteligente en capas</translation>
+    </message>
+    <message>
+        <source>A warped or perspective Smart Object can&apos;t be converted to layers; rasterize it instead</source>
+        <translation>Un objeto inteligente deformado o con perspectiva no se puede convertir en capas; rasterícelo en su lugar</translation>
+    </message>
+    <message>
+        <source>The smart object&apos;s contents have no layers to convert</source>
+        <translation>El contenido del objeto inteligente no tiene capas que convertir</translation>
+    </message>
+    <message>
+        <source>The contents contain Smart Filters, which can&apos;t be moved out of the Smart Object yet</source>
+        <translation>El contenido incluye filtros inteligentes, que todavía no se pueden sacar del objeto inteligente</translation>
+    </message>
+    <message>
+        <source>Could not convert the smart object to layers</source>
+        <translation>No se pudo convertir el objeto inteligente en capas</translation>
+    </message>
+    <message numerus="yes">
+        <source>Converted the smart object to %n layer(s)</source>
+        <translation>
+            <numerusform>Objeto inteligente convertido en %n capa</numerusform>
+            <numerusform>Objeto inteligente convertido en %n capas</numerusform>
+        </translation>
     </message>
 </context>
 <context>

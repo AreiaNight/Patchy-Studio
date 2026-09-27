@@ -6835,11 +6835,14 @@ bool text_layer_name_is_auto(const Layer& layer) {
   return false;
 }
 
+}  // namespace
+
 // Re-rasterize a text layer through its stored (already composed) transform. Shared by the
 // free-transform commit callback and the Image Size re-render pass, so both land the same
 // pixels for the same transform. Returns false when the layer keeps whatever raster the caller
 // already produced (the resampled bitmap), which is the right answer for imported text whose
-// font is missing or whose glyph alignment is unknown.
+// font is missing or whose glyph alignment is unknown. Declared in main_window_shared.hpp
+// for Convert to Layers.
 bool rerender_text_layer_through_stored_transform(Layer& layer) {
   const auto transform = canonical_text_affine_transform_for_layer(layer);
   if (!transform.has_value()) {
@@ -6928,8 +6931,6 @@ bool rerender_text_layer_through_stored_transform(Layer& layer) {
   store_text_layout_metrics(layer, rendered->metrics);
   return true;
 }
-
-}  // namespace
 
 // Public (ui/psd_font_resolver.hpp): points the PSD reader's PostScript font-name
 // resolution at the font database. On Windows the hook is installed but never

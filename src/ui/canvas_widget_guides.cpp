@@ -978,6 +978,8 @@ void CanvasWidget::update_guide_drag(QPoint widget_position, Qt::KeyboardModifie
   snapped_position = std::clamp(snapped_position, 0.0, limit);
   guide_drag_position_32_ = guide_position_32(snapped_position);
   update();
+  // The whole widget repaints above; this keeps the status-bar mirror current.
+  update_drag_readout_region();
 }
 
 void CanvasWidget::finish_guide_drag(QPoint widget_position, Qt::KeyboardModifiers modifiers) {
@@ -985,6 +987,7 @@ void CanvasWidget::finish_guide_drag(QPoint widget_position, Qt::KeyboardModifie
     return;
   }
   update_guide_drag(widget_position, modifiers);
+  clear_drag_readout();
 
   if (creating_guide_) {
     if (!guide_drag_remove_) {
@@ -1033,6 +1036,7 @@ void CanvasWidget::cancel_guide_drag() {
   dragging_guide_ = false;
   creating_guide_ = false;
   guide_drag_remove_ = false;
+  clear_drag_readout();
   update();
 }
 
