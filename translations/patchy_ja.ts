@@ -7934,10 +7934,6 @@ Mixed selection</source>
         <translation>初期版の PSD リーダーは現在、8、16、32 ビットのファイルのみ対応しています</translation>
     </message>
     <message>
-        <source>The starter PSD reader currently supports RGB and CMYK files only</source>
-        <translation>初期版の PSD リーダーは現在、RGB と CMYK のファイルのみ対応しています</translation>
-    </message>
-    <message>
         <source>PSD files cannot contain more than 56 channels</source>
         <translation>PSD ファイルに 56 を超えるチャンネルは含められません</translation>
     </message>
@@ -8478,6 +8474,18 @@ Mixed selection</source>
     <message>
         <source>Could not write PSD file</source>
         <translation>PSD ファイルを書き込めませんでした</translation>
+    </message>
+    <message>
+        <source>The starter PSD reader currently supports RGB, CMYK, and Grayscale files only</source>
+        <translation>初期版の PSD リーダーは現在、RGB、CMYK、グレースケールのファイルのみ対応しています</translation>
+    </message>
+    <message>
+        <source>Grayscale PSD file must contain at least 1 channel</source>
+        <translation>グレースケールの PSD ファイルには少なくとも 1 つのチャンネルが必要です</translation>
+    </message>
+    <message>
+        <source>The source color mode is Grayscale; Patchy converted the gray values to RGB/RGBA for editing and will export RGB PSD data from this document.</source>
+        <translation>元のカラーモードはグレースケールです。Patchy は編集用にグレー値を RGB/RGBA に変換しました。このドキュメントからは RGB PSD データを書き出します。</translation>
     </message>
 </context>
 <context>

@@ -88,6 +88,10 @@ RgbColor descriptor_rgb_color(const DescriptorObject& object, std::string_view k
     };
     return cmyk.rgb_from_ink(ink("Cyn "), ink("Mgnt"), ink("Ylw "), ink("Blck"));
   }
+  if (color_object->class_id == "Grsc") {
+    // Grayscale-mode documents: 'Gry ' is the black percentage (100 = black).
+    return cmyk.rgb_from_gray(1.0 - descriptor_number(*color_object, "Gry ") / 100.0);
+  }
   return RgbColor{static_cast<std::uint8_t>(std::clamp(std::lround(descriptor_number(*color_object, "Rd  ")), 0L, 255L)),
                   static_cast<std::uint8_t>(
                       std::clamp(std::lround(descriptor_number(*color_object, "Grn ")), 0L, 255L)),

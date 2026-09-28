@@ -290,9 +290,16 @@ std::uint8_t engine_color_component(double value, bool normalized) {
 }
 
 // Engine-data color /Type 1 is [alpha, red, green, blue]; /Type 2 (CMYK-mode documents)
-// is [alpha, cyan, magenta, yellow, black] as 0-1 ink fractions.
+// is [alpha, cyan, magenta, yellow, black] as 0-1 ink fractions; /Type 0 (grayscale-mode
+// documents) is [alpha, lightness] with 0 = black.
 std::optional<RgbColor> rgb_color_from_engine_values(int type, const std::vector<double>& values,
                                                      const CmykColorConverter& cmyk) {
+  if (type == 0) {
+    if (values.size() < 2U || !std::isfinite(values[1])) {
+      return std::nullopt;
+    }
+    return cmyk.rgb_from_gray(values[1]);
+  }
   if (type == 2) {
     if (values.size() < 5U ||
         std::any_of(values.begin() + 1, values.begin() + 5, [](double value) { return !std::isfinite(value); })) {
@@ -333,7 +340,7 @@ std::optional<RgbColor> extract_engine_data_fill_color(std::span<const std::uint
                            : text.substr(found, block_close + 2U - found);
     const auto type = first_engine_number_after(block, "/Type");
     const auto type_value = type.has_value() ? static_cast<int>(std::lround(*type)) : 1;
-    if (type_value != 1 && type_value != 2) {
+    if (type_value != 0 && type_value != 1 && type_value != 2) {
       found = text.find(marker, block_start);
       continue;
     }
@@ -616,7 +623,7 @@ std::optional<RgbColor> extract_engine_fill_color_from_text(std::string_view tex
                                                              : text.substr(found, block_close + 2U - found);
     const auto type = engine_number_after_key(block, "/Type");
     const auto type_value = type.has_value() ? static_cast<int>(std::lround(*type)) : 1;
-    if (type_value != 1 && type_value != 2) {
+    if (type_value != 0 && type_value != 1 && type_value != 2) {
       found = text.find(marker, block_start);
       continue;
     }

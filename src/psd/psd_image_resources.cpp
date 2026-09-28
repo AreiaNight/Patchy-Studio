@@ -514,7 +514,10 @@ ParsedCompositeChannelResources parse_composite_channel_resources(
 }
 
 std::uint16_t composite_color_channel_count(std::uint16_t color_mode) noexcept {
-  return is_cmyk_color_mode(color_mode) ? 4U : 3U;
+  if (is_cmyk_color_mode(color_mode)) {
+    return 4U;
+  }
+  return is_grayscale_color_mode(color_mode) ? 1U : 3U;
 }
 
 void add_saved_composite_channels(Document& document,

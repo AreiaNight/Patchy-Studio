@@ -2438,10 +2438,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>The starter PSD reader currently supports RGB and CMYK files only</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>PSD files cannot contain more than 56 channels</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8495,6 +8491,18 @@ RGB: %2, %3, %4</source>
     </message>
     <message>
         <source>Could not write PSD file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The starter PSD reader currently supports RGB, CMYK, and Grayscale files only</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Grayscale PSD file must contain at least 1 channel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The source color mode is Grayscale; Patchy converted the gray values to RGB/RGBA for editing and will export RGB PSD data from this document.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

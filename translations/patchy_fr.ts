@@ -2438,10 +2438,6 @@
         <translation>Le lecteur PSD de base ne prend actuellement en charge que les fichiers 8, 16 et 32 bits</translation>
     </message>
     <message>
-        <source>The starter PSD reader currently supports RGB and CMYK files only</source>
-        <translation>Le lecteur PSD de base ne prend actuellement en charge que les fichiers RVB et CMJN</translation>
-    </message>
-    <message>
         <source>PSD files cannot contain more than 56 channels</source>
         <translation>Les fichiers PSD ne peuvent pas contenir plus de 56 couches</translation>
     </message>
@@ -8505,6 +8501,18 @@ RVB : %2, %3, %4</translation>
     <message>
         <source>Could not write PSD file</source>
         <translation>Impossible d&apos;écrire le fichier PSD</translation>
+    </message>
+    <message>
+        <source>The starter PSD reader currently supports RGB, CMYK, and Grayscale files only</source>
+        <translation>Le lecteur PSD de base ne prend actuellement en charge que les fichiers RVB, CMJN et niveaux de gris</translation>
+    </message>
+    <message>
+        <source>Grayscale PSD file must contain at least 1 channel</source>
+        <translation>Un fichier PSD en niveaux de gris doit contenir au moins 1 couche</translation>
+    </message>
+    <message>
+        <source>The source color mode is Grayscale; Patchy converted the gray values to RGB/RGBA for editing and will export RGB PSD data from this document.</source>
+        <translation>Le mode colorimétrique source est Niveaux de gris ; Patchy a converti les valeurs de gris en RVB/RVBA pour la modification et exportera des données PSD RVB à partir de ce document.</translation>
     </message>
 </context>
 <context>

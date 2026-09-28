@@ -676,6 +676,19 @@ void ui_compatibility_report_flags_cmyk_rgb_conversion() {
   CHECK(text.contains(QStringLiteral("RGB/RGBA")));
 }
 
+void ui_compatibility_report_flags_grayscale_rgb_conversion() {
+  patchy::Document document(120, 90, patchy::PixelFormat::rgb8());
+  document.metadata().values["psd.color_mode"] = "Grayscale";
+  document.add_pixel_layer("Background", solid_pixels(120, 90, patchy::PixelFormat::rgb8(), QColor(Qt::white)));
+
+  const auto warnings = patchy::ui::compatibility_warnings_for_document(document);
+  CHECK(!warnings.isEmpty());
+  const auto text = warnings.join(QLatin1Char('\n'));
+  CHECK(text.contains(QStringLiteral("Grayscale")));
+  CHECK(text.contains(QStringLiteral("converted")));
+  CHECK(text.contains(QStringLiteral("RGB/RGBA")));
+}
+
 void ui_compatibility_report_flags_unrendered_styles_on_groups() {
   // Group layer effects RENDER since July 2026, so a styled group must NOT
   // raise a compatibility warning anymore (the Satin-contour warning below
@@ -1806,6 +1819,8 @@ std::vector<patchy::test::TestCase> pickers_notices_hotkeys_tests() {
        ui_compatibility_report_pins_native_vs_private_adjustment_kinds},
       {"ui_compatibility_report_flags_cmyk_rgb_conversion",
        ui_compatibility_report_flags_cmyk_rgb_conversion},
+      {"ui_compatibility_report_flags_grayscale_rgb_conversion",
+       ui_compatibility_report_flags_grayscale_rgb_conversion},
       {"ui_compatibility_report_flags_unrendered_styles_on_groups",
        ui_compatibility_report_flags_unrendered_styles_on_groups},
       {"ui_compatibility_report_handles_supported_unsupported_and_boundary_blend_if",

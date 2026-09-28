@@ -185,12 +185,13 @@ bool records_look_like_legacy_top_to_bottom(const std::vector<Layer>& layers, st
 }
 
 Document read_flat_composite(BigEndianReader& reader, const Header& header,
-                             const CmykToRgbTransform* cmyk_icc,
+                             const CmykColorConverter& source_colors,
                              const ParsedCompositeChannelResources& channel_resources,
                              bool has_merged_transparency, std::size_t* damaged_rows = nullptr) {
   const auto format = format_from_header(header);
   const auto compression = reader.read_u16();
   const auto source_is_cmyk = is_cmyk_color_mode(header.color_mode);
+  const auto source_is_gray = is_grayscale_color_mode(header.color_mode);
 
   Document document(static_cast<std::int32_t>(header.width), static_cast<std::int32_t>(header.height), format);
   PixelBuffer pixels(static_cast<std::int32_t>(header.width), static_cast<std::int32_t>(header.height), format);
@@ -200,7 +201,9 @@ Document read_flat_composite(BigEndianReader& reader, const Header& header,
   if (source_is_cmyk) {
     convert_cmyk_planes_to_rgb(pixels, channel_data[0].data(), channel_data[1].data(),
                                channel_data[2].data(), channel_data[3].data(), channel_pixels,
-                               cmyk_icc);
+                               source_colors.icc);
+  } else if (source_is_gray) {
+    convert_gray_plane_to_rgb(pixels, channel_data[0].data(), channel_pixels, source_colors.gray_icc);
   } else {
     for (std::uint16_t channel = 0; channel < 3; ++channel) {
       for (std::size_t i = 0; i < channel_pixels; ++i) {
@@ -483,7 +486,7 @@ std::vector<Layer> read_layer_info_records(BigEndianReader& layer_reader, std::i
                                            std::int32_t canvas_height, std::uint16_t source_color_mode,
                                            std::uint16_t depth, float global_light_angle,
                                            float global_light_altitude, bool large_document,
-                                           const CmykToRgbTransform* cmyk_icc,
+                                           const CmykColorConverter& source_colors,
                                            bool& has_merged_transparency,
                                            std::vector<std::string>* notices,
                                            std::size_t* damaged_rows) {
@@ -494,7 +497,7 @@ std::vector<Layer> read_layer_info_records(BigEndianReader& layer_reader, std::i
   const auto layer_count = static_cast<std::uint16_t>(
       layer_count_raw < 0 ? -static_cast<std::int32_t>(layer_count_raw)
                           : static_cast<std::int32_t>(layer_count_raw));
-  const CmykColorConverter cmyk_converter{cmyk_icc};
+  const CmykColorConverter& cmyk_converter = source_colors;
   std::vector<LayerRecord> records;
   records.reserve(layer_count);
   for (std::uint16_t i = 0; i < layer_count; ++i) {
@@ -507,6 +510,7 @@ std::vector<Layer> read_layer_info_records(BigEndianReader& layer_reader, std::i
     const auto width = std::max(0, record.bounds.width);
     const auto height = std::max(0, record.bounds.height);
     const auto source_is_cmyk = is_cmyk_color_mode(source_color_mode);
+    const auto source_is_gray = is_grayscale_color_mode(source_color_mode);
     const auto pixel_count = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
     const auto has_color = std::any_of(record.channels.begin(), record.channels.end(), [source_color_mode](LayerChannelInfo channel) {
       return is_source_color_channel(channel.id, source_color_mode);
@@ -528,6 +532,7 @@ std::vector<Layer> read_layer_info_records(BigEndianReader& layer_reader, std::i
         component.resize(pixel_count, 0);
       }
     }
+    std::vector<std::uint8_t> gray_plane;
 
     std::optional<LayerMask> decoded_mask;
     std::optional<LayerMask> decoded_real_user_mask;
@@ -615,6 +620,14 @@ std::vector<Layer> read_layer_info_records(BigEndianReader& layer_reader, std::i
             pixels.data()[i * pixels.format().channels + 3U] = channel_data[i];
           }
         }
+      } else if (source_is_gray) {
+        if (channel.id == kChannelGray && channel_data.size() == pixel_count) {
+          gray_plane = std::move(channel_data);
+        } else if (target_channel == 3) {
+          for (std::size_t i = 0; i < channel_data.size(); ++i) {
+            pixels.data()[i * pixels.format().channels + 3U] = channel_data[i];
+          }
+        }
       } else {
         for (std::size_t i = 0; i < channel_data.size(); ++i) {
           if (target_channel >= 0 && target_channel < pixels.format().channels) {
@@ -626,7 +639,9 @@ std::vector<Layer> read_layer_info_records(BigEndianReader& layer_reader, std::i
     if (source_is_cmyk) {
       convert_cmyk_planes_to_rgb(pixels, cmyk_channels[0].data(), cmyk_channels[1].data(),
                                  cmyk_channels[2].data(), cmyk_channels[3].data(), pixel_count,
-                                 cmyk_icc);
+                                 source_colors.icc);
+    } else if (source_is_gray && gray_plane.size() == pixel_count) {
+      convert_gray_plane_to_rgb(pixels, gray_plane.data(), pixel_count, source_colors.gray_icc);
     }
 
     bool text_placeholder_rendered = false;
@@ -1058,7 +1073,7 @@ std::vector<Layer> read_layer_info_records(BigEndianReader& layer_reader, std::i
 std::vector<Layer> read_layers(BigEndianReader& layer_reader, std::int32_t canvas_width, std::int32_t canvas_height,
                                std::uint16_t source_color_mode, std::uint16_t depth, float global_light_angle,
                                float global_light_altitude, bool large_document,
-                               const CmykToRgbTransform* cmyk_icc,
+                               const CmykColorConverter& source_colors,
                                bool& has_merged_transparency,
                                std::vector<std::string>* notices,
                                std::size_t* damaged_rows) {
@@ -1072,7 +1087,7 @@ std::vector<Layer> read_layers(BigEndianReader& layer_reader, std::int32_t canva
 
   const auto layer_info_end = layer_reader.position() + static_cast<std::size_t>(layer_info_length);
   auto layers = read_layer_info_records(layer_reader, canvas_width, canvas_height, source_color_mode, depth,
-                                        global_light_angle, global_light_altitude, large_document, cmyk_icc,
+                                        global_light_angle, global_light_altitude, large_document, source_colors,
                                         has_merged_transparency, notices, damaged_rows);
   if (layer_reader.position() < layer_info_end) {
     layer_reader.skip(layer_info_end - layer_reader.position());
@@ -1205,7 +1220,32 @@ Document DocumentIo::read(std::span<const std::uint8_t> bytes, ReadOptions optio
       }
     }
   }
-  const auto* cmyk_icc = cmyk_icc_transform.has_value() ? &*cmyk_icc_transform : nullptr;
+  // Grayscale sources convert through their embedded gray profile the same way (Dot Gain
+  // 20%, Photoshop's default gray working space, lifts a 128 to sRGB 149); without a
+  // usable profile the gray values copy to RGB unchanged. As with CMYK, the profile is not
+  // promoted into color_state(): it does not describe the converted RGB pixels.
+  std::optional<GrayToRgbTransform> gray_icc_transform;
+  if (is_grayscale_color_mode(header.color_mode)) {
+    if (auto icc_profile = find_image_resource_payload(image_resources, kImageResourceIccProfile);
+        icc_profile.has_value()) {
+      gray_icc_transform = GrayToRgbTransform::from_icc_profile(*icc_profile);
+      if (options.notices != nullptr) {
+        if (gray_icc_transform.has_value()) {
+          const auto& description = gray_icc_transform->profile_description();
+          options.notices->push_back(
+              "Converted grayscale values to RGB using the document's embedded color profile" +
+              (description.empty() ? std::string(".") : " '" + description + "'."));
+        } else {
+          options.notices->push_back(
+              "The document's embedded grayscale color profile could not be used; gray values "
+              "were copied to RGB unchanged.");
+        }
+      }
+    }
+  }
+  const CmykColorConverter source_colors{cmyk_icc_transform.has_value() ? &*cmyk_icc_transform : nullptr,
+                                         gray_icc_transform.has_value() ? &*gray_icc_transform : nullptr};
+  const auto* cmyk_icc = source_colors.icc;
   if (auto resolution = find_image_resource_payload(image_resources, kImageResourceResolutionInfo);
       resolution.has_value()) {
     if (auto print_settings = print_settings_from_resolution_resource(*resolution); print_settings.has_value()) {
@@ -1247,7 +1287,7 @@ Document DocumentIo::read(std::span<const std::uint8_t> bytes, ReadOptions optio
     auto print_settings = document.print_settings();
     auto grid_settings = document.grid_settings();
     auto guides = std::move(document.guides());
-    document = read_flat_composite(reader, header, cmyk_icc, channel_resources,
+    document = read_flat_composite(reader, header, source_colors, channel_resources,
                                    has_merged_transparency, &damaged_rows);
     document.metadata() = std::move(metadata);
     document.color_state().embedded_icc_profile = std::move(color_state.embedded_icc_profile);
@@ -1270,7 +1310,7 @@ Document DocumentIo::read(std::span<const std::uint8_t> bytes, ReadOptions optio
     BigEndianReader layer_reader(layer_mask_payload);
     auto layers = read_layers(layer_reader, document.width(), document.height(), header.color_mode,
                               header.depth, global_light_angle, global_light_altitude, header.large_document,
-                              cmyk_icc, has_merged_transparency, options.notices, &damaged_rows);
+                              source_colors, has_merged_transparency, options.notices, &damaged_rows);
     const auto add_layer = [&document](const Layer& source) {
       document.add_layer(clone_layer_with_document_ids(document, source));
     };
@@ -1332,7 +1372,7 @@ Document DocumentIo::read(std::span<const std::uint8_t> bytes, ReadOptions optio
         BigEndianReader block_reader(payload);
         auto deep_layers = read_layer_info_records(
             block_reader, document.width(), document.height(), header.color_mode, header.depth,
-            global_light_angle, global_light_altitude, header.large_document, cmyk_icc,
+            global_light_angle, global_light_altitude, header.large_document, source_colors,
             has_merged_transparency, options.notices, &damaged_rows);
         // Always Photoshop's bottom-to-top order: legacy Patchy never wrote these
         // blocks, so the legacy-order heuristic used for the standard section
@@ -1394,7 +1434,7 @@ Document DocumentIo::read(std::span<const std::uint8_t> bytes, ReadOptions optio
     auto print_settings = document.print_settings();
     auto grid_settings = document.grid_settings();
     auto guides = std::move(document.guides());
-    document = read_flat_composite(reader, header, cmyk_icc, channel_resources,
+    document = read_flat_composite(reader, header, source_colors, channel_resources,
                                    has_merged_transparency, &damaged_rows);
     document.metadata() = std::move(metadata);
     document.color_state().embedded_icc_profile = std::move(color_state.embedded_icc_profile);
@@ -1415,7 +1455,7 @@ Document DocumentIo::read(std::span<const std::uint8_t> bytes, ReadOptions optio
     const auto saved_channel_count = static_cast<std::size_t>(header.channels - first_saved_channel);
     if (options.retain_flat_composite) {
       try {
-        auto flat_composite = read_flat_composite(reader, header, cmyk_icc, channel_resources,
+        auto flat_composite = read_flat_composite(reader, header, source_colors, channel_resources,
                                                   has_merged_transparency, &damaged_rows);
         if (!flat_composite.layers().empty() && flat_composite.layers().front().kind() == LayerKind::Pixel) {
           document.metadata().psd_flat_composite =

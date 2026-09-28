@@ -2438,10 +2438,6 @@
         <translation>初始版 PSD 读取器目前仅支持 8 位、16 位和 32 位文件</translation>
     </message>
     <message>
-        <source>The starter PSD reader currently supports RGB and CMYK files only</source>
-        <translation>初始版 PSD 读取器目前仅支持 RGB 和 CMYK 文件</translation>
-    </message>
-    <message>
         <source>PSD files cannot contain more than 56 channels</source>
         <translation>PSD 文件不能包含超过 56 个通道</translation>
     </message>
@@ -8478,6 +8474,18 @@ RGB：%2, %3, %4</translation>
     <message>
         <source>Could not write PSD file</source>
         <translation>无法写入 PSD 文件</translation>
+    </message>
+    <message>
+        <source>The starter PSD reader currently supports RGB, CMYK, and Grayscale files only</source>
+        <translation>初始版 PSD 读取器目前仅支持 RGB、CMYK 和灰度文件</translation>
+    </message>
+    <message>
+        <source>Grayscale PSD file must contain at least 1 channel</source>
+        <translation>灰度 PSD 文件必须至少包含 1 个通道</translation>
+    </message>
+    <message>
+        <source>The source color mode is Grayscale; Patchy converted the gray values to RGB/RGBA for editing and will export RGB PSD data from this document.</source>
+        <translation>源颜色模式为灰度；Patchy 已将灰度值转换为 RGB/RGBA 以便编辑，并将从此文档导出 RGB PSD 数据。</translation>
     </message>
 </context>
 <context>

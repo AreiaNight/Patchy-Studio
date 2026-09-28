@@ -36,6 +36,7 @@
 
 namespace patchy::psd {
 
+constexpr std::uint16_t kColorModeGrayscale = 1;
 constexpr std::uint16_t kColorModeRgb = 3;
 constexpr std::uint16_t kColorModeCmyk = 4;
 constexpr std::uint16_t kCompressionRaw = 0;
@@ -43,6 +44,7 @@ constexpr std::uint16_t kCompressionRle = 1;
 constexpr std::uint16_t kCompressionZip = 2;
 constexpr std::uint16_t kCompressionZipPrediction = 3;
 constexpr std::uint16_t kChannelRed = 0;
+constexpr std::uint16_t kChannelGray = 0;  // grayscale-mode files: the one color plane
 constexpr std::uint16_t kChannelGreen = 1;
 constexpr std::uint16_t kChannelBlue = 2;
 constexpr std::uint16_t kChannelBlack = 3;
@@ -336,9 +338,12 @@ RgbColor rgb_from_cmyk_ink_fractions(double cyan, double magenta, double yellow,
 // through the SAME transform as the pixel decode (ink fractions are quantized to the
 // inverted 8-bit channel convention first); without a usable profile both fall back to
 // the same naive mix. Keeping the two paths identical preserves the relationship between
-// effect/text colors and the converted pixels.
+// effect/text colors and the converted pixels. Grayscale-mode documents use the same
+// carrier: their 'Grsc' descriptor colors and engine-data /Type 0 fill colors convert
+// through `gray_icc` exactly like the gray pixel plane (neutral copy without a profile).
 struct CmykColorConverter {
   const CmykToRgbTransform* icc{nullptr};
+  const GrayToRgbTransform* gray_icc{nullptr};
 
   [[nodiscard]] RgbColor rgb_from_ink(double cyan, double magenta, double yellow,
                                       double black) const {
@@ -351,6 +356,20 @@ struct CmykColorConverter {
                                  inverted(black));
     }
     return rgb_from_cmyk_ink_fractions(cyan, magenta, yellow, black);
+  }
+
+  // `lightness` is 0 = black, 1 = white (the gray channel convention). Photoshop's 'Grsc'
+  // descriptor key 'Gry ' is the black percentage (100 = black; a 30 overlay rendered the
+  // same 179 as a 30% GrayColor fill, September 2026) and engine-data /Type 0 /Values is
+  // [alpha, lightness] (30% gray text stored .7), so callers pass 1 - Gry/100 and the
+  // engine value unchanged.
+  [[nodiscard]] RgbColor rgb_from_gray(double lightness) const {
+    const auto gray = static_cast<std::uint8_t>(
+        std::clamp(std::lround(std::clamp(lightness, 0.0, 1.0) * 255.0), 0L, 255L));
+    if (gray_icc != nullptr) {
+      return gray_icc->convert_single(gray);
+    }
+    return RgbColor{gray, gray, gray};
   }
 };
 
@@ -462,10 +481,16 @@ std::vector<std::vector<std::uint8_t>> read_flat_image_channels_from(
 // Appends the "some scanlines were damaged" import notice when the count is nonzero.
 void append_damaged_row_notice(std::size_t damaged_rows, std::vector<std::string>* notices);
 bool is_cmyk_color_mode(std::uint16_t color_mode) noexcept;
+bool is_grayscale_color_mode(std::uint16_t color_mode) noexcept;
 void convert_cmyk_planes_to_rgb(PixelBuffer& pixels, const std::uint8_t* cyan,
                                 const std::uint8_t* magenta, const std::uint8_t* yellow,
                                 const std::uint8_t* black, std::size_t pixel_count,
                                 const CmykToRgbTransform* icc);
+// Expands one decoded gray plane (0 = black) into the RGB(A) pixel buffer's color
+// components: through the document's embedded gray ICC profile when usable (Photoshop's
+// Dot Gain / Gray Gamma handling), a neutral copy otherwise. Alpha is left untouched.
+void convert_gray_plane_to_rgb(PixelBuffer& pixels, const std::uint8_t* gray, std::size_t pixel_count,
+                               const GrayToRgbTransform* icc);
 
 // Adjustment-layer codec: the Photoshop levl/curv/hue2 payloads and the private
 // plAD block (definitions in psd_adjustments.cpp). hue2 payloads patch in place

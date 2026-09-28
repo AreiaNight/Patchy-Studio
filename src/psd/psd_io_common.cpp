@@ -113,8 +113,9 @@ PixelFormat format_from_header(const Header& header) {
   if (header.depth != 8 && header.depth != 16 && header.depth != 32) {
     throw std::runtime_error(PATCHY_TRANSLATE_NOOP("QObject", "The starter PSD reader currently supports 8, 16, and 32-bit files only"));
   }
-  if (header.color_mode != kColorModeRgb && header.color_mode != kColorModeCmyk) {
-    throw std::runtime_error(PATCHY_TRANSLATE_NOOP("QObject", "The starter PSD reader currently supports RGB and CMYK files only"));
+  if (header.color_mode != kColorModeRgb && header.color_mode != kColorModeCmyk &&
+      header.color_mode != kColorModeGrayscale) {
+    throw std::runtime_error(PATCHY_TRANSLATE_NOOP("QObject", "The starter PSD reader currently supports RGB, CMYK, and Grayscale files only"));
   }
   if (header.channels > kMaximumPhotoshopChannelCount) {
     throw std::runtime_error(PATCHY_TRANSLATE_NOOP("QObject", "PSD files cannot contain more than 56 channels"));
@@ -124,6 +125,9 @@ PixelFormat format_from_header(const Header& header) {
   }
   if (header.color_mode == kColorModeCmyk && header.channels < 4) {
     throw std::runtime_error(PATCHY_TRANSLATE_NOOP("QObject", "CMYK PSD file must contain at least 4 channels"));
+  }
+  if (header.color_mode == kColorModeGrayscale && header.channels < 1) {
+    throw std::runtime_error(PATCHY_TRANSLATE_NOOP("QObject", "Grayscale PSD file must contain at least 1 channel"));
   }
   return PixelFormat::rgb8();
 }
@@ -143,7 +147,13 @@ void write_file_bytes(const std::filesystem::path& path, std::span<const std::ui
 }
 
 bool is_source_color_channel(std::uint16_t channel_id, std::uint16_t source_color_mode) noexcept {
-  return is_cmyk_color_mode(source_color_mode) ? channel_id <= kChannelBlack : channel_id <= kChannelBlue;
+  if (is_cmyk_color_mode(source_color_mode)) {
+    return channel_id <= kChannelBlack;
+  }
+  if (is_grayscale_color_mode(source_color_mode)) {
+    return channel_id == kChannelGray;
+  }
+  return channel_id <= kChannelBlue;
 }
 
 std::uint32_t read_section_length(BigEndianReader& reader, const char* section_name) {
