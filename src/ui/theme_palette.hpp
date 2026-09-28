@@ -466,9 +466,18 @@ struct ThemePalette {
 [[nodiscard]] ColorScheme active_color_scheme();
 void set_active_color_scheme(ColorScheme scheme);
 
-// Bumped on every actual scheme change. Caches derived from theme() key on this;
-// Qt sends no event for a palette-struct change, so a cache that ignores it goes
-// stale silently.
+// A user-supplied palette (see theme_file.hpp) that overrides theme() until
+// cleared. `base` is the built-in scheme the custom palette was declared
+// against; set_active_custom_palette keeps active_color_scheme() reporting it,
+// so scheme-keyed behavior that is not itself a role (the light-variant icon
+// SVGs, native chrome mirroring) still resolves sensibly for a custom theme.
+void set_active_custom_palette(const ThemePalette& palette, ColorScheme base);
+void clear_active_custom_palette();
+[[nodiscard]] bool has_active_custom_palette();
+
+// Bumped on every actual scheme or custom-palette change. Caches derived from
+// theme() key on this; Qt sends no event for a palette-struct change, so a
+// cache that ignores it goes stale silently.
 [[nodiscard]] int theme_generation();
 
 using ThemePaletteRole = std::pair<QLatin1StringView, QColor ThemePalette::*>;

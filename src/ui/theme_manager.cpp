@@ -2,7 +2,10 @@
 
 #include "ui/app_settings.hpp"
 
+#include <QDir>
+#include <QFile>
 #include <QGuiApplication>
+#include <QIODevice>
 #include <QSettings>
 #include <QStyleHints>
 
@@ -13,6 +16,14 @@ namespace {
 // Persisted identifier. Changing this orphans every existing user's choice.
 const QString& color_scheme_key() {
   static const QString key = QStringLiteral("preferences/colorScheme");
+  return key;
+}
+
+// Persisted identifier, additive alongside color_scheme_key(). Empty means no
+// custom theme is active; a non-empty value is a file name within
+// user_themes_directory().
+const QString& custom_theme_id_key() {
+  static const QString key = QStringLiteral("preferences/customThemeId");
   return key;
 }
 
@@ -51,7 +62,9 @@ ThemeManager::ThemeManager() {
   // so there is no reason to read the registry ourselves. Under offscreen it
   // never fires, which is what keeps the UI suite deterministic.
   connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged, this, [this] {
-    if (preference_ == ColorSchemePreference::FollowSystem) {
+    // A custom theme pins its declared base scheme; an OS flip while one is
+    // active must not silently swap it back to a built-in palette.
+    if (preference_ == ColorSchemePreference::FollowSystem && !active_custom_id_) {
       apply_resolved_scheme();
     }
   });
@@ -108,15 +121,59 @@ void ThemeManager::apply_resolved_scheme() {
 }
 
 void ThemeManager::set_preference(ColorSchemePreference preference, bool persist) {
+  const bool had_custom_theme = active_custom_id_.has_value();
   preference_ = preference;
   if (persist) {
     auto settings = app_settings();
     settings.setValue(color_scheme_key(), color_scheme_preference_to_token(preference));
   }
+  if (had_custom_theme) {
+    // clear_custom_theme() mirrors and force-applies against the preference_
+    // just set above, which is exactly the built-in scheme being switched to.
+    clear_custom_theme(persist);
+    return;
+  }
   // Mirroring first can already re-resolve us through colorSchemeChanged; the
   // apply below is then a no-op rather than a second restyle.
   mirror_scheme_onto_qt();
   apply_resolved_scheme();
+}
+
+void ThemeManager::set_custom_theme(const QString& id, const CustomTheme& theme, bool persist) {
+  // Never routes through apply_resolved_scheme(): a custom theme can share its
+  // base scheme's label with the scheme already active while carrying an
+  // entirely different palette, so that function's equal-scheme guard must
+  // not suppress this apply.
+  active_custom_id_ = id;
+  set_active_custom_palette(theme.palette, theme.base);
+  if (!system_scheme_override_.has_value()) {
+    QGuiApplication::styleHints()->setColorScheme(theme.base == ColorScheme::Light ? Qt::ColorScheme::Light
+                                                                                    : Qt::ColorScheme::Dark);
+  }
+  if (persist) {
+    auto settings = app_settings();
+    settings.setValue(custom_theme_id_key(), id);
+  }
+  emit color_scheme_changed(theme.base);
+}
+
+void ThemeManager::clear_custom_theme(bool persist) {
+  if (!active_custom_id_) {
+    return;
+  }
+  active_custom_id_.reset();
+  clear_active_custom_palette();
+  if (persist) {
+    auto settings = app_settings();
+    settings.setValue(custom_theme_id_key(), QString());
+  }
+  mirror_scheme_onto_qt();
+  // Same guard, in reverse: the built-in scheme being reverted to can share
+  // the label the custom theme was pinning, so force the apply and emit
+  // instead of going through apply_resolved_scheme().
+  const auto scheme = resolved_scheme();
+  set_active_color_scheme(scheme);
+  emit color_scheme_changed(scheme);
 }
 
 void ThemeManager::load_saved_preference() {
@@ -127,6 +184,24 @@ void ThemeManager::load_saved_preference() {
                  color_scheme_preference_to_token(ColorSchemePreference::FollowSystem))
           .toString();
   set_preference(color_scheme_preference_from_token(token), /*persist=*/false);
+
+  const auto custom_id = settings.value(custom_theme_id_key(), QString()).toString();
+  if (custom_id.isEmpty()) {
+    return;
+  }
+  const auto themes_dir = user_themes_directory();
+  QFile file(themes_dir.isEmpty() ? QString() : QDir(themes_dir).filePath(custom_id));
+  if (!file.open(QIODevice::ReadOnly)) {
+    // The saved theme file is gone (moved or deleted by hand outside Patchy);
+    // fall back to the built-in preference already applied above rather than
+    // failing startup.
+    return;
+  }
+  auto result = load_theme_from_json(file.readAll());
+  if (!result.theme) {
+    return;
+  }
+  set_custom_theme(custom_id, *result.theme, /*persist=*/false);
 }
 
 void ThemeManager::set_system_color_scheme_for_testing(std::optional<Qt::ColorScheme> scheme) {

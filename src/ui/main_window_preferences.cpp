@@ -12,6 +12,7 @@
 #include "core/layer_metadata.hpp"
 #include "core/smart_object.hpp"
 #include "core/text_warp.hpp"
+#include "support/atomic_file_write.hpp"
 #include "core/warp_mesh.hpp"
 #include "core/layer_render_utils.hpp"
 #include "core/layer_tree.hpp"
@@ -49,6 +50,7 @@
 #include "ui/gradient_manager_dialog.hpp"
 #include "ui/dialog_utils.hpp"
 #include "ui/document_float_window.hpp"
+#include "ui/qt_paths.hpp"
 #include "ui/font_picker.hpp"
 #include "ui/hotkey_editor.hpp"
 #include "ui/edit_conversions.hpp"
@@ -57,6 +59,7 @@
 #include "ui/layer_list_widget.hpp"
 #include "ui/localization.hpp"
 #include "ui/measurement_units.hpp"
+#include "ui/theme_file.hpp"
 #include "ui/theme_manager.hpp"
 #include "ui/user_fonts.hpp"
 #include "ui/palette_convert_dialog.hpp"
@@ -125,6 +128,7 @@
 #include <QFrame>
 #include <QGridLayout>
 #include <QGroupBox>
+#include <QHash>
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QLayout>
@@ -224,6 +228,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <span>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -471,22 +476,172 @@ void MainWindow::show_preferences() {
                               color_scheme_preference_to_token(ColorSchemePreference::FollowSystem));
   color_scheme_combo->addItem(tr("Dark"), color_scheme_preference_to_token(ColorSchemePreference::Dark));
   color_scheme_combo->addItem(tr("Light"), color_scheme_preference_to_token(ColorSchemePreference::Light));
+
+  // Data token for a custom entry: "custom:" + its file name within
+  // user_themes_directory() (see theme_file.hpp). Kept distinct from the three
+  // built-in tokens above, which are bare scheme spellings and can never start
+  // with "custom:".
+  const auto custom_theme_token = [](const QString& file_name) { return QStringLiteral("custom:") + file_name; };
+  // Loaded once per dialog open and shared by the preview handler, the Import
+  // button, and the commit branch below, so none of them re-read a file
+  // mid-dialog.
+  auto custom_themes = std::make_shared<QHash<QString, CustomTheme>>();
+  const auto add_custom_theme_entry = [color_scheme_combo, custom_themes,
+                                       custom_theme_token](const QString& file_name,
+                                                            const CustomTheme& custom_theme) {
+    bool has_custom_entry = false;
+    for (int i = 0; i < color_scheme_combo->count(); ++i) {
+      if (color_scheme_combo->itemData(i).toString().startsWith(QStringLiteral("custom:"))) {
+        has_custom_entry = true;
+        break;
+      }
+    }
+    if (!has_custom_entry) {
+      color_scheme_combo->insertSeparator(color_scheme_combo->count());
+    }
+    color_scheme_combo->addItem(custom_theme.name.isEmpty() ? file_name : custom_theme.name,
+                                custom_theme_token(file_name));
+    custom_themes->insert(file_name, custom_theme);
+  };
+  const auto themes_dir = user_themes_directory();
+  if (!themes_dir.isEmpty()) {
+    QDir dir(themes_dir);
+    const auto entries = dir.entryList({QStringLiteral("*.patchytheme"), QStringLiteral("*.json")}, QDir::Files,
+                                       QDir::Name);
+    for (const auto& file_name : entries) {
+      QFile file(dir.filePath(file_name));
+      if (!file.open(QIODevice::ReadOnly)) {
+        continue;
+      }
+      auto result = load_theme_from_json(file.readAll());
+      if (result.theme) {
+        add_custom_theme_entry(file_name, *result.theme);
+      }
+    }
+  }
+
   const auto entry_color_scheme = ThemeManager::instance().preference();
-  const auto color_scheme_index =
-      color_scheme_combo->findData(color_scheme_preference_to_token(entry_color_scheme));
+  const auto entry_custom_id = ThemeManager::instance().active_custom_theme_id();
+  const auto entry_token =
+      entry_custom_id ? custom_theme_token(*entry_custom_id) : color_scheme_preference_to_token(entry_color_scheme);
+  const auto color_scheme_index = color_scheme_combo->findData(entry_token);
   color_scheme_combo->setCurrentIndex(color_scheme_index >= 0 ? color_scheme_index : 0);
   application_form->addRow(tr("Color scheme:"), color_scheme_combo);
+
+#ifndef Q_OS_WASM
+  // Import/Export are desktop-only: wasm has no AppData store to hold the
+  // imported files (user_themes_directory() is empty there).
+  auto* import_theme_button = new QPushButton(tr("Import Theme..."), application_group);
+  import_theme_button->setObjectName(QStringLiteral("preferencesImportThemeButton"));
+  auto* export_theme_button = new QPushButton(tr("Export Theme..."), application_group);
+  export_theme_button->setObjectName(QStringLiteral("preferencesExportThemeButton"));
+  auto* theme_buttons_row = new QHBoxLayout();
+  theme_buttons_row->addWidget(import_theme_button);
+  theme_buttons_row->addWidget(export_theme_button);
+  theme_buttons_row->addStretch(1);
+  application_form->addRow(QString(), theme_buttons_row);
+
+  // Import copies the picked file into user_themes_directory() and previews it
+  // immediately, independent of the dialog's Accept/Reject (like "Remove Added
+  // Fonts..." above): the file itself is not a preference, so there is nothing
+  // for the scope guard above to undo if the dialog is later rejected. Only the
+  // live preview it also triggers is covered by that guard.
+  connect(import_theme_button, &QPushButton::clicked, &dialog,
+          [&dialog, color_scheme_combo, add_custom_theme_entry, custom_theme_token] {
+            const auto path = get_open_file_name(&dialog, tr("Import Theme"), QString(),
+                                                 tr("Patchy theme (*.patchytheme *.json)"));
+            if (path.isEmpty()) {
+              return;
+            }
+            QFile source(path);
+            if (!source.open(QIODevice::ReadOnly)) {
+              show_critical_message(&dialog, tr("Import failed"), tr("Could not open \"%1\".").arg(path),
+                                    QStringLiteral("importThemeFailedMessageBox"));
+              return;
+            }
+            const auto json = source.readAll();
+            auto result = load_theme_from_json(json);
+            if (!result.theme) {
+              show_critical_message(&dialog, tr("Import failed"), result.error,
+                                    QStringLiteral("importThemeFailedMessageBox"));
+              return;
+            }
+            const auto themes_dir = user_themes_directory();
+            if (themes_dir.isEmpty() || !QDir().mkpath(themes_dir)) {
+              show_critical_message(&dialog, tr("Import failed"), tr("Could not create the themes folder."),
+                                    QStringLiteral("importThemeFailedMessageBox"));
+              return;
+            }
+            // Copy under the picked file's own name, de-duplicated on a
+            // collision, so the file persists independent of where it was
+            // imported from and load_saved_preference() can find it again by
+            // that name alone.
+            const QDir dir(themes_dir);
+            const auto base_info = QFileInfo(path);
+            const auto stem = base_info.completeBaseName();
+            const auto suffix = base_info.suffix();
+            auto file_name = base_info.fileName();
+            for (int attempt = 2; QFileInfo::exists(dir.filePath(file_name)); ++attempt) {
+              file_name = QStringLiteral("%1-%2.%3").arg(stem).arg(attempt).arg(suffix);
+            }
+            try {
+              write_file_bytes_atomically(to_filesystem_path(dir.filePath(file_name)),
+                                          std::span<const std::uint8_t>(
+                                              reinterpret_cast<const std::uint8_t*>(json.constData()),
+                                              static_cast<std::size_t>(json.size())),
+                                          "Could not create the theme file", "Could not write the theme file");
+            } catch (const std::exception& error) {
+              show_critical_message(&dialog, tr("Import failed"), QString::fromUtf8(error.what()),
+                                    QStringLiteral("importThemeFailedMessageBox"));
+              return;
+            }
+            add_custom_theme_entry(file_name, *result.theme);
+            color_scheme_combo->setCurrentIndex(color_scheme_combo->findData(custom_theme_token(file_name)));
+          });
+
+  connect(export_theme_button, &QPushButton::clicked, &dialog, [&dialog] {
+    const auto suggested_name = tr("Theme", "Default file name offered when exporting a theme; the save dialog "
+                                             "appends the extension.") +
+                                QStringLiteral(".patchytheme");
+    const auto path =
+        get_save_file_name(&dialog, tr("Export Theme"), suggested_name, tr("Patchy theme (*.patchytheme)"));
+    if (path.isEmpty()) {
+      return;
+    }
+    const auto json = serialize_theme_to_json(theme(), active_color_scheme(), QFileInfo(path).completeBaseName());
+    try {
+      write_file_bytes_atomically(
+          to_filesystem_path(path),
+          std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t*>(json.constData()),
+                                        static_cast<std::size_t>(json.size())),
+          "Could not create the theme file", "Could not write the theme file");
+    } catch (const std::exception& error) {
+      show_critical_message(&dialog, tr("Export failed"), QString::fromUtf8(error.what()),
+                            QStringLiteral("exportThemeFailedMessageBox"));
+    }
+  });
+#endif
+
   // The combo previews the scheme live, so every path out of the dialog that is
   // not Accept has to put it back. The chrome X and Esc both reject (the dialog
   // has no Cancel button but install_dark_dialog_chrome still closes by
   // rejecting), and run_stress_test_interactive runs past the accept branch, so
   // a scope guard is safer than an else.
   bool color_scheme_committed = false;
-  const auto restore_color_scheme = qScopeGuard([entry_color_scheme, &color_scheme_committed] {
-    if (!color_scheme_committed) {
-      ThemeManager::instance().set_preference(entry_color_scheme, /*persist=*/false);
-    }
-  });
+  const auto restore_color_scheme =
+      qScopeGuard([entry_color_scheme, entry_custom_id, custom_themes, &color_scheme_committed] {
+        if (color_scheme_committed) {
+          return;
+        }
+        if (entry_custom_id) {
+          const auto found = custom_themes->find(*entry_custom_id);
+          if (found != custom_themes->end()) {
+            ThemeManager::instance().set_custom_theme(*entry_custom_id, found.value(), /*persist=*/false);
+            return;
+          }
+        }
+        ThemeManager::instance().set_preference(entry_color_scheme, /*persist=*/false);
+      });
 
   auto* gui_scale_combo = new QComboBox(application_group);
   gui_scale_combo->setObjectName(QStringLiteral("preferencesGuiScaleCombo"));
@@ -709,10 +864,16 @@ void MainWindow::show_preferences() {
 
   // Connected after setCurrentIndex so restoring the saved value does not count
   // as a user choice.
-  connect(color_scheme_combo, &QComboBox::currentIndexChanged, &dialog, [color_scheme_combo] {
-    ThemeManager::instance().set_preference(
-        color_scheme_preference_from_token(color_scheme_combo->currentData().toString()),
-        /*persist=*/false);
+  connect(color_scheme_combo, &QComboBox::currentIndexChanged, &dialog, [color_scheme_combo, custom_themes] {
+    const auto token = color_scheme_combo->currentData().toString();
+    if (token.startsWith(QStringLiteral("custom:"))) {
+      const auto found = custom_themes->find(token.mid(7));
+      if (found != custom_themes->end()) {
+        ThemeManager::instance().set_custom_theme(token.mid(7), found.value(), /*persist=*/false);
+      }
+      return;
+    }
+    ThemeManager::instance().set_preference(color_scheme_preference_from_token(token), /*persist=*/false);
   });
 
   auto [pen_page, pen_layout] = make_tab_page(tabs);
@@ -1108,9 +1269,14 @@ void MainWindow::show_preferences() {
     }
     hotkey_editor->commit();
     // No restart notice: the scheme is already applied, unlike interface scale.
-    ThemeManager::instance().set_preference(
-        color_scheme_preference_from_token(color_scheme_combo->currentData().toString()),
-        /*persist=*/true);
+    if (const auto token = color_scheme_combo->currentData().toString(); token.startsWith(QStringLiteral("custom:"))) {
+      const auto found = custom_themes->find(token.mid(7));
+      if (found != custom_themes->end()) {
+        ThemeManager::instance().set_custom_theme(token.mid(7), found.value(), /*persist=*/true);
+      }
+    } else {
+      ThemeManager::instance().set_preference(color_scheme_preference_from_token(token), /*persist=*/true);
+    }
     color_scheme_committed = true;
     const auto new_grid_spacing_32 =
         std::clamp(static_cast<int>(std::lround(grid_spacing_spin->value() * 32.0)), 1, 320000);
