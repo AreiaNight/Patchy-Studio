@@ -1591,6 +1591,20 @@ void ui_hotkey_override_applies_at_startup() {
   }
 }
 
+// The Hotkeys page is no longer the last Preferences tab everywhere (Windows appends
+// Plug-ins after it), so select the tab that hosts the editor panel instead of the last one.
+void select_hotkeys_tab(QTabWidget& tabs, QDialog& dialog) {
+  auto* panel = dialog.findChild<QWidget*>(QStringLiteral("hotkeyEditorPanel"));
+  CHECK(panel != nullptr);
+  for (auto* page = panel; page != nullptr; page = page->parentWidget()) {
+    if (tabs.indexOf(page) >= 0) {
+      tabs.setCurrentWidget(page);
+      return;
+    }
+  }
+  CHECK(false);
+}
+
 void ui_hotkey_editor_assigns_and_persists_custom_shortcut() {
   HotkeySettingsGroupRestorer restore_hotkeys;
   clear_hotkey_overrides();
@@ -1603,7 +1617,7 @@ void ui_hotkey_editor_assigns_and_persists_custom_shortcut() {
     CHECK(dialog != nullptr);
     auto* tabs = dialog->findChild<QTabWidget*>(QStringLiteral("preferencesTabWidget"));
     CHECK(tabs != nullptr);
-    tabs->setCurrentIndex(tabs->count() - 1);
+    select_hotkeys_tab(*tabs, *dialog);
     QApplication::processEvents();
     CHECK(dialog->findChild<QWidget*>(QStringLiteral("hotkeyEditorPanel")) != nullptr);
     save_widget_artifact("hotkey_editor_tab", *dialog);
@@ -1672,7 +1686,7 @@ void ui_hotkey_editor_steals_conflicting_shortcut() {
     CHECK(dialog != nullptr);
     auto* tabs = dialog->findChild<QTabWidget*>(QStringLiteral("preferencesTabWidget"));
     CHECK(tabs != nullptr);
-    tabs->setCurrentIndex(tabs->count() - 1);
+    select_hotkeys_tab(*tabs, *dialog);
     QApplication::processEvents();
 
     // The Line tool ships unbound, so it renders an assign chip.
@@ -1746,7 +1760,7 @@ void ui_hotkey_editor_reset_all_clears_overrides() {
     CHECK(dialog != nullptr);
     auto* tabs = dialog->findChild<QTabWidget*>(QStringLiteral("preferencesTabWidget"));
     CHECK(tabs != nullptr);
-    tabs->setCurrentIndex(tabs->count() - 1);
+    select_hotkeys_tab(*tabs, *dialog);
     QApplication::processEvents();
     auto* reset_all = dialog->findChild<QPushButton*>(QStringLiteral("hotkeyResetAllButton"));
     CHECK(reset_all != nullptr);

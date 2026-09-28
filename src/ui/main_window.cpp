@@ -13575,6 +13575,10 @@ void MainWindow::update_document_action_state() {
   }
   refresh_convert_for_smart_filters_action_state();
   refresh_options_bar();
+  // Every document action was just set from has_document alone, Distribute included, so
+  // reapply the layer-count rule (Distribute needs three units). The Windows plug-in scan
+  // rebuilds its menu after startup and lands here with a one-layer document open.
+  refresh_layer_alignment_action_states();
 }
 
 void MainWindow::refresh_convert_for_smart_filters_action_state() {
