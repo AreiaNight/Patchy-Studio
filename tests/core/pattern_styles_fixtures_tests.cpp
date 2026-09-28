@@ -1382,6 +1382,92 @@ void psd_photoshop_interior_exterior_blending_fixture_matches_render() {
   check_near(200, 32, 100, 120, 140);  // fill 0 still hides the shadow inside the shape
 }
 
+// Photoshop 2026 authored photoshop-clip-base-effects.psd/.bmp via COM
+// (September 2026, GitHub issue 41; docs/ps-compat.md "Clipping masks").
+// Fourteen 40x40 cells on white, 7 per row with 10 px gutters, each a base
+// square with a 20x20 member clipped into its top-left corner:
+//   O<clbl><infx>: white base with a 50% blue Color Overlay, red member
+//   A<clbl><infx>: blue base with a hard black Inner Shadow band (size 1, choke 100%), red member
+//   B<clbl><infx>: blue base with a 6 px inside green Stroke, red member
+//   D<clbl>:       gray base at 50% opacity, red Multiply member
+// The base's effects draw over the member in every cell except O01 (clbl off
+// with infx on), where the overlay folds under it; D0 and D1 are identical.
+void psd_photoshop_clip_base_effects_fixture_matches_render() {
+  const auto psd_path = patchy::test::committed_psd_fixture_path("photoshop-clip-base-effects.psd");
+  const auto bmp_path = psd_path.parent_path() / "photoshop-clip-base-effects.bmp";
+  CHECK(std::filesystem::exists(psd_path));
+  CHECK(std::filesystem::exists(bmp_path));
+  const auto document = patchy::psd::DocumentIo::read_file(psd_path);
+
+  const auto flags = [&](const char* layer_name) {
+    const auto* layer = find_layer_named(document.layers(), layer_name);
+    CHECK(layer != nullptr);
+    return std::pair<bool, bool>{layer->layer_style().blend_clipped_elements,
+                                 layer->layer_style().blend_interior_elements};
+  };
+  CHECK((flags("O00 base") == std::pair<bool, bool>(false, false)));
+  CHECK((flags("O01 base") == std::pair<bool, bool>(false, true)));
+  CHECK((flags("O10 base") == std::pair<bool, bool>(true, false)));
+  CHECK((flags("O11 base") == std::pair<bool, bool>(true, true)));
+  const auto* member = find_layer_named(document.layers(), "O00 member");
+  CHECK(member != nullptr);
+  CHECK(member->clipped());
+  CHECK(member->layer_style().blend_clipped_elements);
+
+  const auto reference =
+      patchy::Compositor{}.flatten_rgb8(patchy::bmp::DocumentIo::read_file(bmp_path));
+  const auto flat = patchy::Compositor{}.flatten_rgb8(document);
+  const auto metrics = rgb_diff_metrics(reference, flat);
+  // Photoshop rounds its 50% blends to 127 where Patchy rounds to 128; nothing
+  // else differs (max 1, mean 0.108 at authoring time).
+  CHECK(metrics.max_channel_delta <= 1);
+  CHECK(metrics.mean_abs_channel_delta <= 0.15);
+
+  struct Cell {
+    const char* id;
+    std::array<int, 3> effect_over_member;  // (+3, +3)
+    std::array<int, 3> member;              // (+15, +15)
+    std::array<int, 3> base;                // (+30, +30)
+  };
+  const std::array<Cell, 14> cells{
+      Cell{"O00", {127, 0, 128}, {127, 0, 128}, {127, 127, 255}}, Cell{"O01", {255, 0, 0}, {255, 0, 0}, {127, 127, 255}},
+      Cell{"O10", {127, 0, 128}, {127, 0, 128}, {127, 127, 255}}, Cell{"O11", {127, 0, 128}, {127, 0, 128}, {127, 127, 255}},
+      Cell{"A00", {0, 0, 0}, {255, 0, 0}, {0, 0, 255}},          Cell{"A01", {0, 0, 0}, {255, 0, 0}, {0, 0, 255}},
+      Cell{"A10", {0, 0, 0}, {255, 0, 0}, {0, 0, 255}},          Cell{"A11", {0, 0, 0}, {255, 0, 0}, {0, 0, 255}},
+      Cell{"B00", {0, 255, 0}, {255, 0, 0}, {0, 0, 255}},        Cell{"B01", {0, 255, 0}, {255, 0, 0}, {0, 0, 255}},
+      Cell{"B10", {0, 255, 0}, {255, 0, 0}, {0, 0, 255}},        Cell{"B11", {0, 255, 0}, {255, 0, 0}, {0, 0, 255}},
+      Cell{"D0", {191, 127, 127}, {191, 127, 127}, {191, 191, 191}},
+      Cell{"D1", {191, 127, 127}, {191, 127, 127}, {191, 191, 191}}};
+  const auto check_near = [&](std::int32_t x, std::int32_t y, std::array<int, 3> expected) {
+    const auto* pixel = flat.pixel(x, y);
+    CHECK(std::abs(static_cast<int>(pixel[0]) - expected[0]) <= 2);
+    CHECK(std::abs(static_cast<int>(pixel[1]) - expected[1]) <= 2);
+    CHECK(std::abs(static_cast<int>(pixel[2]) - expected[2]) <= 2);
+  };
+  for (std::size_t index = 0; index < cells.size(); ++index) {
+    const auto x = static_cast<std::int32_t>(10 + (index % 7) * 50);
+    const auto y = static_cast<std::int32_t>(10 + (index / 7) * 50);
+    check_near(x + 3, y + 3, cells[index].effect_over_member);
+    check_near(x + 15, y + 15, cells[index].member);
+    check_near(x + 30, y + 30, cells[index].base);
+  }
+
+  // The flags survive a resave: the explicit Photoshop blocks are regenerated
+  // from the model (absence means on).
+  const auto reread = patchy::psd::DocumentIo::read(patchy::psd::DocumentIo::write_layered_rgb8(document));
+  const auto reread_flags = [&](const char* layer_name) {
+    const auto* layer = find_layer_named(reread.layers(), layer_name);
+    CHECK(layer != nullptr);
+    return std::pair<bool, bool>{layer->layer_style().blend_clipped_elements,
+                                 layer->layer_style().blend_interior_elements};
+  };
+  CHECK((reread_flags("O00 base") == std::pair<bool, bool>(false, false)));
+  CHECK((reread_flags("O01 base") == std::pair<bool, bool>(false, true)));
+  CHECK((reread_flags("O10 base") == std::pair<bool, bool>(true, false)));
+  CHECK((reread_flags("O11 base") == std::pair<bool, bool>(true, true)));
+  CHECK(rgb_diff_metrics(flat, patchy::Compositor{}.flatten_rgb8(reread)).max_channel_delta == 0);
+}
+
 // Photoshop 2026 authored the four photoshop-group-fx-*.psd/.bmp probe pairs
 // via COM (2026-07-28; docs/ps-compat.md "Layer effects on GROUPS"). Each is
 // a multi-arm document of groups carrying layer effects: pass-through
@@ -2256,6 +2342,8 @@ std::vector<patchy::test::TestCase> pattern_styles_fixtures_tests() {
        psd_photoshop_group_fx_fixtures_match_render},
       {"psd_photoshop_interior_exterior_blending_fixture_matches_render",
        psd_photoshop_interior_exterior_blending_fixture_matches_render},
+      {"psd_photoshop_clip_base_effects_fixture_matches_render",
+       psd_photoshop_clip_base_effects_fixture_matches_render},
       {"psd_photoshop_pillow_emboss_fixtures_match_render",
        psd_photoshop_pillow_emboss_fixtures_match_render},
       {"psd_photoshop_stroke_shapeburst_fixture_matches_render",

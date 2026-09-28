@@ -8553,6 +8553,14 @@ RGB：%2, %3, %4</translation>
         <source>Could not open the plug-ins folder.</source>
         <translation>无法打开插件文件夹。</translation>
     </message>
+    <message>
+        <source>Blend Clipped Layers as Group</source>
+        <translation>将剪贴图层混合成组</translation>
+    </message>
+    <message>
+        <source>Keep the layers clipped to this one under its interior effects; turn this off together with Blend Interior Effects as Group to draw them over the overlays instead</source>
+        <translation>将剪贴到此图层的图层保持在其内部效果之下;与“将内部效果混合成组”一起关闭时,改为绘制在叠加之上</translation>
+    </message>
 </context>
 <context>
     <name>ScannerImport</name>

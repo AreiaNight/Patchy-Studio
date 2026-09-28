@@ -8580,6 +8580,14 @@ RGB: %2, %3, %4</translation>
         <source>Could not open the plug-ins folder.</source>
         <translation>No se pudo abrir la carpeta de plugins.</translation>
     </message>
+    <message>
+        <source>Blend Clipped Layers as Group</source>
+        <translation>Fusionar capas recortadas como grupo</translation>
+    </message>
+    <message>
+        <source>Keep the layers clipped to this one under its interior effects; turn this off together with Blend Interior Effects as Group to draw them over the overlays instead</source>
+        <translation>Mantiene las capas recortadas a esta debajo de sus efectos interiores; desactívelo junto con Fusionar efectos interiores como grupo para dibujarlas sobre las superposiciones</translation>
+    </message>
 </context>
 <context>
     <name>ScannerImport</name>

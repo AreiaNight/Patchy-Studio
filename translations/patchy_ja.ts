@@ -8553,6 +8553,14 @@ Mixed selection</source>
         <source>Could not open the plug-ins folder.</source>
         <translation>プラグインフォルダーを開けませんでした。</translation>
     </message>
+    <message>
+        <source>Blend Clipped Layers as Group</source>
+        <translation>クリップされたレイヤーをグループとして描画</translation>
+    </message>
+    <message>
+        <source>Keep the layers clipped to this one under its interior effects; turn this off together with Blend Interior Effects as Group to draw them over the overlays instead</source>
+        <translation>このレイヤーにクリップされたレイヤーを内側の効果の下に置きます。「内側の効果をグループとして描画」と一緒にオフにすると、オーバーレイの上に描画されます</translation>
+    </message>
 </context>
 <context>
     <name>ScannerImport</name>

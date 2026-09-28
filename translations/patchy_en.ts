@@ -8571,6 +8571,14 @@ RGB: %2, %3, %4</source>
         <source>Could not open the plug-ins folder.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Blend Clipped Layers as Group</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Keep the layers clipped to this one under its interior effects; turn this off together with Blend Interior Effects as Group to draw them over the overlays instead</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>ScannerImport</name>

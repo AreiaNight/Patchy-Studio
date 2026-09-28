@@ -8580,6 +8580,14 @@ RGB: %2, %3, %4</translation>
         <source>Could not open the plug-ins folder.</source>
         <translation>Impossibile aprire la cartella dei plug-in.</translation>
     </message>
+    <message>
+        <source>Blend Clipped Layers as Group</source>
+        <translation>Fondi livelli ritagliati come gruppo</translation>
+    </message>
+    <message>
+        <source>Keep the layers clipped to this one under its interior effects; turn this off together with Blend Interior Effects as Group to draw them over the overlays instead</source>
+        <translation>Mantiene i livelli ritagliati su questo sotto i suoi effetti interni; disattivalo insieme a Fondi effetti interni come gruppo per disegnarli sopra le sovrapposizioni</translation>
+    </message>
 </context>
 <context>
     <name>ScannerImport</name>

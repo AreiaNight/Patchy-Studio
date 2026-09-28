@@ -8580,6 +8580,14 @@ RVB : %2, %3, %4</translation>
         <source>Could not open the plug-ins folder.</source>
         <translation>Impossible d&apos;ouvrir le dossier des modules externes.</translation>
     </message>
+    <message>
+        <source>Blend Clipped Layers as Group</source>
+        <translation>Fusionner les calques écrêtés en groupe</translation>
+    </message>
+    <message>
+        <source>Keep the layers clipped to this one under its interior effects; turn this off together with Blend Interior Effects as Group to draw them over the overlays instead</source>
+        <translation>Garde les calques écrêtés sur celui-ci sous ses effets intérieurs ; désactivez-le avec Fusionner les effets intérieurs en groupe pour les dessiner par-dessus les incrustations</translation>
+    </message>
 </context>
 <context>
     <name>ScannerImport</name>
