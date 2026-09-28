@@ -8574,6 +8574,33 @@ RGB: %2, %3, %4</translation>
     </message>
 </context>
 <context>
+    <name>ThemeFile</name>
+    <message>
+        <source>Not a valid theme file: %1</source>
+        <translation>File del tema non valido: %1</translation>
+    </message>
+    <message>
+        <source>the top level is not an object</source>
+        <translation>il livello superiore non è un oggetto</translation>
+    </message>
+    <message>
+        <source>Theme file is missing a valid &quot;base&quot; (must be &quot;dark&quot; or &quot;light&quot;).</source>
+        <translation>Al file del tema manca un &quot;base&quot; valido (deve essere &quot;dark&quot; o &quot;light&quot;).</translation>
+    </message>
+    <message>
+        <source>Theme file&apos;s &quot;roles&quot; is not an object.</source>
+        <translation>Il &quot;roles&quot; del file del tema non è un oggetto.</translation>
+    </message>
+    <message>
+        <source>Unknown color role &quot;%1&quot; (ignored).</source>
+        <translation>Ruolo colore sconosciuto &quot;%1&quot; (ignorato).</translation>
+    </message>
+    <message>
+        <source>Invalid color &quot;%1&quot; for role &quot;%2&quot; (expected #RRGGBB or #RRGGBBAA).</source>
+        <translation>Colore non valido &quot;%1&quot; per il ruolo &quot;%2&quot; (previsto #RRGGBB o #RRGGBBAA).</translation>
+    </message>
+</context>
+<context>
     <name>VectorPreview</name>
     <message>
         <source>Dynamic Vector Preview: using the document&apos;s pixel view.</source>
@@ -17724,6 +17751,43 @@ Y: %2
             <numerusform>Oggetto avanzato convertito in %n livello</numerusform>
             <numerusform>Oggetto avanzato convertito in %n livelli</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>Import Theme...</source>
+        <translation>Importa tema...</translation>
+    </message>
+    <message>
+        <source>Export Theme...</source>
+        <translation>Esporta tema...</translation>
+    </message>
+    <message>
+        <source>Import Theme</source>
+        <translation>Importa tema</translation>
+    </message>
+    <message>
+        <source>Patchy theme (*.patchytheme *.json)</source>
+        <translation>Tema Patchy (*.patchytheme *.json)</translation>
+    </message>
+    <message>
+        <source>Could not open &quot;%1&quot;.</source>
+        <translation>Impossibile aprire &quot;%1&quot;.</translation>
+    </message>
+    <message>
+        <source>Could not create the themes folder.</source>
+        <translation>Impossibile creare la cartella dei temi.</translation>
+    </message>
+    <message>
+        <source>Theme</source>
+        <comment>Default file name offered when exporting a theme; the save dialog appends the extension.</comment>
+        <translation>Tema</translation>
+    </message>
+    <message>
+        <source>Export Theme</source>
+        <translation>Esporta tema</translation>
+    </message>
+    <message>
+        <source>Patchy theme (*.patchytheme)</source>
+        <translation>Tema Patchy (*.patchytheme)</translation>
     </message>
 </context>
 <context>

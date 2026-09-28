@@ -182,8 +182,6 @@ HotkeyEditorPanel::HotkeyEditorPanel(HotkeyRegistry& registry, QMenuBar* menu_ba
   top_layout->addWidget(reset_all_button);
   layout->addWidget(top_row);
 
-  build_rows(menu_bar);
-
   auto* hint = new QLabel(
       tr("Click a shortcut to change it. Backspace clears it. Esc cancels. Changes apply when you click OK."), this);
   hint->setProperty("hotkeyDim", true);
@@ -198,6 +196,10 @@ HotkeyEditorPanel::HotkeyEditorPanel(HotkeyRegistry& registry, QMenuBar* menu_ba
     });
   });
 
+  // Set before build_rows() creates its hundreds of command-row widgets: a
+  // stylesheet applied to a widget that already has a large subtree forces Qt
+  // to repolish every descendant, which measured multiple seconds with the
+  // full command list (the September 2026 Preferences-open slowdown).
   set_themed_style(*this, QStringLiteral(R"(
     QWidget#hotkeyEditorPanel QLabel[hotkeyCategoryHeader="true"] {
       color: @hotkey_hint_text;
@@ -287,6 +289,7 @@ HotkeyEditorPanel::HotkeyEditorPanel(HotkeyRegistry& registry, QMenuBar* menu_ba
     }
   )"));
 
+  build_rows(menu_bar);
   refresh_rows();
 }
 

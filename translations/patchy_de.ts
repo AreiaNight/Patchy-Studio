@@ -8574,6 +8574,33 @@ RGB: %2, %3, %4</translation>
     </message>
 </context>
 <context>
+    <name>ThemeFile</name>
+    <message>
+        <source>Not a valid theme file: %1</source>
+        <translation>Keine gültige Design-Datei: %1</translation>
+    </message>
+    <message>
+        <source>the top level is not an object</source>
+        <translation>die oberste Ebene ist kein Objekt</translation>
+    </message>
+    <message>
+        <source>Theme file is missing a valid &quot;base&quot; (must be &quot;dark&quot; or &quot;light&quot;).</source>
+        <translation>Der Design-Datei fehlt ein gültiges &quot;base&quot; (muss &quot;dark&quot; oder &quot;light&quot; sein).</translation>
+    </message>
+    <message>
+        <source>Theme file&apos;s &quot;roles&quot; is not an object.</source>
+        <translation>Das &quot;roles&quot; der Design-Datei ist kein Objekt.</translation>
+    </message>
+    <message>
+        <source>Unknown color role &quot;%1&quot; (ignored).</source>
+        <translation>Unbekannte Farbrolle &quot;%1&quot; (ignoriert).</translation>
+    </message>
+    <message>
+        <source>Invalid color &quot;%1&quot; for role &quot;%2&quot; (expected #RRGGBB or #RRGGBBAA).</source>
+        <translation>Ungültige Farbe &quot;%1&quot; für Rolle &quot;%2&quot; (erwartet #RRGGBB oder #RRGGBBAA).</translation>
+    </message>
+</context>
+<context>
     <name>VectorPreview</name>
     <message>
         <source>Dynamic Vector Preview: using the document&apos;s pixel view.</source>
@@ -17724,6 +17751,43 @@ Y: %2
             <numerusform>Smartobjekt in %n Ebene konvertiert</numerusform>
             <numerusform>Smartobjekt in %n Ebenen konvertiert</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>Import Theme...</source>
+        <translation>Design importieren...</translation>
+    </message>
+    <message>
+        <source>Export Theme...</source>
+        <translation>Design exportieren...</translation>
+    </message>
+    <message>
+        <source>Import Theme</source>
+        <translation>Design importieren</translation>
+    </message>
+    <message>
+        <source>Patchy theme (*.patchytheme *.json)</source>
+        <translation>Patchy-Design (*.patchytheme *.json)</translation>
+    </message>
+    <message>
+        <source>Could not open &quot;%1&quot;.</source>
+        <translation>&quot;%1&quot; konnte nicht geöffnet werden.</translation>
+    </message>
+    <message>
+        <source>Could not create the themes folder.</source>
+        <translation>Der Design-Ordner konnte nicht erstellt werden.</translation>
+    </message>
+    <message>
+        <source>Theme</source>
+        <comment>Default file name offered when exporting a theme; the save dialog appends the extension.</comment>
+        <translation>Design</translation>
+    </message>
+    <message>
+        <source>Export Theme</source>
+        <translation>Design exportieren</translation>
+    </message>
+    <message>
+        <source>Patchy theme (*.patchytheme)</source>
+        <translation>Patchy-Design (*.patchytheme)</translation>
     </message>
 </context>
 <context>

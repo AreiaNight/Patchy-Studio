@@ -8547,6 +8547,33 @@ RGB：%2, %3, %4</translation>
     </message>
 </context>
 <context>
+    <name>ThemeFile</name>
+    <message>
+        <source>Not a valid theme file: %1</source>
+        <translation>不是有效的佈景主題檔案: %1</translation>
+    </message>
+    <message>
+        <source>the top level is not an object</source>
+        <translation>頂層不是一個物件</translation>
+    </message>
+    <message>
+        <source>Theme file is missing a valid &quot;base&quot; (must be &quot;dark&quot; or &quot;light&quot;).</source>
+        <translation>佈景主題檔案缺少有效的 &quot;base&quot;(必須是 &quot;dark&quot; 或 &quot;light&quot;)。</translation>
+    </message>
+    <message>
+        <source>Theme file&apos;s &quot;roles&quot; is not an object.</source>
+        <translation>佈景主題檔案的 &quot;roles&quot; 不是一個物件。</translation>
+    </message>
+    <message>
+        <source>Unknown color role &quot;%1&quot; (ignored).</source>
+        <translation>不明的顏色角色 &quot;%1&quot;(已忽略)。</translation>
+    </message>
+    <message>
+        <source>Invalid color &quot;%1&quot; for role &quot;%2&quot; (expected #RRGGBB or #RRGGBBAA).</source>
+        <translation>角色 &quot;%2&quot; 的顏色 &quot;%1&quot; 無效(應為 #RRGGBB 或 #RRGGBBAA)。</translation>
+    </message>
+</context>
+<context>
     <name>VectorPreview</name>
     <message>
         <source>Dynamic Vector Preview: using the document&apos;s pixel view.</source>
@@ -17672,6 +17699,43 @@ Y：%2
         <translation>
             <numerusform>已將智慧型物件轉換為 %n 個圖層</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>Import Theme...</source>
+        <translation>匯入佈景主題...</translation>
+    </message>
+    <message>
+        <source>Export Theme...</source>
+        <translation>匯出佈景主題...</translation>
+    </message>
+    <message>
+        <source>Import Theme</source>
+        <translation>匯入佈景主題</translation>
+    </message>
+    <message>
+        <source>Patchy theme (*.patchytheme *.json)</source>
+        <translation>Patchy 佈景主題 (*.patchytheme *.json)</translation>
+    </message>
+    <message>
+        <source>Could not open &quot;%1&quot;.</source>
+        <translation>無法開啟「%1」。</translation>
+    </message>
+    <message>
+        <source>Could not create the themes folder.</source>
+        <translation>無法建立佈景主題資料夾。</translation>
+    </message>
+    <message>
+        <source>Theme</source>
+        <comment>Default file name offered when exporting a theme; the save dialog appends the extension.</comment>
+        <translation>佈景主題</translation>
+    </message>
+    <message>
+        <source>Export Theme</source>
+        <translation>匯出佈景主題</translation>
+    </message>
+    <message>
+        <source>Patchy theme (*.patchytheme)</source>
+        <translation>Patchy 佈景主題 (*.patchytheme)</translation>
     </message>
 </context>
 <context>

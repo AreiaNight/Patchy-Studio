@@ -113,7 +113,6 @@
 #include <QDragLeaveEvent>
 #include <QDropEvent>
 #include <QDoubleSpinBox>
-#include <QElapsedTimer>
 #include <QEvent>
 #include <QEventLoop>
 #include <QFileDialog>
@@ -1184,22 +1183,16 @@ void MainWindow::show_preferences() {
   snapping_layout->addStretch(1);
   tabs->addTab(snapping_page, tr("Snapping"));
 
-  auto [hotkeys_page, hotkeys_layout] = make_tab_page(tabs);
-  auto* hotkey_editor = new HotkeyEditorPanel(hotkey_registry_, menuBar(), hotkeys_page);
-  hotkeys_layout->addWidget(hotkey_editor);
-  hotkeys_layout->addStretch(1);
-  tabs->addTab(hotkeys_page, tr("Hotkeys"));
-
-  content->addWidget(tabs, 1);
-
-  auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok, &dialog);
-  buttons->setObjectName(QStringLiteral("preferencesButtonBox"));
-  connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
-  content->addWidget(buttons);
-
-  // Applied after every child widget exists: Qt does not reliably pick up
-  // sub-control rules (QSpinBox::up-button) for widgets created on hidden
-  // tab pages after the stylesheet was set.
+  // Applied here, after every widget these rules can reach already exists
+  // (Application/Pen/Grid & Guides/Snapping, including every dialog spin box),
+  // but before the Hotkeys tab: Qt does not reliably pick up sub-control rules
+  // (QSpinBox::up-button) for widgets created on hidden tab pages after the
+  // stylesheet was set, so anything the rules target must already exist. The
+  // Hotkeys tab has no spin box and none of the IDs below, so building it
+  // afterward is fine and, unlike appending after it, avoids forcing Qt to
+  // repolish its several-hundred-widget subtree along with everything else
+  // (the September 2026 Preferences-open slowdown: this repolish alone cost
+  // seconds with the full command list).
   append_themed_style(dialog, QStringLiteral(R"(
     QDialog#patchyPreferencesDialog QTabWidget::pane {
       border: 1px solid @dialog_tab_border;
@@ -1263,11 +1256,37 @@ void MainWindow::show_preferences() {
   // final word (see docs/ui-conventions.md).
   append_themed_style(dialog, dialog_spinbox_button_style());
 
+  auto [hotkeys_page, hotkeys_layout] = make_tab_page(tabs);
+  hotkeys_layout->addStretch(1);
+  const int hotkeys_tab_index = tabs->addTab(hotkeys_page, tr("Hotkeys"));
+
+  // Building ~150 hotkey rows is the single most expensive part of opening this
+  // dialog. Defer it until the user actually switches to the tab, since most
+  // Preferences opens never visit it.
+  HotkeyEditorPanel* hotkey_editor = nullptr;
+  connect(tabs, &QTabWidget::currentChanged, &dialog,
+          [this, tabs, hotkeys_page, hotkeys_layout, hotkeys_tab_index, &hotkey_editor](int index) {
+            if (index != hotkeys_tab_index || hotkey_editor != nullptr) {
+              return;
+            }
+            hotkey_editor = new HotkeyEditorPanel(hotkey_registry_, menuBar(), hotkeys_page);
+            hotkeys_layout->insertWidget(0, hotkey_editor);
+          });
+
+  content->addWidget(tabs, 1);
+
+  auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok, &dialog);
+  buttons->setObjectName(QStringLiteral("preferencesButtonBox"));
+  connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+  content->addWidget(buttons);
+
   if (exec_dialog(dialog) == QDialog::Accepted) {
     if (const auto code = language_combo->currentData().toString(); !code.isEmpty()) {
       LocalizationManager::instance().set_language(code);
     }
-    hotkey_editor->commit();
+    if (hotkey_editor != nullptr) {
+      hotkey_editor->commit();
+    }
     // No restart notice: the scheme is already applied, unlike interface scale.
     if (const auto token = color_scheme_combo->currentData().toString(); token.startsWith(QStringLiteral("custom:"))) {
       const auto found = custom_themes->find(token.mid(7));
