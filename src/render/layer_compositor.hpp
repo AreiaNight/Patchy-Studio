@@ -996,7 +996,11 @@ void render_inner_shadow(Target& destination, const Layer& layer, const PixelBuf
                          const LayerInnerShadow& shadow, std::optional<Rect> layer_mask_bounds,
                          StyleMaskProvider* masks = nullptr, std::uint32_t effect_index = 0,
                          const StrokeKnockoutPlane* knockout = nullptr) {
-  if (!shadow.enabled || shadow.opacity <= 0.0F || shadow.size <= 0.0F) {
+  // Size 0 still renders: Photoshop draws the inverse matte offset by the
+  // rounded distance vector as a hard band (7 px at distance 10 / angle 135,
+  // whatever the choke; photoshop-size-zero-effects.psd, September 2026), which
+  // is exactly what the interior soft mask degenerates to without a blur.
+  if (!shadow.enabled || shadow.opacity <= 0.0F) {
     return;
   }
   const auto draw_rect = intersect_rect(clip, bounds);
@@ -1062,7 +1066,12 @@ void render_inner_glow(Target& destination, const Layer& layer, const PixelBuffe
                        const LayerInnerGlow& glow, std::optional<Rect> layer_mask_bounds,
                        StyleMaskProvider* masks = nullptr, std::uint32_t effect_index = 0,
                        const StrokeKnockoutPlane* knockout = nullptr) {
-  if (!glow.enabled || glow.opacity <= 0.0F || glow.size <= 0.0F) {
+  // Size 0: an Edge glow has no reach and renders nothing; a Center glow is the
+  // complement of that empty edge field, so it fills the whole shape
+  // (photoshop-size-zero-effects.psd, September 2026). The Softer and the
+  // historical Center paths both produce that from the unblurred matte.
+  if (!glow.enabled || glow.opacity <= 0.0F ||
+      (glow.size <= 0.0F && glow.source != LayerInnerGlowSource::Center)) {
     return;
   }
   const auto draw_rect = intersect_rect(clip, bounds);
