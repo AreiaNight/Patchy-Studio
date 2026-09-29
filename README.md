@@ -1,8 +1,8 @@
 # Patchy Image Editor
 
 A free, open-source image editor for Windows, macOS, Linux, and the browser.
-Work with layered Photoshop files, editable text and vectors, masks, layer styles,
-Smart Objects, and classic Photoshop plug-ins.
+Built with a focus on accurate PSD compatibility, keeping text, vectors, masks,
+layer styles, and Smart Objects editable when working with layered Photoshop files.
 
 **[Download](#download)** · **[Try in your browser](https://www.patchyimageeditor.com)** · **[Features](#features)** · **[Full gallery](docs/screenshots.md)**
 
@@ -10,7 +10,7 @@ For bug reports and feature requests, please [open an issue](https://github.com/
 
 <a href="docs/images/screenshots/smart_filters.png"><img src="docs/images/screenshots/smart_filters.png" width="1000" alt="Cyclist photo with color-wheel and Levels controls, an editable Levels adjustment layer, a Smart Filter stack and shared mask, grouped text, and a clipping mask"></a>
 
-*Color and Levels controls, editable adjustment layers and Smart Filters, grouped text, and clipping masks in one workspace.*
+*Designed to feel familiar if you're used to Photoshop's workflows and keyboard shortcuts.*
 
 ## Download
 

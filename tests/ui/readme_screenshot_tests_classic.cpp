@@ -1856,6 +1856,7 @@ void shot_readme_material_styles() {
 void shot_readme_smart_filters() {
   SettingsValueRestorer picker_tab_restorer(QStringLiteral("colorPanel/lastTab"));
   SettingsValueRestorer palette_choice_restorer(QStringLiteral("palettes/lastPaletteChoice"));
+  SettingsValueRestorer rulers_restorer(QStringLiteral("view/rulersVisible"));
   patchy::test::register_test_fonts(patchy::test::TestFontRole::ArialBlack);
   patchy::test::register_test_fonts(patchy::test::TestFontRole::Verdana);
   const auto path =
@@ -2036,6 +2037,10 @@ void shot_readme_smart_filters() {
   patchy::ui::MainWindowTestAccess::refresh_layer_ui(window);
   canvas->document_changed();
   patchy::ui::MainWindowTestAccess::set_right_dock_stack_width(window, 380);
+  auto* rulers_action = require_action(window, "viewToggleRulersAction");
+  if (!rulers_action->isChecked()) {
+    rulers_action->trigger();
+  }
   require_action(window, "viewFitOnScreenAction")->trigger();
   process_events_for(900);
   auto* layer_list = window.findChild<QListWidget*>(QStringLiteral("layerList"));
@@ -2094,6 +2099,7 @@ void shot_readme_smart_filters() {
       dialog->move(window.geometry().topLeft() + levels_offset);
       process_events_for(400);
       const auto preview_image = patchy::ui::qimage_from_document(std::as_const(composed), false);
+      CHECK(canvas->rulers_visible());
       CHECK(preview_image.copy(face_region).convertToFormat(QImage::Format_RGBA8888) ==
             photo.copy(face_region).convertToFormat(QImage::Format_RGBA8888));
       reset_readme_status_bar(window);
