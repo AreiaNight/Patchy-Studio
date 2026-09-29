@@ -566,6 +566,56 @@ void ui_dialog_position_memory_centers_unmoved_dialogs_on_parent() {
   settings.sync();
 }
 
+// Progress dialogs are transient status windows: a remembered position (here a
+// seeded one from an earlier layout) is ignored, the dialog is centered on its
+// owner, and moving it records nothing.
+void ui_progress_dialogs_ignore_position_memory_and_center_on_parent() {
+  const auto settings_group = QStringLiteral("dialogPositions/patchyProgressPositionTest");
+  const auto screen_rect = QApplication::primaryScreen() != nullptr
+                               ? QApplication::primaryScreen()->availableGeometry()
+                               : QRect(0, 0, 640, 480);
+  const auto far_position = screen_rect.topLeft() + QPoint(4, 5);
+  {
+    auto settings = patchy::ui::app_settings();
+    settings.remove(settings_group);
+    settings.setValue(settings_group + QStringLiteral("/pos"), far_position);
+    settings.setValue(settings_group + QStringLiteral("/moved"), true);
+    settings.sync();
+  }
+
+  QWidget parent;
+  parent.resize(420, 260);
+  parent.move(screen_rect.topLeft() + QPoint(160, 120));
+  parent.show();
+  QApplication::processEvents();
+
+  {
+    QProgressDialog dialog(QStringLiteral("Opening..."), QString(), 0, 0, &parent);
+    dialog.setObjectName(QStringLiteral("patchyProgressPositionTest"));
+    dialog.setMinimumDuration(0);
+    dialog.resize(220, 90);
+    patchy::ui::remember_dialog_position(dialog);
+    dialog.show();
+    QApplication::processEvents();
+
+    const auto expected_position =
+        parent.frameGeometry().center() - QPoint(dialog.size().width() / 2, dialog.size().height() / 2);
+    CHECK((dialog.pos() - expected_position).manhattanLength() <= 10);
+    CHECK((dialog.pos() - far_position).manhattanLength() > 10);
+
+    dialog.move(far_position);
+    QApplication::processEvents();
+    dialog.close();
+    QApplication::processEvents();
+  }
+
+  auto settings = patchy::ui::app_settings();
+  CHECK(!settings.value(settings_group + QStringLiteral("/pos")).isValid());
+  CHECK(!settings.value(settings_group + QStringLiteral("/moved"), false).toBool());
+  settings.remove(settings_group);
+  settings.sync();
+}
+
 void ui_dirty_state_marks_tabs_and_undo_restores_saved_revision() {
   patchy::ui::MainWindow window;
   show_window(window);
@@ -1591,18 +1641,71 @@ void ui_hotkey_override_applies_at_startup() {
   }
 }
 
-// The Hotkeys page is no longer the last Preferences tab everywhere (Windows appends
-// Plug-ins after it), so select the tab that hosts the editor panel instead of the last one.
+// The Hotkeys page is not the last Preferences tab everywhere (Windows appends
+// Plug-ins after it), and its editor panel is built on the first visit, so
+// select the tab by its title and let the panel appear.
 void select_hotkeys_tab(QTabWidget& tabs, QDialog& dialog) {
-  auto* panel = dialog.findChild<QWidget*>(QStringLiteral("hotkeyEditorPanel"));
-  CHECK(panel != nullptr);
-  for (auto* page = panel; page != nullptr; page = page->parentWidget()) {
-    if (tabs.indexOf(page) >= 0) {
-      tabs.setCurrentWidget(page);
+  for (int index = 0; index < tabs.count(); ++index) {
+    if (tabs.tabText(index) == QStringLiteral("Hotkeys")) {
+      tabs.setCurrentIndex(index);
+      QApplication::processEvents();
+      CHECK(dialog.findChild<QWidget*>(QStringLiteral("hotkeyEditorPanel")) != nullptr);
       return;
     }
   }
   CHECK(false);
+}
+
+// Opening Preferences must not build the hotkey rows (the most expensive part
+// of the dialog, and most opens never visit that tab); the first visit builds
+// them once, and accepting the dialog without a visit still succeeds.
+void ui_preferences_builds_hotkey_editor_on_first_visit() {
+  HotkeySettingsGroupRestorer restore_hotkeys;
+  clear_hotkey_overrides();
+  patchy::ui::MainWindow window;
+  show_window(window);
+
+  bool saw_dialog = false;
+  QTimer::singleShot(0, [&] {
+    auto* dialog = find_top_level_dialog(QStringLiteral("patchyPreferencesDialog"));
+    CHECK(dialog != nullptr);
+    if (dialog == nullptr) {
+      return;
+    }
+    auto* tabs = dialog->findChild<QTabWidget*>(QStringLiteral("preferencesTabWidget"));
+    CHECK(tabs != nullptr);
+    CHECK(dialog->findChild<QWidget*>(QStringLiteral("hotkeyEditorPanel")) == nullptr);
+    select_hotkeys_tab(*tabs, *dialog);
+    auto* panel = dialog->findChild<QWidget*>(QStringLiteral("hotkeyEditorPanel"));
+    CHECK(panel != nullptr);
+    CHECK(dialog->findChild<QPushButton*>(QStringLiteral("hotkeyChip.file.new.0")) != nullptr);
+    // Leaving and returning reuses the same panel.
+    tabs->setCurrentIndex(0);
+    QApplication::processEvents();
+    select_hotkeys_tab(*tabs, *dialog);
+    CHECK(dialog->findChild<QWidget*>(QStringLiteral("hotkeyEditorPanel")) == panel);
+    saw_dialog = true;
+    dialog->accept();
+  });
+  require_action(window, "filePreferencesAction")->trigger();
+  QApplication::processEvents();
+  CHECK(saw_dialog);
+
+  // A second open that never visits the tab accepts cleanly with no panel.
+  saw_dialog = false;
+  QTimer::singleShot(0, [&] {
+    auto* dialog = find_top_level_dialog(QStringLiteral("patchyPreferencesDialog"));
+    CHECK(dialog != nullptr);
+    if (dialog == nullptr) {
+      return;
+    }
+    CHECK(dialog->findChild<QWidget*>(QStringLiteral("hotkeyEditorPanel")) == nullptr);
+    saw_dialog = true;
+    dialog->accept();
+  });
+  require_action(window, "filePreferencesAction")->trigger();
+  QApplication::processEvents();
+  CHECK(saw_dialog);
 }
 
 void ui_hotkey_editor_assigns_and_persists_custom_shortcut() {
@@ -1821,6 +1924,8 @@ std::vector<patchy::test::TestCase> pickers_notices_hotkeys_tests() {
       {"ui_dialog_position_memory_restores_last_position", ui_dialog_position_memory_restores_last_position},
       {"ui_dialog_position_memory_centers_unmoved_dialogs_on_parent",
        ui_dialog_position_memory_centers_unmoved_dialogs_on_parent},
+      {"ui_progress_dialogs_ignore_position_memory_and_center_on_parent",
+       ui_progress_dialogs_ignore_position_memory_and_center_on_parent},
       {"ui_dirty_state_marks_tabs_and_undo_restores_saved_revision",
        ui_dirty_state_marks_tabs_and_undo_restores_saved_revision},
       {"ui_compatibility_report_flags_psd_text_placeholders",
@@ -1862,6 +1967,7 @@ std::vector<patchy::test::TestCase> pickers_notices_hotkeys_tests() {
       {"ui_hotkey_resolution_rules", ui_hotkey_resolution_rules},
       {"ui_hotkey_defaults_have_no_conflicts", ui_hotkey_defaults_have_no_conflicts},
       {"ui_hotkey_override_applies_at_startup", ui_hotkey_override_applies_at_startup},
+      {"ui_preferences_builds_hotkey_editor_on_first_visit", ui_preferences_builds_hotkey_editor_on_first_visit},
       {"ui_hotkey_editor_assigns_and_persists_custom_shortcut",
        ui_hotkey_editor_assigns_and_persists_custom_shortcut},
       {"ui_hotkey_editor_steals_conflicting_shortcut", ui_hotkey_editor_steals_conflicting_shortcut},

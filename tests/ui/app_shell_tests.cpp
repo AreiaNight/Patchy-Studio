@@ -60,6 +60,7 @@
 #include "ui/start_panel.hpp"
 #include "ui/main_window_shared.hpp"
 #include "ui/icon_theme.hpp"
+#include "ui/theme_file.hpp"
 #include "ui/theme_palette.hpp"
 #include "ui/theme_qss.hpp"
 #include "ui/app_data_migration.hpp"
@@ -2045,6 +2046,577 @@ void ui_color_scheme_follow_system_tracks_style_hints() {
   manager.set_system_color_scheme_for_testing(Qt::ColorScheme::Dark);
   CHECK(manager.resolved_scheme() == patchy::ui::ColorScheme::Light);
   CHECK(patchy::ui::active_color_scheme() == patchy::ui::ColorScheme::Light);
+}
+
+// Exports the full palette, tweaks are not needed to prove fidelity: two
+// deliberately-changed roles (one carrying alpha, to prove #RRGGBBAA
+// round-trips) are enough, but every role is compared so a role the writer or
+// the reader table silently skipped would still show up here.
+void ui_theme_file_round_trips_full_palette() {
+  auto palette = patchy::ui::dark_palette();
+  palette.accent = QColor(0x12, 0x34, 0x56);
+  palette.window_bg = QColor(0xAA, 0xBB, 0xCC, 0x80);
+
+  const auto json =
+      patchy::ui::serialize_theme_to_json(palette, patchy::ui::ColorScheme::Dark, QStringLiteral("Round Trip"));
+  const auto result = patchy::ui::load_theme_from_json(json);
+
+  CHECK(result.error.isEmpty());
+  CHECK(result.warnings.isEmpty());
+  CHECK(result.theme.has_value());
+  CHECK(result.theme->name == QStringLiteral("Round Trip"));
+  CHECK(result.theme->base == patchy::ui::ColorScheme::Dark);
+
+  for (const auto& [name, member] : patchy::ui::theme_palette_roles()) {
+    const auto original = palette.*member;
+    const auto loaded = result.theme->palette.*member;
+    if (original.rgba() != loaded.rgba()) {
+      fprintf(stderr, "  role \"%s\" did not round-trip\n", QString(name).toUtf8().constData());
+    }
+    CHECK(original.rgba() == loaded.rgba());
+  }
+}
+
+// A role the file never mentions keeps the declared base scheme's built-in
+// value; only roles actually present in "roles" are overridden.
+void ui_theme_file_missing_role_falls_back_to_base() {
+  QJsonObject roles;
+  roles.insert(QStringLiteral("accent"), QStringLiteral("#123456"));
+  QJsonObject object;
+  object.insert(QStringLiteral("base"), QStringLiteral("dark"));
+  object.insert(QStringLiteral("roles"), roles);
+  const auto json = QJsonDocument(object).toJson();
+
+  const auto result = patchy::ui::load_theme_from_json(json);
+  CHECK(result.error.isEmpty());
+  CHECK(result.theme.has_value());
+  CHECK(result.theme->palette.accent == QColor(0x12, 0x34, 0x56));
+  CHECK(result.theme->palette.window_bg == patchy::ui::dark_palette().window_bg);
+}
+
+// A malformed color is a hard load error naming the offending role, not a
+// warning: nothing downstream should ever see a half-loaded custom theme.
+void ui_theme_file_invalid_hex_is_a_hard_error() {
+  QJsonObject roles;
+  roles.insert(QStringLiteral("accent"), QStringLiteral("not-a-color"));
+  QJsonObject object;
+  object.insert(QStringLiteral("base"), QStringLiteral("dark"));
+  object.insert(QStringLiteral("roles"), roles);
+  const auto json = QJsonDocument(object).toJson();
+
+  const auto result = patchy::ui::load_theme_from_json(json);
+  CHECK(!result.theme.has_value());
+  CHECK(!result.error.isEmpty());
+  CHECK(result.error.contains(QStringLiteral("accent")));
+  CHECK(result.warnings.isEmpty());
+}
+
+// An unknown role name is forward-compatibility tolerance, not a failure: a
+// theme authored against a newer build (with roles this build never heard of)
+// still has to load on this one.
+void ui_theme_file_unknown_role_is_a_warning_not_an_error() {
+  QJsonObject roles;
+  roles.insert(QStringLiteral("accent"), QStringLiteral("#123456"));
+  roles.insert(QStringLiteral("totally_not_a_role"), QStringLiteral("#ffffff"));
+  QJsonObject object;
+  object.insert(QStringLiteral("base"), QStringLiteral("dark"));
+  object.insert(QStringLiteral("roles"), roles);
+  const auto json = QJsonDocument(object).toJson();
+
+  const auto result = patchy::ui::load_theme_from_json(json);
+  CHECK(result.error.isEmpty());
+  CHECK(result.theme.has_value());
+  CHECK(result.theme->palette.accent == QColor(0x12, 0x34, 0x56));
+  CHECK(!result.warnings.isEmpty());
+  CHECK(result.warnings.join(QLatin1Char('\n')).contains(QStringLiteral("totally_not_a_role")));
+}
+
+// "base" is the one field with no fallback: anything other than the two
+// tokens ThemeManager already persists is a hard error, never a guess.
+void ui_theme_file_invalid_base_is_a_hard_error() {
+  QJsonObject object;
+  object.insert(QStringLiteral("base"), QStringLiteral("purple"));
+  const auto json = QJsonDocument(object).toJson();
+
+  const auto result = patchy::ui::load_theme_from_json(json);
+  CHECK(!result.theme.has_value());
+  CHECK(!result.error.isEmpty());
+}
+
+// set_custom_theme never routes through apply_resolved_scheme(), whose
+// equal-scheme guard would otherwise swallow a custom theme that declares the
+// same base as the scheme already active. Assert the generation still bumps,
+// theme() reflects the new colors, and the photoshop_style() cache (keyed on
+// theme_generation(), not on light/dark) picks the change up.
+void ui_custom_theme_applies_over_matching_base_and_bumps_generation() {
+  ColorSchemeRestorer restore_active;
+  ColorSchemeRestorer::apply(patchy::ui::ColorSchemePreference::Dark);
+
+  const auto generation_before = patchy::ui::theme_generation();
+  const auto style_before = patchy::ui::photoshop_style();
+
+  patchy::ui::CustomTheme custom;
+  custom.name = QStringLiteral("Distinctive");
+  custom.base = patchy::ui::ColorScheme::Dark;
+  custom.palette = patchy::ui::dark_palette();
+  custom.palette.window_bg = QColor(1, 2, 3);
+
+  patchy::ui::ThemeManager::instance().set_custom_theme(QStringLiteral("distinctive.patchytheme"), custom,
+                                                         /*persist=*/false);
+
+  CHECK(patchy::ui::theme_generation() > generation_before);
+  CHECK(patchy::ui::active_color_scheme() == patchy::ui::ColorScheme::Dark);
+  CHECK(patchy::ui::theme().window_bg == QColor(1, 2, 3));
+  CHECK(patchy::ui::has_active_custom_palette());
+
+  const auto style_after = patchy::ui::photoshop_style();
+  CHECK(!style_after.isEmpty());
+  CHECK(!style_after.contains(QLatin1Char('@')));
+  CHECK(style_after != style_before);
+}
+
+// A built-in and a custom theme are mutually exclusive: choosing a built-in
+// scheme always wins, even while a custom theme is active.
+void ui_custom_theme_cleared_by_switching_to_a_builtin_scheme() {
+  ColorSchemeRestorer restore_active;
+  ColorSchemeRestorer::apply(patchy::ui::ColorSchemePreference::Dark);
+
+  patchy::ui::CustomTheme custom;
+  custom.base = patchy::ui::ColorScheme::Dark;
+  custom.palette = patchy::ui::dark_palette();
+  patchy::ui::ThemeManager::instance().set_custom_theme(QStringLiteral("temp.patchytheme"), custom,
+                                                         /*persist=*/false);
+  CHECK(patchy::ui::ThemeManager::instance().active_custom_theme_id().has_value());
+
+  patchy::ui::ThemeManager::instance().set_preference(patchy::ui::ColorSchemePreference::Light,
+                                                       /*persist=*/false);
+
+  CHECK(!patchy::ui::ThemeManager::instance().active_custom_theme_id().has_value());
+  CHECK(!patchy::ui::has_active_custom_palette());
+  CHECK(patchy::ui::active_color_scheme() == patchy::ui::ColorScheme::Light);
+}
+
+// Redirects user_themes_directory() to a scratch folder for one test, so
+// import/export/reload tests never touch the real AppData themes folder.
+class ThemesDirEnvGuard {
+public:
+  ThemesDirEnvGuard() : previous_(qgetenv("PATCHY_THEMES_DIR")), had_previous_(qEnvironmentVariableIsSet("PATCHY_THEMES_DIR")) {
+    CHECK(dir_.isValid());
+    qputenv("PATCHY_THEMES_DIR", dir_.path().toUtf8());
+  }
+  ~ThemesDirEnvGuard() {
+    if (had_previous_) {
+      qputenv("PATCHY_THEMES_DIR", previous_);
+    } else {
+      qunsetenv("PATCHY_THEMES_DIR");
+    }
+  }
+  [[nodiscard]] QString path() const { return dir_.path(); }
+
+private:
+  QTemporaryDir dir_;
+  QByteArray previous_;
+  bool had_previous_;
+};
+
+// Mirrors what ThemeManager::load_saved_preference() does at startup: read
+// the persisted preference, then read and apply a persisted custom theme id.
+// Calling it a second time on the live singleton is the established pattern
+// for "simulated restart" in this suite (see the language-preference tests).
+void ui_custom_theme_id_persists_and_reapplies_like_a_restart() {
+  ColorSchemeRestorer restore_active;
+  ColorSchemeRestorer::apply(patchy::ui::ColorSchemePreference::Dark);
+  SettingsValueRestorer restore_scheme(QStringLiteral("preferences/colorScheme"));
+  SettingsValueRestorer restore_custom_id(QStringLiteral("preferences/customThemeId"));
+  ThemesDirEnvGuard themes_dir;
+
+  auto palette = patchy::ui::dark_palette();
+  palette.window_bg = QColor(9, 8, 7);
+  const auto json = patchy::ui::serialize_theme_to_json(palette, patchy::ui::ColorScheme::Dark,
+                                                          QStringLiteral("Restart Test"));
+  QFile file(QDir(themes_dir.path()).filePath(QStringLiteral("restart-test.patchytheme")));
+  CHECK(file.open(QIODevice::WriteOnly));
+  file.write(json);
+  file.close();
+
+  {
+    auto settings = patchy::ui::app_settings();
+    settings.setValue(QStringLiteral("preferences/colorScheme"), QStringLiteral("dark"));
+    settings.setValue(QStringLiteral("preferences/customThemeId"), QStringLiteral("restart-test.patchytheme"));
+    settings.sync();
+  }
+
+  patchy::ui::ThemeManager::instance().load_saved_preference();
+
+  const auto active_id = patchy::ui::ThemeManager::instance().active_custom_theme_id();
+  CHECK(active_id.has_value());
+  CHECK(*active_id == QStringLiteral("restart-test.patchytheme"));
+  CHECK(patchy::ui::theme().window_bg == QColor(9, 8, 7));
+}
+
+// A custom theme id whose backing file has been moved or deleted outside
+// Patchy must not fail startup: fall back cleanly to the built-in preference
+// already applied.
+void ui_custom_theme_missing_file_falls_back_to_builtin_preference() {
+  ColorSchemeRestorer restore_active;
+  ColorSchemeRestorer::apply(patchy::ui::ColorSchemePreference::Dark);
+  SettingsValueRestorer restore_scheme(QStringLiteral("preferences/colorScheme"));
+  SettingsValueRestorer restore_custom_id(QStringLiteral("preferences/customThemeId"));
+  ThemesDirEnvGuard themes_dir;
+
+  {
+    auto settings = patchy::ui::app_settings();
+    settings.setValue(QStringLiteral("preferences/colorScheme"), QStringLiteral("light"));
+    settings.setValue(QStringLiteral("preferences/customThemeId"), QStringLiteral("does-not-exist.patchytheme"));
+    settings.sync();
+  }
+
+  patchy::ui::ThemeManager::instance().load_saved_preference();
+
+  CHECK(!patchy::ui::ThemeManager::instance().active_custom_theme_id().has_value());
+  CHECK(!patchy::ui::has_active_custom_palette());
+  CHECK(patchy::ui::ThemeManager::instance().preference() == patchy::ui::ColorSchemePreference::Light);
+  CHECK(patchy::ui::active_color_scheme() == patchy::ui::ColorScheme::Light);
+}
+
+// A custom palette must resolve exactly like a built-in one: no leftover
+// @token in the resolved stylesheet or in an ad hoc apply_theme_tokens() call.
+void ui_custom_theme_qss_resolves_every_token() {
+  ColorSchemeRestorer restore_active;
+  ColorSchemeRestorer::apply(patchy::ui::ColorSchemePreference::Dark);
+
+  patchy::ui::CustomTheme custom;
+  custom.base = patchy::ui::ColorScheme::Dark;
+  custom.palette = patchy::ui::dark_palette();
+  custom.palette.accent = QColor(0x77, 0x22, 0x99);
+  patchy::ui::ThemeManager::instance().set_custom_theme(QStringLiteral("qss-check.patchytheme"), custom,
+                                                         /*persist=*/false);
+
+  const auto style = patchy::ui::photoshop_style();
+  CHECK(!style.isEmpty());
+  CHECK(!style.contains(QLatin1Char('@')));
+
+  const auto resolved = patchy::ui::apply_theme_tokens(QStringLiteral("a: @accent;"));
+  CHECK(resolved == QStringLiteral("a: %1;").arg(custom.palette.accent.name(QColor::HexRgb)));
+}
+
+// "format" is the one key that can refuse a file outright: a newer number means
+// keys this build cannot interpret, and a silent partial load would be worse
+// than an error. An absent key is format 1, so files written before the key
+// existed still load.
+void ui_theme_file_newer_format_is_a_hard_error() {
+  QJsonObject object;
+  object.insert(QStringLiteral("format"), 2);
+  object.insert(QStringLiteral("base"), QStringLiteral("dark"));
+  const auto newer = patchy::ui::load_theme_from_json(QJsonDocument(object).toJson());
+  CHECK(!newer.theme.has_value());
+  CHECK(newer.error.contains(QStringLiteral("2")));
+
+  object.insert(QStringLiteral("format"), QStringLiteral("1"));
+  const auto text = patchy::ui::load_theme_from_json(QJsonDocument(object).toJson());
+  CHECK(!text.theme.has_value());
+
+  object.remove(QStringLiteral("format"));
+  const auto absent = patchy::ui::load_theme_from_json(QJsonDocument(object).toJson());
+  CHECK(absent.theme.has_value());
+
+  const auto exported = patchy::ui::serialize_theme_to_json(patchy::ui::dark_palette(), patchy::ui::ColorScheme::Dark,
+                                                            QStringLiteral("Format"));
+  CHECK(QJsonDocument::fromJson(exported).object().value(QStringLiteral("format")).toInt() ==
+        patchy::ui::kThemeFileFormat);
+}
+
+void write_theme_file(const QString& path, const QColor& window_bg, const QString& name) {
+  auto palette = patchy::ui::dark_palette();
+  palette.window_bg = window_bg;
+  QFile file(path);
+  CHECK(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+  file.write(patchy::ui::serialize_theme_to_json(palette, patchy::ui::ColorScheme::Dark, name));
+  file.close();
+}
+
+// The authoring loop: edit the file in a text editor, click Reload Themes. The
+// combo keeps the same entry selected and the fresh colors apply even though
+// the selection never moved.
+void ui_preferences_reload_reapplies_an_edited_theme_file() {
+  SettingsValueRestorer restore_scheme(QStringLiteral("preferences/colorScheme"));
+  SettingsValueRestorer restore_custom_id(QStringLiteral("preferences/customThemeId"));
+  ColorSchemeRestorer restore_active;
+  ColorSchemeRestorer::apply(patchy::ui::ColorSchemePreference::Dark);
+  ThemesDirEnvGuard themes_dir;
+  const auto path = QDir(themes_dir.path()).filePath(QStringLiteral("editable.patchytheme"));
+  write_theme_file(path, QColor(10, 20, 30), QStringLiteral("Editable"));
+
+  patchy::ui::MainWindow window;
+  show_window(window);
+
+  bool saw_dialog = false;
+  QTimer::singleShot(0, [&] {
+    auto* dialog = find_top_level_dialog(QStringLiteral("patchyPreferencesDialog"));
+    CHECK(dialog != nullptr);
+    if (dialog == nullptr) {
+      return;
+    }
+    auto* combo = dialog->findChild<QComboBox*>(QStringLiteral("preferencesColorSchemeCombo"));
+    auto* reload = dialog->findChild<QPushButton*>(QStringLiteral("preferencesReloadThemesButton"));
+    auto* remove = dialog->findChild<QPushButton*>(QStringLiteral("preferencesDeleteThemeButton"));
+    CHECK(combo != nullptr && reload != nullptr && remove != nullptr);
+    if (combo == nullptr || reload == nullptr || remove == nullptr) {
+      dialog->reject();
+      return;
+    }
+    CHECK(!remove->isEnabled());
+    const auto index = combo->findData(QStringLiteral("custom:editable.patchytheme"));
+    CHECK(index >= 0);
+    CHECK(combo->itemText(index) == QStringLiteral("Editable"));
+    combo->setCurrentIndex(index);
+    QApplication::processEvents();
+    CHECK(patchy::ui::theme().window_bg == QColor(10, 20, 30));
+    CHECK(remove->isEnabled());
+
+    write_theme_file(path, QColor(40, 50, 60), QStringLiteral("Editable"));
+    reload->click();
+    QApplication::processEvents();
+    CHECK(combo->currentData().toString() == QStringLiteral("custom:editable.patchytheme"));
+    CHECK(patchy::ui::theme().window_bg == QColor(40, 50, 60));
+    CHECK(remove->isEnabled());
+    saw_dialog = true;
+    dialog->reject();
+  });
+  require_action(window, "filePreferencesAction")->trigger();
+  QApplication::processEvents();
+  CHECK(saw_dialog);
+
+  // Rejecting restores the entry scheme, which was the built-in Dark.
+  CHECK(!patchy::ui::has_active_custom_palette());
+  CHECK(patchy::ui::active_color_scheme() == patchy::ui::ColorScheme::Dark);
+}
+
+// Delete removes the file and its entry, and the dialog falls back to the
+// first built-in entry so the live preview and the revert guard stay in step.
+void ui_preferences_delete_removes_theme_file_and_entry() {
+  SettingsValueRestorer restore_scheme(QStringLiteral("preferences/colorScheme"));
+  SettingsValueRestorer restore_custom_id(QStringLiteral("preferences/customThemeId"));
+  ColorSchemeRestorer restore_active;
+  ColorSchemeRestorer::apply(patchy::ui::ColorSchemePreference::Dark);
+  ThemesDirEnvGuard themes_dir;
+  const auto path = QDir(themes_dir.path()).filePath(QStringLiteral("doomed.patchytheme"));
+  write_theme_file(path, QColor(70, 80, 90), QStringLiteral("Doomed"));
+
+  patchy::ui::MainWindow window;
+  show_window(window);
+
+  bool saw_dialog = false;
+  bool saw_confirm = false;
+  QTimer::singleShot(0, [&] {
+    auto* dialog = find_top_level_dialog(QStringLiteral("patchyPreferencesDialog"));
+    CHECK(dialog != nullptr);
+    if (dialog == nullptr) {
+      return;
+    }
+    auto* combo = dialog->findChild<QComboBox*>(QStringLiteral("preferencesColorSchemeCombo"));
+    auto* remove = dialog->findChild<QPushButton*>(QStringLiteral("preferencesDeleteThemeButton"));
+    CHECK(combo != nullptr && remove != nullptr);
+    if (combo == nullptr || remove == nullptr) {
+      dialog->reject();
+      return;
+    }
+    const auto index = combo->findData(QStringLiteral("custom:doomed.patchytheme"));
+    CHECK(index >= 0);
+    combo->setCurrentIndex(index);
+    QApplication::processEvents();
+    CHECK(patchy::ui::theme().window_bg == QColor(70, 80, 90));
+
+    QTimer::singleShot(0, [&] {
+      auto* confirm = qobject_cast<QMessageBox*>(find_top_level_dialog(QStringLiteral("preferencesDeleteThemeConfirm")));
+      CHECK(confirm != nullptr);
+      if (confirm == nullptr) {
+        return;
+      }
+      saw_confirm = true;
+      for (auto* button : confirm->buttons()) {
+        if (confirm->buttonRole(button) == QMessageBox::AcceptRole) {
+          button->click();
+          return;
+        }
+      }
+      CHECK(false);
+    });
+    remove->click();
+    QApplication::processEvents();
+
+    CHECK(!QFileInfo::exists(path));
+    CHECK(combo->findData(QStringLiteral("custom:doomed.patchytheme")) < 0);
+    // No user entry left, so its separator went too: the built-ins, one
+    // separator, and the bundled set remain.
+    CHECK(combo->count() == 4 + patchy::ui::bundled_theme_file_names().size());
+    CHECK(combo->currentIndex() == 0);
+    CHECK(!remove->isEnabled());
+    CHECK(!patchy::ui::has_active_custom_palette());
+    saw_dialog = true;
+    dialog->accept();
+  });
+  require_action(window, "filePreferencesAction")->trigger();
+  QApplication::processEvents();
+  CHECK(saw_dialog);
+  CHECK(saw_confirm);
+  CHECK(!patchy::ui::has_active_custom_palette());
+  CHECK(!patchy::ui::ThemeManager::instance().active_custom_theme_id().has_value());
+}
+
+// Every bundled theme (themes.qrc) parses cleanly with no unknown-role warning
+// (the generator writes every role, so a warning means the palette and the
+// generated files drifted), lists in Preferences under a "bundled:" id right
+// after the built-in entries, and cannot be deleted.
+void ui_bundled_themes_load_and_list_in_preferences() {
+  ColorSchemeRestorer restore_active;
+  ColorSchemeRestorer::apply(patchy::ui::ColorSchemePreference::Dark);
+  ThemesDirEnvGuard themes_dir;  // an empty user folder, so only bundled entries follow the built-ins
+
+  const auto names = patchy::ui::bundled_theme_file_names();
+  CHECK(names.size() >= 5);
+  for (const auto& name : names) {
+    const auto id = patchy::ui::kBundledThemeIdPrefix + name;
+    CHECK(patchy::ui::is_bundled_theme_id(id));
+    const auto result = patchy::ui::load_theme_by_id(id);
+    if (!result.theme) {
+      fprintf(stderr, "  %s: %s\n", name.toUtf8().constData(), result.error.toUtf8().constData());
+    }
+    CHECK(result.theme.has_value());
+    CHECK(result.error.isEmpty());
+    CHECK(result.warnings.isEmpty());
+    CHECK(!result.theme->name.isEmpty());
+  }
+  CHECK(!patchy::ui::load_theme_by_id(QStringLiteral("bundled:missing.patchytheme")).theme.has_value());
+
+  patchy::ui::MainWindow window;
+  show_window(window);
+  bool saw_dialog = false;
+  QTimer::singleShot(0, [&] {
+    auto* dialog = find_top_level_dialog(QStringLiteral("patchyPreferencesDialog"));
+    CHECK(dialog != nullptr);
+    if (dialog == nullptr) {
+      return;
+    }
+    auto* combo = dialog->findChild<QComboBox*>(QStringLiteral("preferencesColorSchemeCombo"));
+    auto* remove = dialog->findChild<QPushButton*>(QStringLiteral("preferencesDeleteThemeButton"));
+    CHECK(combo != nullptr && remove != nullptr);
+    if (combo == nullptr || remove == nullptr) {
+      dialog->reject();
+      return;
+    }
+    // Three built-ins, one separator, then the bundled set in authored order.
+    CHECK(combo->count() == 4 + names.size());
+    for (int i = 0; i < names.size(); ++i) {
+      CHECK(combo->itemData(4 + i).toString() == QStringLiteral("custom:bundled:") + names[i]);
+    }
+    save_widget_artifact("preferences_application_tab", *dialog);
+    const auto index = combo->findData(QStringLiteral("custom:bundled:nord.patchytheme"));
+    CHECK(index >= 0);
+    combo->setCurrentIndex(index);
+    QApplication::processEvents();
+    CHECK(combo->currentText() == QStringLiteral("Nord (built-in)"));
+    save_widget_artifact("preferences_application_tab_nord", *dialog);
+    CHECK(patchy::ui::has_active_custom_palette());
+    CHECK(patchy::ui::theme().window_bg == QColor(0x2e, 0x34, 0x40));
+    CHECK(!remove->isEnabled());
+    saw_dialog = true;
+    dialog->reject();
+  });
+  require_action(window, "filePreferencesAction")->trigger();
+  QApplication::processEvents();
+  CHECK(saw_dialog);
+  CHECK(!patchy::ui::has_active_custom_palette());
+}
+
+// Export opens in the themes folder with the shown theme's name, and a file
+// saved there is listed and selected at once, beside the tagged built-in it
+// was copied from, as a deletable user theme.
+void ui_preferences_export_defaults_to_themes_folder_and_lists_the_copy() {
+  SettingsValueRestorer restore_scheme(QStringLiteral("preferences/colorScheme"));
+  SettingsValueRestorer restore_custom_id(QStringLiteral("preferences/customThemeId"));
+  ColorSchemeRestorer restore_active;
+  ColorSchemeRestorer::apply(patchy::ui::ColorSchemePreference::Dark);
+  ThemesDirEnvGuard themes_dir;
+  const auto names = patchy::ui::bundled_theme_file_names();
+
+  patchy::ui::MainWindow window;
+  show_window(window);
+  bool saw_dialog = false;
+  bool saw_save_dialog = false;
+  QTimer::singleShot(0, [&] {
+    auto* dialog = find_top_level_dialog(QStringLiteral("patchyPreferencesDialog"));
+    CHECK(dialog != nullptr);
+    if (dialog == nullptr) {
+      return;
+    }
+    auto* combo = dialog->findChild<QComboBox*>(QStringLiteral("preferencesColorSchemeCombo"));
+    auto* export_button = dialog->findChild<QPushButton*>(QStringLiteral("preferencesExportThemeButton"));
+    auto* remove = dialog->findChild<QPushButton*>(QStringLiteral("preferencesDeleteThemeButton"));
+    CHECK(combo != nullptr && export_button != nullptr && remove != nullptr);
+    if (combo == nullptr || export_button == nullptr || remove == nullptr) {
+      dialog->reject();
+      return;
+    }
+    combo->setCurrentIndex(combo->findData(QStringLiteral("custom:bundled:nord.patchytheme")));
+    QApplication::processEvents();
+
+    QTimer::singleShot(0, [&] {
+      auto* save = qobject_cast<QFileDialog*>(find_top_level_dialog(QStringLiteral("exportThemeFileDialog")));
+      CHECK(save != nullptr);
+      if (save == nullptr) {
+        return;
+      }
+      saw_save_dialog = true;
+      CHECK(QDir::cleanPath(save->directory().absolutePath()) == QDir::cleanPath(QDir(themes_dir.path()).absolutePath()));
+      const auto selected = save->selectedFiles();
+      CHECK(!selected.isEmpty());
+      CHECK(!selected.isEmpty() && QFileInfo(selected.first()).fileName() == QStringLiteral("Nord.patchytheme"));
+      save->selectFile(QDir(themes_dir.path()).filePath(QStringLiteral("Nord.patchytheme")));
+      static_cast<QDialog*>(save)->accept();  // QFileDialog::accept is protected
+    });
+    export_button->click();
+    QApplication::processEvents();
+
+    const auto copy_path = QDir(themes_dir.path()).filePath(QStringLiteral("Nord.patchytheme"));
+    CHECK(QFileInfo::exists(copy_path));
+    // Three built-ins, a separator, the bundled set, a separator, the one user file.
+    CHECK(combo->count() == 6 + names.size());
+    CHECK(combo->currentData().toString() == QStringLiteral("custom:Nord.patchytheme"));
+    CHECK(combo->currentText() == QStringLiteral("Nord"));
+    CHECK(combo->findData(QStringLiteral("custom:bundled:nord.patchytheme")) >= 0);
+    CHECK(remove->isEnabled());
+    CHECK(patchy::ui::theme().window_bg == QColor(0x2e, 0x34, 0x40));
+    const auto reread = patchy::ui::load_theme_by_id(QStringLiteral("Nord.patchytheme"));
+    CHECK(reread.theme.has_value());
+    CHECK(reread.theme.has_value() && reread.theme->name == QStringLiteral("Nord"));
+    saw_dialog = true;
+    dialog->reject();
+  });
+  require_action(window, "filePreferencesAction")->trigger();
+  QApplication::processEvents();
+  CHECK(saw_dialog);
+  CHECK(saw_save_dialog);
+}
+
+// A persisted bundled id needs no user folder at all (wasm has none), so it
+// reapplies at startup through the resource path.
+void ui_bundled_theme_id_persists_and_reapplies_like_a_restart() {
+  ColorSchemeRestorer restore_active;
+  ColorSchemeRestorer::apply(patchy::ui::ColorSchemePreference::Dark);
+  SettingsValueRestorer restore_scheme(QStringLiteral("preferences/colorScheme"));
+  SettingsValueRestorer restore_custom_id(QStringLiteral("preferences/customThemeId"));
+  {
+    auto settings = patchy::ui::app_settings();
+    settings.setValue(QStringLiteral("preferences/colorScheme"), QStringLiteral("dark"));
+    settings.setValue(QStringLiteral("preferences/customThemeId"), QStringLiteral("bundled:dracula.patchytheme"));
+    settings.sync();
+  }
+  patchy::ui::ThemeManager::instance().load_saved_preference();
+  const auto active_id = patchy::ui::ThemeManager::instance().active_custom_theme_id();
+  CHECK(active_id.has_value());
+  CHECK(*active_id == QStringLiteral("bundled:dracula.patchytheme"));
+  CHECK(patchy::ui::theme().window_bg == QColor(0x28, 0x2a, 0x36));
 }
 
 // The regression guard for "live, no restart": an already-built window has to
@@ -4285,6 +4857,29 @@ std::vector<patchy::test::TestCase> app_shell_tests() {
       {"ui_color_scheme_cancel_restores_entry_scheme", ui_color_scheme_cancel_restores_entry_scheme},
       {"ui_color_scheme_follow_system_tracks_style_hints",
        ui_color_scheme_follow_system_tracks_style_hints},
+      {"ui_theme_file_round_trips_full_palette", ui_theme_file_round_trips_full_palette},
+      {"ui_theme_file_missing_role_falls_back_to_base", ui_theme_file_missing_role_falls_back_to_base},
+      {"ui_theme_file_invalid_hex_is_a_hard_error", ui_theme_file_invalid_hex_is_a_hard_error},
+      {"ui_theme_file_unknown_role_is_a_warning_not_an_error",
+       ui_theme_file_unknown_role_is_a_warning_not_an_error},
+      {"ui_theme_file_invalid_base_is_a_hard_error", ui_theme_file_invalid_base_is_a_hard_error},
+      {"ui_custom_theme_applies_over_matching_base_and_bumps_generation",
+       ui_custom_theme_applies_over_matching_base_and_bumps_generation},
+      {"ui_custom_theme_cleared_by_switching_to_a_builtin_scheme",
+       ui_custom_theme_cleared_by_switching_to_a_builtin_scheme},
+      {"ui_custom_theme_id_persists_and_reapplies_like_a_restart",
+       ui_custom_theme_id_persists_and_reapplies_like_a_restart},
+      {"ui_custom_theme_missing_file_falls_back_to_builtin_preference",
+       ui_custom_theme_missing_file_falls_back_to_builtin_preference},
+      {"ui_custom_theme_qss_resolves_every_token", ui_custom_theme_qss_resolves_every_token},
+      {"ui_theme_file_newer_format_is_a_hard_error", ui_theme_file_newer_format_is_a_hard_error},
+      {"ui_preferences_reload_reapplies_an_edited_theme_file", ui_preferences_reload_reapplies_an_edited_theme_file},
+      {"ui_preferences_delete_removes_theme_file_and_entry", ui_preferences_delete_removes_theme_file_and_entry},
+      {"ui_bundled_themes_load_and_list_in_preferences", ui_bundled_themes_load_and_list_in_preferences},
+      {"ui_preferences_export_defaults_to_themes_folder_and_lists_the_copy",
+       ui_preferences_export_defaults_to_themes_folder_and_lists_the_copy},
+      {"ui_bundled_theme_id_persists_and_reapplies_like_a_restart",
+       ui_bundled_theme_id_persists_and_reapplies_like_a_restart},
       {"ui_color_scheme_switch_updates_existing_window", ui_color_scheme_switch_updates_existing_window},
       {"ui_themed_icons_recolor_between_schemes", ui_themed_icons_recolor_between_schemes},
       {"ui_main_window_persists_window_geometry", ui_main_window_persists_window_geometry},

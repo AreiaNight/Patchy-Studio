@@ -8648,6 +8648,41 @@ RGB: %2, %3, %4</translation>
     </message>
 </context>
 <context>
+    <name>ThemeFile</name>
+    <message>
+        <source>Not a valid theme file: %1</source>
+        <translation>File del tema non valido: %1</translation>
+    </message>
+    <message>
+        <source>the top level is not an object</source>
+        <translation>il livello superiore non è un oggetto</translation>
+    </message>
+    <message>
+        <source>Theme file format %1 is not supported by this build (expected %2).</source>
+        <translation>Il formato del file del tema %1 non è supportato da questa versione (previsto %2).</translation>
+    </message>
+    <message>
+        <source>Theme file is missing a valid &quot;base&quot; (must be &quot;dark&quot; or &quot;light&quot;).</source>
+        <translation>Al file del tema manca un &quot;base&quot; valido (deve essere &quot;dark&quot; o &quot;light&quot;).</translation>
+    </message>
+    <message>
+        <source>Theme file&apos;s &quot;roles&quot; is not an object.</source>
+        <translation>Il &quot;roles&quot; del file del tema non è un oggetto.</translation>
+    </message>
+    <message>
+        <source>Unknown color role &quot;%1&quot; (ignored).</source>
+        <translation>Ruolo colore sconosciuto &quot;%1&quot; (ignorato).</translation>
+    </message>
+    <message>
+        <source>Invalid color &quot;%1&quot; for role &quot;%2&quot; (expected #RRGGBB or #RRGGBBAA).</source>
+        <translation>Colore non valido &quot;%1&quot; per il ruolo &quot;%2&quot; (previsto #RRGGBB o #RRGGBBAA).</translation>
+    </message>
+    <message>
+        <source>Theme file &quot;%1&quot; could not be read.</source>
+        <translation>Impossibile leggere il file del tema &quot;%1&quot;.</translation>
+    </message>
+</context>
+<context>
     <name>VectorPreview</name>
     <message>
         <source>Dynamic Vector Preview: using the document&apos;s pixel view.</source>
@@ -17879,6 +17914,75 @@ Y: %2
     <message>
         <source>Plug-ins work on one layer at a time. Select a single layer and run it again.</source>
         <translation>I plug-in lavorano su un livello alla volta. Seleziona un singolo livello ed eseguilo di nuovo.</translation>
+    </message>
+    <message>
+        <source>Import Theme...</source>
+        <translation>Importa tema...</translation>
+    </message>
+    <message>
+        <source>Export Theme...</source>
+        <translation>Esporta tema...</translation>
+    </message>
+    <message>
+        <source>Reload Themes</source>
+        <translation>Ricarica temi</translation>
+    </message>
+    <message>
+        <source>Re-read the theme files in the themes folder and apply the selected one.</source>
+        <translation>Rilegge i file dei temi nella cartella dei temi e applica quello selezionato.</translation>
+    </message>
+    <message>
+        <source>Delete Theme...</source>
+        <translation>Elimina tema...</translation>
+    </message>
+    <message>
+        <source>Open Themes Folder</source>
+        <translation>Apri cartella dei temi</translation>
+    </message>
+    <message>
+        <source>Could not open the themes folder.</source>
+        <translation>Impossibile aprire la cartella dei temi.</translation>
+    </message>
+    <message>
+        <source>Delete Theme</source>
+        <translation>Elimina tema</translation>
+    </message>
+    <message>
+        <source>Delete the theme &quot;%1&quot;? Its file is removed from the themes folder.</source>
+        <translation>Eliminare il tema &quot;%1&quot;? Il file verrà rimosso dalla cartella dei temi.</translation>
+    </message>
+    <message>
+        <source>Could not delete &quot;%1&quot;.</source>
+        <translation>Impossibile eliminare &quot;%1&quot;.</translation>
+    </message>
+    <message>
+        <source>Import Theme</source>
+        <translation>Importa tema</translation>
+    </message>
+    <message>
+        <source>Patchy theme (*.patchytheme)</source>
+        <translation>Tema Patchy (*.patchytheme)</translation>
+    </message>
+    <message>
+        <source>Could not open &quot;%1&quot;.</source>
+        <translation>Impossibile aprire &quot;%1&quot;.</translation>
+    </message>
+    <message>
+        <source>Could not create the themes folder.</source>
+        <translation>Impossibile creare la cartella dei temi.</translation>
+    </message>
+    <message>
+        <source>Theme</source>
+        <comment>Default file name offered when exporting a theme; the save dialog appends the extension.</comment>
+        <translation>Tema</translation>
+    </message>
+    <message>
+        <source>Export Theme</source>
+        <translation>Esporta tema</translation>
+    </message>
+    <message>
+        <source>%1 (built-in)</source>
+        <translation>%1 (integrato)</translation>
     </message>
 </context>
 <context>

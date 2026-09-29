@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "name": "Example High Contrast",
+  "base": "dark",
+  "roles": {
+    "window_bg": "#101010",
+    "window_border": "#000000",
+    "text_primary": "#ffffff",
+    "text_secondary": "#f4f4f4",
+    "text_bright": "#ffffff",
+    "text_disabled": "#9a9a9a",
+    "accent": "#ffb000",
+    "text_on_accent": "#000000",
+    "splitter_bg": "#000000",
+    "splitter_hover_bg": "#ffb000",
+    "dock_separator_bg": "#303030",
+    "canvas_backdrop": "#181818"
+  }
+}

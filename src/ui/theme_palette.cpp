@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <array>
+#include <optional>
 
 namespace patchy::ui {
 
@@ -25,6 +26,7 @@ namespace {
 
 ColorScheme g_active_scheme = ColorScheme::Dark;
 int g_generation = 0;
+std::optional<ThemePalette> g_custom_palette;
 
 }  // namespace
 
@@ -677,7 +679,7 @@ const ThemePalette& theme(ColorScheme scheme) {
   return scheme == ColorScheme::Light ? light_palette() : dark_palette();
 }
 
-const ThemePalette& theme() { return theme(g_active_scheme); }
+const ThemePalette& theme() { return g_custom_palette ? *g_custom_palette : theme(g_active_scheme); }
 
 ColorScheme active_color_scheme() { return g_active_scheme; }
 
@@ -688,6 +690,26 @@ void set_active_color_scheme(ColorScheme scheme) {
   g_active_scheme = scheme;
   ++g_generation;
 }
+
+void set_active_custom_palette(const ThemePalette& palette, ColorScheme base) {
+  // Always applies, even when `base` matches the scheme already active and the
+  // palette instance is unchanged: a custom theme can share its base scheme's
+  // value while carrying entirely different colors, so callers must not be
+  // able to rely on set_active_color_scheme's early-return here.
+  g_custom_palette = palette;
+  g_active_scheme = base;
+  ++g_generation;
+}
+
+void clear_active_custom_palette() {
+  if (!g_custom_palette) {
+    return;
+  }
+  g_custom_palette.reset();
+  ++g_generation;
+}
+
+bool has_active_custom_palette() { return g_custom_palette.has_value(); }
 
 int theme_generation() { return g_generation; }
 

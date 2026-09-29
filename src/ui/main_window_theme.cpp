@@ -205,7 +205,6 @@
 #include <QWindow>
 
 #include <algorithm>
-#include <array>
 #include <atomic>
 #include <chrono>
 #include <cctype>
@@ -1162,12 +1161,19 @@ QString photoshop_style_template() {
 }  // namespace
 
 QString photoshop_style() {
-  // Both palettes are compile-time constants, so a scheme's resolved sheet never
-  // changes once built and can be cached for the process lifetime.
-  static std::array<QString, 2> resolved;
-  auto& cached = resolved[active_color_scheme() == ColorScheme::Light ? 1 : 0];
-  if (cached.isEmpty()) {
+  // Keyed on theme_generation(), not on active_color_scheme(): a user-imported
+  // custom palette (theme_file.hpp) is not a compile-time constant like the
+  // two built-in palettes, so a 2-slot Dark/Light cache would keep serving a
+  // stale sheet (or the wrong custom colors) after a custom-palette apply.
+  // theme_generation() bumps on every actual palette change, built-in or
+  // custom, which is the only signal available -- Qt fires no event for a
+  // palette-struct change.
+  static int cached_generation = -1;
+  static QString cached;
+  const auto generation = theme_generation();
+  if (generation != cached_generation) {
     cached = apply_theme_tokens(photoshop_style_template());
+    cached_generation = generation;
   }
   return cached;
 }

@@ -12,6 +12,7 @@
 #include "core/layer_metadata.hpp"
 #include "core/smart_object.hpp"
 #include "core/text_warp.hpp"
+#include "support/atomic_file_write.hpp"
 #include "core/warp_mesh.hpp"
 #include "core/layer_render_utils.hpp"
 #include "core/layer_tree.hpp"
@@ -49,6 +50,7 @@
 #include "ui/gradient_manager_dialog.hpp"
 #include "ui/dialog_utils.hpp"
 #include "ui/document_float_window.hpp"
+#include "ui/qt_paths.hpp"
 #include "ui/font_picker.hpp"
 #include "ui/hotkey_editor.hpp"
 #include "ui/edit_conversions.hpp"
@@ -57,6 +59,7 @@
 #include "ui/layer_list_widget.hpp"
 #include "ui/localization.hpp"
 #include "ui/measurement_units.hpp"
+#include "ui/theme_file.hpp"
 #include "ui/theme_manager.hpp"
 #include "ui/user_fonts.hpp"
 #include "ui/palette_convert_dialog.hpp"
@@ -110,7 +113,6 @@
 #include <QDragLeaveEvent>
 #include <QDropEvent>
 #include <QDoubleSpinBox>
-#include <QElapsedTimer>
 #include <QEvent>
 #include <QEventLoop>
 #include <QFileDialog>
@@ -125,6 +127,7 @@
 #include <QFrame>
 #include <QGridLayout>
 #include <QGroupBox>
+#include <QHash>
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QLayout>
@@ -224,6 +227,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <span>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -417,8 +421,16 @@ void MainWindow::show_preferences() {
   const auto make_tab_page = [](QWidget* parent) {
     // Wrap each tab in a scroll area so a tab whose content is taller than the
     // dialog scrolls instead of overlapping its own controls.
-    auto* scroll = new QScrollArea(parent);
+    // The host insets the scroll area from the pane's top and bottom edges so
+    // the vertical scroll bar does not butt against the pane border.
+    auto* host = new QWidget(parent);
+    host->setObjectName(QStringLiteral("preferencesTabHost"));
+    auto* host_layout = new QVBoxLayout(host);
+    host_layout->setContentsMargins(0, 6, 0, 6);
+    host_layout->setSpacing(0);
+    auto* scroll = new QScrollArea(host);
     scroll->setObjectName(QStringLiteral("preferencesTabScroll"));
+    host_layout->addWidget(scroll);
     scroll->setWidgetResizable(true);
     scroll->setFrameShape(QFrame::NoFrame);
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -428,7 +440,7 @@ void MainWindow::show_preferences() {
     layout->setContentsMargins(12, 12, 12, 12);
     layout->setSpacing(10);
     scroll->setWidget(page);
-    return std::pair<QWidget*, QVBoxLayout*>{scroll, layout};
+    return std::pair<QWidget*, QVBoxLayout*>{host, layout};
   };
   const auto configure_panel = [](QFrame* panel) {
     panel->setProperty("preferencesPanel", true);
@@ -475,22 +487,320 @@ void MainWindow::show_preferences() {
                               color_scheme_preference_to_token(ColorSchemePreference::FollowSystem));
   color_scheme_combo->addItem(tr("Dark"), color_scheme_preference_to_token(ColorSchemePreference::Dark));
   color_scheme_combo->addItem(tr("Light"), color_scheme_preference_to_token(ColorSchemePreference::Light));
+
+  // Data token for a custom entry: "custom:" + its theme id (a file name within
+  // user_themes_directory(), or "bundled:" + a compiled-in file; see
+  // theme_file.hpp). Kept distinct from the three built-in tokens above, which
+  // are bare scheme spellings and can never start with "custom:".
+  const auto custom_theme_token = [](const QString& file_name) { return QStringLiteral("custom:") + file_name; };
+  // Loaded once per dialog open and shared by the preview handler, the Import
+  // button, and the commit branch below, so none of them re-read a file
+  // mid-dialog.
+  auto custom_themes = std::make_shared<QHash<QString, CustomTheme>>();
+  const auto add_custom_theme_entry = [color_scheme_combo, custom_themes, custom_theme_token](
+                                          const QString& id, const CustomTheme& custom_theme) {
+    const auto name = custom_theme.name.isEmpty() ? id : custom_theme.name;
+    // Compiled-in themes carry a tag: an exported copy in the user's folder
+    // keeps the same name, and the two must stay tellable apart in the list.
+    color_scheme_combo->addItem(is_bundled_theme_id(id) ? tr("%1 (built-in)").arg(name) : name,
+                                custom_theme_token(id));
+    color_scheme_combo->setItemData(color_scheme_combo->count() - 1, id, Qt::ToolTipRole);
+    custom_themes->insert(id, custom_theme);
+  };
+  // Drops every theme entry (and the separators before them) and re-reads
+  // them: the bundled set first, then the user's folder. Runs at open, after
+  // Delete, and from the Reload button, which is the authoring loop (edit the
+  // JSON in a text editor, click Reload). Callers block the combo's signals
+  // around it, because removing the current item moves the selection.
+  const auto rescan_custom_themes = [color_scheme_combo, custom_themes, add_custom_theme_entry] {
+    for (int i = color_scheme_combo->count() - 1; i >= 0; --i) {
+      const auto token = color_scheme_combo->itemData(i).toString();
+      if (token.isEmpty() || token.startsWith(QStringLiteral("custom:"))) {
+        color_scheme_combo->removeItem(i);
+      }
+    }
+    custom_themes->clear();
+    color_scheme_combo->insertSeparator(color_scheme_combo->count());
+    for (const auto& file_name : bundled_theme_file_names()) {
+      const auto id = kBundledThemeIdPrefix + file_name;
+      auto result = load_theme_by_id(id);
+      if (result.theme) {
+        add_custom_theme_entry(id, *result.theme);
+      }
+    }
+    const auto themes_dir = user_themes_directory();
+    if (themes_dir.isEmpty()) {
+      return;
+    }
+    const auto entries = QDir(themes_dir).entryList({QStringLiteral("*.patchytheme")}, QDir::Files, QDir::Name);
+    if (!entries.isEmpty()) {
+      color_scheme_combo->insertSeparator(color_scheme_combo->count());
+    }
+    for (const auto& file_name : entries) {
+      auto result = load_theme_by_id(file_name);
+      if (result.theme) {
+        add_custom_theme_entry(file_name, *result.theme);
+      }
+    }
+  };
+  rescan_custom_themes();
+  // Applies whatever the combo currently shows as a live preview (never
+  // persisted here; the commit branch below persists on OK). Shared by the
+  // combo's change handler, Reload, and Delete.
+  const auto apply_combo_selection = [color_scheme_combo, custom_themes] {
+    const auto token = color_scheme_combo->currentData().toString();
+    if (token.startsWith(QStringLiteral("custom:"))) {
+      const auto found = custom_themes->find(token.mid(7));
+      if (found != custom_themes->end()) {
+        ThemeManager::instance().set_custom_theme(token.mid(7), found.value(), /*persist=*/false);
+      }
+      return;
+    }
+    ThemeManager::instance().set_preference(color_scheme_preference_from_token(token), /*persist=*/false);
+  };
+
   const auto entry_color_scheme = ThemeManager::instance().preference();
-  const auto color_scheme_index =
-      color_scheme_combo->findData(color_scheme_preference_to_token(entry_color_scheme));
+  const auto entry_custom_id = ThemeManager::instance().active_custom_theme_id();
+  const auto entry_token =
+      entry_custom_id ? custom_theme_token(*entry_custom_id) : color_scheme_preference_to_token(entry_color_scheme);
+  const auto color_scheme_index = color_scheme_combo->findData(entry_token);
   color_scheme_combo->setCurrentIndex(color_scheme_index >= 0 ? color_scheme_index : 0);
   application_form->addRow(tr("Color scheme:"), color_scheme_combo);
+
+#ifndef Q_OS_WASM
+  // The theme buttons are desktop-only: wasm has no AppData store to hold the
+  // imported files (user_themes_directory() is empty there).
+  auto* import_theme_button = new QPushButton(tr("Import Theme..."), application_group);
+  import_theme_button->setObjectName(QStringLiteral("preferencesImportThemeButton"));
+  auto* export_theme_button = new QPushButton(tr("Export Theme..."), application_group);
+  export_theme_button->setObjectName(QStringLiteral("preferencesExportThemeButton"));
+  auto* reload_themes_button = new QPushButton(tr("Reload Themes"), application_group);
+  reload_themes_button->setObjectName(QStringLiteral("preferencesReloadThemesButton"));
+  reload_themes_button->setToolTip(tr("Re-read the theme files in the themes folder and apply the selected one."));
+  auto* delete_theme_button = new QPushButton(tr("Delete Theme..."), application_group);
+  delete_theme_button->setObjectName(QStringLiteral("preferencesDeleteThemeButton"));
+  auto* open_themes_folder_button = new QPushButton(tr("Open Themes Folder"), application_group);
+  open_themes_folder_button->setObjectName(QStringLiteral("preferencesOpenThemesFolderButton"));
+  // Two rows: five buttons in one row are wider than the field column, and
+  // the tab's scroll area clips rather than scrolls horizontally, which cut
+  // off the last button and every combo's arrow (September 2026).
+  auto* theme_buttons_row = new QHBoxLayout();
+  theme_buttons_row->addWidget(import_theme_button);
+  theme_buttons_row->addWidget(export_theme_button);
+  theme_buttons_row->addWidget(reload_themes_button);
+  theme_buttons_row->addStretch(1);
+  application_form->addRow(QString(), theme_buttons_row);
+  auto* theme_buttons_row2 = new QHBoxLayout();
+  theme_buttons_row2->addWidget(delete_theme_button);
+  theme_buttons_row2->addWidget(open_themes_folder_button);
+  theme_buttons_row2->addStretch(1);
+  application_form->addRow(QString(), theme_buttons_row2);
+
+  // Delete applies to the user-folder entry the combo shows; a built-in scheme
+  // and a bundled theme cannot be deleted.
+  const auto update_delete_enabled = [color_scheme_combo, delete_theme_button] {
+    const auto token = color_scheme_combo->currentData().toString();
+    delete_theme_button->setEnabled(token.startsWith(QStringLiteral("custom:")) &&
+                                    !is_bundled_theme_id(token.mid(7)));
+  };
+  update_delete_enabled();
+  connect(color_scheme_combo, &QComboBox::currentIndexChanged, &dialog, update_delete_enabled);
+
+  connect(open_themes_folder_button, &QPushButton::clicked, &dialog, [&dialog] {
+    const auto themes_dir = user_themes_directory();
+    if (themes_dir.isEmpty() || !QDir().mkpath(themes_dir) ||
+        !QDesktopServices::openUrl(QUrl::fromLocalFile(themes_dir))) {
+      show_critical_message(&dialog, tr("Open Themes Folder"), tr("Could not open the themes folder."),
+                            QStringLiteral("openThemesFolderFailedMessageBox"));
+    }
+  });
+
+  connect(reload_themes_button, &QPushButton::clicked, &dialog,
+          [color_scheme_combo, rescan_custom_themes, apply_combo_selection, update_delete_enabled] {
+            const auto token = color_scheme_combo->currentData().toString();
+            {
+              const QSignalBlocker blocker(color_scheme_combo);
+              rescan_custom_themes();
+              const auto index = color_scheme_combo->findData(token);
+              color_scheme_combo->setCurrentIndex(index >= 0 ? index : 0);
+            }
+            // A re-read file may hold new colors under the same name, so apply
+            // even when the selection did not move.
+            apply_combo_selection();
+            update_delete_enabled();
+          });
+
+  connect(delete_theme_button, &QPushButton::clicked, &dialog,
+          [&dialog, color_scheme_combo, rescan_custom_themes, apply_combo_selection, update_delete_enabled] {
+            const auto token = color_scheme_combo->currentData().toString();
+            if (!token.startsWith(QStringLiteral("custom:")) || is_bundled_theme_id(token.mid(7))) {
+              return;
+            }
+            const auto file_name = token.mid(7);
+            QMessageBox confirm(QMessageBox::Question, tr("Delete Theme"),
+                                tr("Delete the theme \"%1\"? Its file is removed from the themes folder.")
+                                    .arg(color_scheme_combo->currentText()),
+                                QMessageBox::NoButton, &dialog);
+            confirm.setObjectName(QStringLiteral("preferencesDeleteThemeConfirm"));
+            auto* delete_button = confirm.addButton(tr("Delete"), QMessageBox::AcceptRole);
+            confirm.addButton(QMessageBox::Cancel);
+            confirm.setDefaultButton(delete_button);
+            exec_dialog(confirm);
+            if (confirm.clickedButton() != delete_button) {
+              return;
+            }
+            const auto themes_dir = user_themes_directory();
+            if (themes_dir.isEmpty() || !QFile::remove(QDir(themes_dir).filePath(file_name))) {
+              show_critical_message(&dialog, tr("Delete Theme"), tr("Could not delete \"%1\".").arg(file_name),
+                                    QStringLiteral("deleteThemeFailedMessageBox"));
+              return;
+            }
+            {
+              const QSignalBlocker blocker(color_scheme_combo);
+              rescan_custom_themes();
+              color_scheme_combo->setCurrentIndex(0);
+            }
+            apply_combo_selection();
+            update_delete_enabled();
+          });
+
+  // Import copies the picked file into user_themes_directory() and previews it
+  // immediately, independent of the dialog's Accept/Reject (like "Remove Added
+  // Fonts..." above): the file itself is not a preference, so there is nothing
+  // for the scope guard above to undo if the dialog is later rejected. Only the
+  // live preview it also triggers is covered by that guard.
+  connect(import_theme_button, &QPushButton::clicked, &dialog,
+          [&dialog, color_scheme_combo, add_custom_theme_entry, custom_theme_token] {
+            const auto path = get_open_file_name(&dialog, tr("Import Theme"), QString(),
+                                                 tr("Patchy theme (*.patchytheme)"));
+            if (path.isEmpty()) {
+              return;
+            }
+            QFile source(path);
+            if (!source.open(QIODevice::ReadOnly)) {
+              show_critical_message(&dialog, tr("Import failed"), tr("Could not open \"%1\".").arg(path),
+                                    QStringLiteral("importThemeFailedMessageBox"));
+              return;
+            }
+            const auto json = source.readAll();
+            auto result = load_theme_from_json(json);
+            if (!result.theme) {
+              show_critical_message(&dialog, tr("Import failed"), result.error,
+                                    QStringLiteral("importThemeFailedMessageBox"));
+              return;
+            }
+            const auto themes_dir = user_themes_directory();
+            if (themes_dir.isEmpty() || !QDir().mkpath(themes_dir)) {
+              show_critical_message(&dialog, tr("Import failed"), tr("Could not create the themes folder."),
+                                    QStringLiteral("importThemeFailedMessageBox"));
+              return;
+            }
+            // Copy under the picked file's own name, de-duplicated on a
+            // collision, so the file persists independent of where it was
+            // imported from and load_saved_preference() can find it again by
+            // that name alone.
+            const QDir dir(themes_dir);
+            const auto base_info = QFileInfo(path);
+            const auto stem = base_info.completeBaseName();
+            const auto suffix = base_info.suffix();
+            auto file_name = base_info.fileName();
+            for (int attempt = 2; QFileInfo::exists(dir.filePath(file_name)); ++attempt) {
+              file_name = QStringLiteral("%1-%2.%3").arg(stem).arg(attempt).arg(suffix);
+            }
+            try {
+              write_file_bytes_atomically(to_filesystem_path(dir.filePath(file_name)),
+                                          std::span<const std::uint8_t>(
+                                              reinterpret_cast<const std::uint8_t*>(json.constData()),
+                                              static_cast<std::size_t>(json.size())),
+                                          "Could not create the theme file", "Could not write the theme file");
+            } catch (const std::exception& error) {
+              show_critical_message(&dialog, tr("Import failed"), QString::fromUtf8(error.what()),
+                                    QStringLiteral("importThemeFailedMessageBox"));
+              return;
+            }
+            add_custom_theme_entry(file_name, *result.theme);
+            color_scheme_combo->setCurrentIndex(color_scheme_combo->findData(custom_theme_token(file_name)));
+          });
+
+  // Export writes the palette the combo currently shows. It opens in the
+  // themes folder, suggests the shown theme's own name, and when the file
+  // lands in that folder lists and selects it at once, so "export a built-in,
+  // then edit it" is one step.
+  connect(export_theme_button, &QPushButton::clicked, &dialog,
+          [&dialog, color_scheme_combo, custom_themes, rescan_custom_themes, apply_combo_selection,
+           update_delete_enabled] {
+            auto suggested_name = color_scheme_combo->currentText();
+            if (const auto token = color_scheme_combo->currentData().toString();
+                token.startsWith(QStringLiteral("custom:"))) {
+              const auto found = custom_themes->find(token.mid(7));
+              if (found != custom_themes->end() && !found.value().name.isEmpty()) {
+                suggested_name = found.value().name;
+              }
+            }
+            if (suggested_name.isEmpty()) {
+              suggested_name = tr("Theme", "Default file name offered when exporting a theme; the save dialog "
+                                           "appends the extension.");
+            }
+            auto initial_path = suggested_name + QStringLiteral(".patchytheme");
+            const auto themes_dir = user_themes_directory();
+            if (!themes_dir.isEmpty() && QDir().mkpath(themes_dir)) {
+              initial_path = QDir(themes_dir).filePath(initial_path);
+            }
+            const auto path = get_save_file_name(&dialog, tr("Export Theme"), initial_path,
+                                                 tr("Patchy theme (*.patchytheme)"), nullptr,
+                                                 QStringLiteral("exportThemeFileDialog"));
+            if (path.isEmpty()) {
+              return;
+            }
+            const auto json =
+                serialize_theme_to_json(theme(), active_color_scheme(), QFileInfo(path).completeBaseName());
+            try {
+              write_file_bytes_atomically(
+                  to_filesystem_path(path),
+                  std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t*>(json.constData()),
+                                                static_cast<std::size_t>(json.size())),
+                  "Could not create the theme file", "Could not write the theme file");
+            } catch (const std::exception& error) {
+              show_critical_message(&dialog, tr("Export failed"), QString::fromUtf8(error.what()),
+                                    QStringLiteral("exportThemeFailedMessageBox"));
+              return;
+            }
+            const QFileInfo written(path);
+            if (themes_dir.isEmpty() ||
+                QDir::cleanPath(written.absolutePath()) != QDir::cleanPath(QDir(themes_dir).absolutePath())) {
+              return;
+            }
+            {
+              const QSignalBlocker blocker(color_scheme_combo);
+              rescan_custom_themes();
+              const auto index = color_scheme_combo->findData(QStringLiteral("custom:") + written.fileName());
+              color_scheme_combo->setCurrentIndex(index >= 0 ? index : 0);
+            }
+            apply_combo_selection();
+            update_delete_enabled();
+          });
+#endif
+
   // The combo previews the scheme live, so every path out of the dialog that is
   // not Accept has to put it back. The chrome X and Esc both reject (the dialog
   // has no Cancel button but install_dark_dialog_chrome still closes by
   // rejecting), and run_stress_test_interactive runs past the accept branch, so
   // a scope guard is safer than an else.
   bool color_scheme_committed = false;
-  const auto restore_color_scheme = qScopeGuard([entry_color_scheme, &color_scheme_committed] {
-    if (!color_scheme_committed) {
-      ThemeManager::instance().set_preference(entry_color_scheme, /*persist=*/false);
-    }
-  });
+  const auto restore_color_scheme =
+      qScopeGuard([entry_color_scheme, entry_custom_id, custom_themes, &color_scheme_committed] {
+        if (color_scheme_committed) {
+          return;
+        }
+        if (entry_custom_id) {
+          const auto found = custom_themes->find(*entry_custom_id);
+          if (found != custom_themes->end()) {
+            ThemeManager::instance().set_custom_theme(*entry_custom_id, found.value(), /*persist=*/false);
+            return;
+          }
+        }
+        ThemeManager::instance().set_preference(entry_color_scheme, /*persist=*/false);
+      });
 
   auto* gui_scale_combo = new QComboBox(application_group);
   gui_scale_combo->setObjectName(QStringLiteral("preferencesGuiScaleCombo"));
@@ -713,11 +1023,7 @@ void MainWindow::show_preferences() {
 
   // Connected after setCurrentIndex so restoring the saved value does not count
   // as a user choice.
-  connect(color_scheme_combo, &QComboBox::currentIndexChanged, &dialog, [color_scheme_combo] {
-    ThemeManager::instance().set_preference(
-        color_scheme_preference_from_token(color_scheme_combo->currentData().toString()),
-        /*persist=*/false);
-  });
+  connect(color_scheme_combo, &QComboBox::currentIndexChanged, &dialog, apply_combo_selection);
 
   auto [pen_page, pen_layout] = make_tab_page(tabs);
   auto* pen_group = new QFrame(pen_page);
@@ -1028,10 +1334,25 @@ void MainWindow::show_preferences() {
   tabs->addTab(snapping_page, tr("Snapping"));
 
   auto [hotkeys_page, hotkeys_layout] = make_tab_page(tabs);
-  auto* hotkey_editor = new HotkeyEditorPanel(hotkey_registry_, menuBar(), hotkeys_page);
-  hotkeys_layout->addWidget(hotkey_editor);
   hotkeys_layout->addStretch(1);
-  tabs->addTab(hotkeys_page, tr("Hotkeys"));
+  const int hotkeys_tab_index = tabs->addTab(hotkeys_page, tr("Hotkeys"));
+
+  // Building ~150 hotkey rows is the single most expensive part of opening this
+  // dialog, so the panel is built on the first visit to its tab; most
+  // Preferences opens never switch to it. Built on demand, it is also created
+  // after the dialog stylesheet below is set, so Qt never repolishes its
+  // several-hundred-widget subtree (the September 2026 Preferences-open
+  // slowdown). The tab itself stays at this position: tests and the Windows
+  // Plug-ins tab after it depend on the order.
+  HotkeyEditorPanel* hotkey_editor = nullptr;
+  connect(tabs, &QTabWidget::currentChanged, &dialog,
+          [this, hotkeys_page, hotkeys_layout, hotkeys_tab_index, &hotkey_editor](int index) {
+            if (index != hotkeys_tab_index || hotkey_editor != nullptr) {
+              return;
+            }
+            hotkey_editor = new HotkeyEditorPanel(hotkey_registry_, menuBar(), hotkeys_page);
+            hotkeys_layout->insertWidget(0, hotkey_editor);
+          });
 
 #ifdef Q_OS_WIN
   // Plug-ins: the folders scanned for legacy Photoshop .8bf filters (Windows
@@ -1138,7 +1459,10 @@ void MainWindow::show_preferences() {
 
   // Applied after every child widget exists: Qt does not reliably pick up
   // sub-control rules (QSpinBox::up-button) for widgets created on hidden
-  // tab pages after the stylesheet was set.
+  // tab pages after the stylesheet was set. The Hotkeys panel is the one
+  // exception, built on demand above: it has no spin box and none of the IDs
+  // below, and creating it after this sheet is what keeps its rows from being
+  // repolished.
   append_themed_style(dialog, QStringLiteral(R"(
     QDialog#patchyPreferencesDialog QTabWidget::pane {
       border: 1px solid @dialog_tab_border;
@@ -1148,7 +1472,6 @@ void MainWindow::show_preferences() {
     QDialog#patchyPreferencesDialog QTabBar::tab {
       background: @dialog_tab_bg;
       border: 1px solid @dialog_tab_border;
-      border-bottom-color: @dialog_tab_bg;
       color: @dialog_tab_text;
       padding: 7px 18px;
       min-width: 92px;
@@ -1187,6 +1510,7 @@ void MainWindow::show_preferences() {
       border: 1px solid @grid_preview_border;
       padding: 0;
     }
+    QDialog#patchyPreferencesDialog QWidget#preferencesTabHost,
     QDialog#patchyPreferencesDialog QScrollArea#preferencesTabScroll,
     QDialog#patchyPreferencesDialog QWidget#preferencesTabPage {
       background: transparent;
@@ -1218,11 +1542,18 @@ void MainWindow::show_preferences() {
     if (const auto code = language_combo->currentData().toString(); !code.isEmpty()) {
       LocalizationManager::instance().set_language(code);
     }
-    hotkey_editor->commit();
+    if (hotkey_editor != nullptr) {
+      hotkey_editor->commit();
+    }
     // No restart notice: the scheme is already applied, unlike interface scale.
-    ThemeManager::instance().set_preference(
-        color_scheme_preference_from_token(color_scheme_combo->currentData().toString()),
-        /*persist=*/true);
+    if (const auto token = color_scheme_combo->currentData().toString(); token.startsWith(QStringLiteral("custom:"))) {
+      const auto found = custom_themes->find(token.mid(7));
+      if (found != custom_themes->end()) {
+        ThemeManager::instance().set_custom_theme(token.mid(7), found.value(), /*persist=*/true);
+      }
+    } else {
+      ThemeManager::instance().set_preference(color_scheme_preference_from_token(token), /*persist=*/true);
+    }
     color_scheme_committed = true;
     const auto new_grid_spacing_32 =
         std::clamp(static_cast<int>(std::lround(grid_spacing_spin->value() * 32.0)), 1, 320000);

@@ -8621,6 +8621,41 @@ RGB：%2, %3, %4</translation>
     </message>
 </context>
 <context>
+    <name>ThemeFile</name>
+    <message>
+        <source>Not a valid theme file: %1</source>
+        <translation>不是有效的主題檔案：%1</translation>
+    </message>
+    <message>
+        <source>the top level is not an object</source>
+        <translation>頂層不是物件</translation>
+    </message>
+    <message>
+        <source>Theme file format %1 is not supported by this build (expected %2).</source>
+        <translation>此版本不支援主題檔案格式 %1（應為 %2）。</translation>
+    </message>
+    <message>
+        <source>Theme file is missing a valid &quot;base&quot; (must be &quot;dark&quot; or &quot;light&quot;).</source>
+        <translation>主題檔案缺少有效的 &quot;base&quot;（必須為 &quot;dark&quot; 或 &quot;light&quot;）。</translation>
+    </message>
+    <message>
+        <source>Theme file&apos;s &quot;roles&quot; is not an object.</source>
+        <translation>主題檔案的 &quot;roles&quot; 不是物件。</translation>
+    </message>
+    <message>
+        <source>Unknown color role &quot;%1&quot; (ignored).</source>
+        <translation>未知的顏色角色 &quot;%1&quot;（已忽略）。</translation>
+    </message>
+    <message>
+        <source>Invalid color &quot;%1&quot; for role &quot;%2&quot; (expected #RRGGBB or #RRGGBBAA).</source>
+        <translation>角色 &quot;%2&quot; 的顏色 &quot;%1&quot; 無效（應為 #RRGGBB 或 #RRGGBBAA）。</translation>
+    </message>
+    <message>
+        <source>Theme file &quot;%1&quot; could not be read.</source>
+        <translation>無法讀取主題檔案 &quot;%1&quot;。</translation>
+    </message>
+</context>
+<context>
     <name>VectorPreview</name>
     <message>
         <source>Dynamic Vector Preview: using the document&apos;s pixel view.</source>
@@ -17827,6 +17862,75 @@ Y：%2
     <message>
         <source>Plug-ins work on one layer at a time. Select a single layer and run it again.</source>
         <translation>外掛程式一次只能處理一個圖層。請選取單一圖層後再執行。</translation>
+    </message>
+    <message>
+        <source>Import Theme...</source>
+        <translation>匯入主題...</translation>
+    </message>
+    <message>
+        <source>Export Theme...</source>
+        <translation>匯出主題...</translation>
+    </message>
+    <message>
+        <source>Reload Themes</source>
+        <translation>重新載入主題</translation>
+    </message>
+    <message>
+        <source>Re-read the theme files in the themes folder and apply the selected one.</source>
+        <translation>重新讀取主題資料夾中的主題檔案並套用所選主題。</translation>
+    </message>
+    <message>
+        <source>Delete Theme...</source>
+        <translation>刪除主題...</translation>
+    </message>
+    <message>
+        <source>Open Themes Folder</source>
+        <translation>開啟主題資料夾</translation>
+    </message>
+    <message>
+        <source>Could not open the themes folder.</source>
+        <translation>無法開啟主題資料夾。</translation>
+    </message>
+    <message>
+        <source>Delete Theme</source>
+        <translation>刪除主題</translation>
+    </message>
+    <message>
+        <source>Delete the theme &quot;%1&quot;? Its file is removed from the themes folder.</source>
+        <translation>刪除主題 &quot;%1&quot;？其檔案將從主題資料夾中移除。</translation>
+    </message>
+    <message>
+        <source>Could not delete &quot;%1&quot;.</source>
+        <translation>無法刪除 &quot;%1&quot;。</translation>
+    </message>
+    <message>
+        <source>Import Theme</source>
+        <translation>匯入主題</translation>
+    </message>
+    <message>
+        <source>Patchy theme (*.patchytheme)</source>
+        <translation>Patchy 主題 (*.patchytheme)</translation>
+    </message>
+    <message>
+        <source>Could not open &quot;%1&quot;.</source>
+        <translation>無法開啟「%1」。</translation>
+    </message>
+    <message>
+        <source>Could not create the themes folder.</source>
+        <translation>無法建立主題資料夾。</translation>
+    </message>
+    <message>
+        <source>Theme</source>
+        <comment>Default file name offered when exporting a theme; the save dialog appends the extension.</comment>
+        <translation>主題</translation>
+    </message>
+    <message>
+        <source>Export Theme</source>
+        <translation>匯出主題</translation>
+    </message>
+    <message>
+        <source>%1 (built-in)</source>
+        <translation>%1（內建）</translation>
     </message>
 </context>
 <context>
