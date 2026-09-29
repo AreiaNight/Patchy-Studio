@@ -4055,9 +4055,18 @@ void ui_canvas_size_dialog_units_convert_through_resolution() {
       CHECK(width->value() == 1024.0 && height->value() == 768.0);
       CHECK(width->decimals() == 0);
       CHECK(current_width->text() == QStringLiteral("1024 px"));
-      // The Width / Height labels scrub the fields (GitHub issue 46).
+      // The Width / Height labels scrub the fields (GitHub issue 46); the "New Size:"
+      // caption above them must not have taken the width spin instead.
       CHECK(width->property(patchy::ui::kScrubHandleInstalledProperty).toBool());
       CHECK(height->property(patchy::ui::kScrubHandleInstalledProperty).toBool());
+      CHECK(new_size->cursor().shape() != Qt::SizeHorCursor);
+      QLabel* width_label = nullptr;
+      for (auto* label : dialog->findChildren<QLabel*>()) {
+        if (label->text() == QStringLiteral("Width") && label->cursor().shape() == Qt::SizeHorCursor) {
+          width_label = label;
+        }
+      }
+      CHECK(width_label != nullptr);
 
       // Inches through the 72 ppi document; the height combo follows the width combo.
       width_unit->setCurrentIndex(width_unit->findText(QStringLiteral("Inches")));

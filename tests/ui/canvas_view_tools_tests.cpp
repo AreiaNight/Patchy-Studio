@@ -2569,6 +2569,17 @@ void ui_dialog_scrub_labels_pair_every_row_shape() {
   caption_row->addWidget(caption_spin);
   root->addLayout(caption_row);
 
+  // A section caption above a grid of labeled rows (Canvas Size's "New Size:")
+  // leaves the spins to the labels inside the grid.
+  auto* section_caption = new QLabel(QStringLiteral("New Size: 1.2M"), &dialog);
+  root->addWidget(section_caption);
+  auto* section_grid = new QGridLayout();
+  auto* section_label = new QLabel(QStringLiteral("Width"), &dialog);
+  auto* section_spin = new QDoubleSpinBox(&dialog);
+  section_grid->addWidget(section_label, 0, 0);
+  section_grid->addWidget(section_spin, 0, 1);
+  root->addLayout(section_grid);
+
   auto* tabs = new QTabWidget(&dialog);
   auto* scroll = new QScrollArea(tabs);
   auto* page = new QWidget(scroll);
@@ -2583,9 +2594,11 @@ void ui_dialog_scrub_labels_pair_every_row_shape() {
   for (auto* spin : {static_cast<QAbstractSpinBox*>(direct), static_cast<QAbstractSpinBox*>(slider_row_spin),
                      static_cast<QAbstractSpinBox*>(stepped), static_cast<QAbstractSpinBox*>(grid_spin),
                      static_cast<QAbstractSpinBox*>(caption_spin), static_cast<QAbstractSpinBox*>(page_spin),
-                     static_cast<QAbstractSpinBox*>(range_minimum)}) {
+                     static_cast<QAbstractSpinBox*>(range_minimum), static_cast<QAbstractSpinBox*>(section_spin)}) {
     CHECK(spin->property(patchy::ui::kScrubHandleInstalledProperty).toBool());
   }
+  CHECK(section_label->cursor().shape() == Qt::SizeHorCursor);
+  CHECK(section_caption->cursor().shape() != Qt::SizeHorCursor);
   for (auto* spin : {button_then_spin, range_maximum}) {
     CHECK(!spin->property(patchy::ui::kScrubHandleInstalledProperty).toBool());
   }

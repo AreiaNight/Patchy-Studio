@@ -559,9 +559,12 @@ std::vector<QLayout*> scrub_child_layouts(QWidget* widget) {
 }
 
 // The first control inside a layout, in layout order and descending into sub-layouts
-// and containers: labels, sliders and spacers are passed over, so a form row's
-// "[slider] [spin]", "[spin] - +" and "[spin] Digits [spin]" fields all answer with
-// their spin box while "[color button] [spin]" answers with the button.
+// and containers: sliders, spacers and labels that name nothing are passed over, so a
+// form row's "[slider] [spin]", "[spin] - +" and "[spin] Digits [spin]" fields all
+// answer with their spin box while "[color button] [spin]" answers with the button.
+// A label that names a field counts as a control too: a caption above a grid of
+// "Width [spin]" rows (Canvas Size's "New Size:") must leave those spins to their
+// own labels.
 QWidget* first_scrub_control(QLayout* layout) {
   if (layout == nullptr) {
     return nullptr;
@@ -578,7 +581,13 @@ QWidget* first_scrub_control(QLayout* layout) {
       continue;
     }
     auto* widget = item->widget();
-    if (widget == nullptr || qobject_cast<QLabel*>(widget) != nullptr || qobject_cast<QSlider*>(widget) != nullptr) {
+    if (widget == nullptr || qobject_cast<QSlider*>(widget) != nullptr) {
+      continue;
+    }
+    if (auto* label = qobject_cast<QLabel*>(widget); label != nullptr) {
+      if (label_names_a_field(label)) {
+        return label;
+      }
       continue;
     }
     const auto children = scrub_child_layouts(widget);

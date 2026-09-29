@@ -68,9 +68,10 @@ inline constexpr char kToolbarSpinboxSliderCurvedProperty[] = "patchy.popupSlide
 // QTabWidget pages included) and pairs every QLabel with letters in its text with the
 // spin box it names: the label's buddy when that is a spin box, else the next item in
 // layout order, looking past one QSlider; a spin box pairs directly, and a sub-layout
-// or container widget pairs when its first control (labels, sliders and spacers passed
-// over) is a spin box: a form row's "[slider] [spin]" or "[spin] - +" field pairs, a
-// "[color button] [spin]" field does not. exec_dialog and run_non_modal_dialog call
+// or container widget pairs when its first control (sliders, spacers and unlettered
+// labels passed over) is a spin box: a form row's "[slider] [spin]" or "[spin] - +"
+// field pairs, a "[color button] [spin]" field does not, and a container whose own
+// "Width" label comes first keeps its spins for that label. exec_dialog and run_non_modal_dialog call
 // it on every dialog, and build_options_bar on the options bar, so a new label+field
 // pair opts in by itself; surfaces built after their window is shown (the Filter
 // Gallery's parameter panel) call it again. A spin box that received a handle carries
