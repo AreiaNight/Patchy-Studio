@@ -39,7 +39,7 @@ real Patchy documents, arrange the UI, and capture the widgets. The long-shadow
 scene opens the actual Layer Style dialog and checks its Continuous setting.
 Its typography uses a live continuous shadow, not a painted imitation.
 
-The hero keeps the native three-filter stack and shared mask on the photograph.
+The hero shows rulers and keeps the native three-filter stack and shared mask on the photograph.
 The mask protects the cyclist's face and applies the blur stack to the surroundings.
 The color picker shows its wheel and palette, while a real Levels adjustment layer
 is open for editing with its histogram and live preview. Neutral Levels settings
