@@ -19491,20 +19491,12 @@ Y: %2
         <translation>Sie können Bilddateien auch an einer beliebigen Stelle im Fenster ablegen</translation>
     </message>
     <message>
-        <source>desktop version</source>
-        <translation>Desktop-Version</translation>
-    </message>
-    <message>
         <source>Everything runs locally in your browser. Nothing you make is ever sent online.</source>
         <translation>Alles läuft lokal in Ihrem Browser. Nichts, was Sie erstellen, wird jemals online gesendet.</translation>
     </message>
     <message>
         <source>Drop a font file or a zip of fonts here to use your own fonts.</source>
         <translation>Legen Sie hier eine Schriftdatei oder eine ZIP-Datei mit Schriften ab, um Ihre eigenen Schriften zu verwenden.</translation>
-    </message>
-    <message>
-        <source>For all your system fonts and better speed, get the %1.</source>
-        <translation>Für alle Ihre Systemschriften und mehr Geschwindigkeit holen Sie sich die %1.</translation>
     </message>
     <message>
         <source>Version %1 (built %2)</source>
@@ -19529,6 +19521,22 @@ Y: %2
     <message>
         <source>Created by %1</source>
         <translation>Erstellt von %1</translation>
+    </message>
+    <message>
+        <source>More power on your desktop</source>
+        <translation>Mehr Möglichkeiten auf Ihrem Desktop</translation>
+    </message>
+    <message>
+        <source>More features, faster editing, and full access to your system fonts.</source>
+        <translation>Mehr Funktionen, schnellere Bearbeitung und voller Zugriff auf Ihre Systemschriften.</translation>
+    </message>
+    <message>
+        <source>Download Patchy for Desktop</source>
+        <translation>Patchy für den Desktop herunterladen</translation>
+    </message>
+    <message>
+        <source>Free · Windows, macOS &amp; Linux</source>
+        <translation>Kostenlos · Windows, macOS &amp; Linux</translation>
     </message>
 </context>
 <context>

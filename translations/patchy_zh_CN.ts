@@ -19438,20 +19438,12 @@ Y: %2
         <translation>也可以将图像文件拖放到窗口中的任意位置</translation>
     </message>
     <message>
-        <source>desktop version</source>
-        <translation>桌面版</translation>
-    </message>
-    <message>
         <source>Everything runs locally in your browser. Nothing you make is ever sent online.</source>
         <translation>一切都在您的浏览器本地运行。您创作的内容永远不会被发送到网上。</translation>
     </message>
     <message>
         <source>Drop a font file or a zip of fonts here to use your own fonts.</source>
         <translation>将字体文件或包含字体的 zip 压缩包拖放到此处，即可使用您自己的字体。</translation>
-    </message>
-    <message>
-        <source>For all your system fonts and better speed, get the %1.</source>
-        <translation>要使用全部系统字体并获得更快的速度，请获取 %1。</translation>
     </message>
     <message>
         <source>Version %1 (built %2)</source>
@@ -19476,6 +19468,22 @@ Y: %2
     <message>
         <source>Created by %1</source>
         <translation>由 %1 创作</translation>
+    </message>
+    <message>
+        <source>More power on your desktop</source>
+        <translation>桌面版，让创作更得心应手</translation>
+    </message>
+    <message>
+        <source>More features, faster editing, and full access to your system fonts.</source>
+        <translation>更多功能、更快的编辑速度，还可使用所有系统字体。</translation>
+    </message>
+    <message>
+        <source>Download Patchy for Desktop</source>
+        <translation>下载Patchy桌面版</translation>
+    </message>
+    <message>
+        <source>Free · Windows, macOS &amp; Linux</source>
+        <translation>免费 · Windows、macOS和Linux</translation>
     </message>
 </context>
 <context>

@@ -19445,19 +19445,11 @@ Y: %2
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>desktop version</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Everything runs locally in your browser. Nothing you make is ever sent online.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Drop a font file or a zip of fonts here to use your own fonts.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>For all your system fonts and better speed, get the %1.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -19482,6 +19474,22 @@ Y: %2
     </message>
     <message>
         <source>Created by %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>More power on your desktop</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>More features, faster editing, and full access to your system fonts.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download Patchy for Desktop</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Free · Windows, macOS &amp; Linux</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

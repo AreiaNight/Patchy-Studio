@@ -19466,16 +19466,24 @@ Clipped to the layer below</source>
         <translation>フォントファイルまたはフォントの zip をここにドロップすると、自分のフォントを使用できます。</translation>
     </message>
     <message>
-        <source>For all your system fonts and better speed, get the %1.</source>
-        <translation>システムフォントの利用や高速な動作には、%1をご利用ください。</translation>
-    </message>
-    <message>
-        <source>desktop version</source>
-        <translation>デスクトップ版</translation>
-    </message>
-    <message>
         <source>Created by %1</source>
         <translation>作成: %1</translation>
+    </message>
+    <message>
+        <source>More power on your desktop</source>
+        <translation>デスクトップでもっと快適に</translation>
+    </message>
+    <message>
+        <source>More features, faster editing, and full access to your system fonts.</source>
+        <translation>より多くの機能、より高速な編集、システム内のすべてのフォントを利用できます。</translation>
+    </message>
+    <message>
+        <source>Download Patchy for Desktop</source>
+        <translation>デスクトップ版Patchyをダウンロード</translation>
+    </message>
+    <message>
+        <source>Free · Windows, macOS &amp; Linux</source>
+        <translation>無料 · Windows、macOS、Linux</translation>
     </message>
 </context>
 <context>

@@ -1,21 +1,16 @@
 # WebAssembly (Emscripten) build
 
-Deep reference for the wasm builds. Read this before touching the `wasm-core`,
-`wasm-release`, or `wasm-release-st` presets, the emsdk/Qt-kit provisioning,
-or `scripts/wasm/`.
+Read before changing wasm presets, emsdk/Qt provisioning, or `scripts/wasm/`.
 
 ## What exists today
 
-Three configurations share the pinned Emscripten 4.0.7 toolchain:
+All three configurations use Emscripten 4.0.7:
 
 - **`wasm-core`**: the Qt-free engine libraries plus `patchy_core_tests`,
   run under node (`PATCHY_BUILD_APP=OFF`).
-- **`wasm-release`**: the full app linked against Qt for
-  WebAssembly (6.10.3 `wasm_multithread`, static), running in a browser tab
-  with Asyncify plus pthreads. File I/O, drag-in, and settings are
-  browser-backed (details below). Background work runs on real threads; the
-  deployment cost is cross-origin isolation (COOP/COEP headers, see
-  deployment).
+- **`wasm-release`**: the full app with static Qt 6.10.3 `wasm_multithread`,
+  Asyncify and pthreads. File I/O, drops and settings are browser-backed.
+  Real worker threads require COOP/COEP headers (see deployment).
 - **`wasm-release-st`**: the same app with the 6.10.3 single-thread kit
   (`PATCHY_WASM_SINGLETHREAD=ON`: no pthreads, pool, or shared memory). It is
   staged as `st/` for Safari diagnostics, but current ST builds also die under
@@ -25,9 +20,8 @@ Three configurations share the pinned Emscripten 4.0.7 toolchain:
   declares `QThread::loopLevel()` without defining it (an ST-only link error);
   `canvas_widget_move.cpp` reads `QThreadData` via `Qt6::CorePrivate` instead.
 
-The presets, the `if(EMSCRIPTEN)` CMake branches, the `Q_OS_WASM` gates,
-and `scripts/wasm/` are the whole wasm surface. The stress/A-B harness is in
-[performance.md](performance.md).
+Wasm lives in the presets, `if(EMSCRIPTEN)` CMake branches, `Q_OS_WASM` gates,
+and `scripts/wasm/`. Stress/A-B harness: [performance.md](performance.md).
 
 ## Toolchain setup
 
@@ -327,6 +321,12 @@ Other step-3 decisions:
 
 ### Browser UI fit
 
+- **Desktop download card:** below New Document / Open, highlighting more
+  features, speed and system fonts. The themed, keyboard-accessible button opens
+  the GitHub README's download section in a new tab. Text retranslates live;
+  labels and the button caption wrap. Short windows scroll the content above a
+  fixed footer. Privacy and font-upload guidance follows the card. Desktop
+  start panels keep their existing layout.
 - **Interface scale comes from the shell page, never QT_SCALE_FACTOR.** The
   wasm plugin takes pointer events from raw `offsetX`/`clientX` without
   applying Qt's high-DPI factor, so any factor but 1 renders scaled yet
@@ -515,9 +515,3 @@ also constructs the memory (bullet above), appends a plain-language hint to
 the crash screen when the abort text looks like out-of-memory, and versions
 the `patchy.data` fetch via `locateFile`. No special MIME is needed (the
 page compiles from bytes; streaming instantiation is unused).
-
-## Later steps (not built yet)
-
-Remaining: texture lazy-fetch, the advertised document-size cap, and
-preset/library persistence across reloads (follow the poll-pattern
-IndexedDB glue in user_fonts_wasm.cpp, not IDBFS).

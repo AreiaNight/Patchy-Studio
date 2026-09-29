@@ -19491,20 +19491,12 @@ Y : %2
         <translation>Vous pouvez aussi déposer des fichiers image n&apos;importe où dans la fenêtre</translation>
     </message>
     <message>
-        <source>desktop version</source>
-        <translation>version de bureau</translation>
-    </message>
-    <message>
         <source>Everything runs locally in your browser. Nothing you make is ever sent online.</source>
         <translation>Tout s&apos;exécute localement dans votre navigateur. Rien de ce que vous créez n&apos;est jamais envoyé en ligne.</translation>
     </message>
     <message>
         <source>Drop a font file or a zip of fonts here to use your own fonts.</source>
         <translation>Déposez ici un fichier de police ou une archive zip de polices pour utiliser vos propres polices.</translation>
-    </message>
-    <message>
-        <source>For all your system fonts and better speed, get the %1.</source>
-        <translation>Pour disposer de toutes vos polices système et de meilleures performances, téléchargez la %1.</translation>
     </message>
     <message>
         <source>Version %1 (built %2)</source>
@@ -19529,6 +19521,22 @@ Y : %2
     <message>
         <source>Created by %1</source>
         <translation>Créé par %1</translation>
+    </message>
+    <message>
+        <source>More power on your desktop</source>
+        <translation>Plus de possibilités sur votre ordinateur</translation>
+    </message>
+    <message>
+        <source>More features, faster editing, and full access to your system fonts.</source>
+        <translation>Plus de fonctions, des retouches plus rapides et un accès complet aux polices de votre système.</translation>
+    </message>
+    <message>
+        <source>Download Patchy for Desktop</source>
+        <translation>Télécharger Patchy pour ordinateur</translation>
+    </message>
+    <message>
+        <source>Free · Windows, macOS &amp; Linux</source>
+        <translation>Gratuit · Windows, macOS et Linux</translation>
     </message>
 </context>
 <context>
