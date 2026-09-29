@@ -98,12 +98,13 @@ Offscreen does not clear `QApplication::keyboardModifiers()` after synthetic key
   Trace Image to Shapes dialog, which `layer.traceToShapes` bypasses and `app.runCommand`
   would block a script on.
 
-One scene stays manual: `scripts/dev/readme-shots/plugin-dialog.js` produces
+One scene is invoked separately: `scripts/dev/readme-shots/plugin-dialog.js` produces
 `docs/images/screenshots/plugin_dialog.png`, the dialog of a third-party 8bf plug-in
 (Mehdi's Absolute Color from `local-test-fixtures/photoshop-plugins/mehdi`) captured through
 `layer.applyPlugin(id, {captureDialog})` on Windows. It is not in the driver's table because
-the plug-in is not committed; run it by hand (see the script header) when the shot needs
-refreshing.
+the plug-in is not committed; invoke the script explicitly (see its header) when the shot
+needs refreshing. Its window-targeted capture and automatic dialog answers are authorized
+Patchy automation, not desktop control.
 
 Both pipelines round the corners of the window they captured, because DWM rounds Patchy's
 frameless windows in the compositor and a `QWidget::grab()` is therefore square. The offscreen
@@ -115,6 +116,26 @@ radius in both places or the two pipelines drift.
 
 ## Native visual QA and app-driving commands
 
+Automation confined to Patchy is authorized, including scripted clicks, typing, and
+captures of Patchy windows and its hosted plug-in windows, such as KPT. No additional
+permission is needed. This does not authorize desktop screenshots, global mouse or
+keyboard input, interaction with other applications, or taking control of Seth's
+desktop. Captures must come directly from the intended application windows, not from
+a desktop screenshot cropped afterward. Adobe Photoshop COM remains authorized for
+capture, verification, and acceptance as specified in AGENTS.md.
+
+Use Patchy's scripting, CLI, MCP, or messages targeted to its own widgets/windows.
+`patchy.ui.captureWindow`, `QWidget::grab`, and the plug-in helper's `PrintWindow`
+capture only the intended windows. Targeted clicks and typing in the helper's KPT
+window are permitted; global cursor movement, `SendInput`, and desktop-wide Computer
+Use still require explicit authorization in the current request. An MCP wrapper does
+not make those desktop actions authorized.
+
+Keep unattended runs in task-owned instances with isolated settings. Prefer offscreen
+work where possible; when native windows are needed, keep them bounded and avoid
+disrupting other applications. Permission for Patchy input does not authorize discarding
+unsaved work, closing the user's running app/connector, or stopping unrelated processes.
+
 `patchy-mcp --attach` connects to an already-running interactive Patchy; use it
 only when authorized to control that workspace. For automated attachment tests,
 launch a test-owned app with `QT_QPA_PLATFORM=offscreen`, isolated
@@ -123,8 +144,9 @@ Do not pass `--headless`: it deliberately disables attachment. `ui_mcp` covers
 state guards, input locking, cancellation, reconnect, and unsaved history.
 
 For persistent background editing use `patchy-mcp`, which owns an isolated
-offscreen workspace. With explicit permission to show its separate workspace,
-`patchy-mcp --visible` runs the same protocol visibly. `patchy-mcp --check` validates native strokes, previews, and
+offscreen workspace. When a task needs its own visible Patchy workspace,
+`patchy-mcp --visible` runs the same protocol visibly under the rules above.
+`patchy-mcp --check` validates native strokes, previews, and
 the assembled control kit from its installed location. See [ai-control.md](ai-control.md).
 The UI filter `ui_script_automation` covers native stroke parity, pressure,
 selection, palette snapping, history, stale IDs, and Unicode preview output.
@@ -154,7 +176,8 @@ discovery, late app startup, restart with fresh state tokens, and interruption
 without replay. This test owns its offscreen apps and requires no prior artifacts.
 The client suite also passes `--visible` with an explicit offscreen Qt backend
 to verify option handling and truthful mode/preview metadata without opening a
-desktop window. A real visible smoke test requires separate desktop permission.
+desktop window. A real visible smoke test may use a task-owned Patchy instance under
+the rules above without separate permission for Patchy-only input or captures.
 On Linux it also holds a fake desktop bus open without answering and verifies that
 headless scripting and an immediately closed MCP client still exit promptly.
 After installing the current Flatpak user bundle, run `nice -n 10 .deps/mcp-client/bin/python
@@ -169,7 +192,8 @@ with owned headless and MCP processes. The UI filters `ui_unicode_recent_history
 and `ui_vector_preview_action_persistence` cover history merging/live refresh and
 the restored preview preference's menu/Preferences synchronization.
 
-Never use Computer Use, desktop automation, or input injection for native QA without Seth's explicit authorization in the current request. Use Patchy's command-line control surfaces and inspect their outputs directly.
+Use Patchy's command-line control surfaces and inspect their window captures directly;
+the permission boundary above applies to native QA as well as screenshot generation.
 
 `patchy.exe --screenshot <out.png>` captures the running instance without raising or focusing it. Add `--screenshot-widget <qtObjectName>` and/or `--screenshot-rect x,y,w,h` to narrow the capture, and combine it with positional files to open a document. The invoking process exits immediately, so poll for the output. If no instance is running, Patchy opens, waits about 1.5 seconds, captures, and exits with code 0 on success or 3 on failure. Add `--language <code>` (with `--headless`, so no running instance is reused) to capture a specific UI language without changing the saved preference; see [localization.md](localization.md). Never run `patchy.exe --help` or `--version` during verification: the Windows GUI build has no console, so Qt shows them in a message box that pops over whatever Seth is doing.
 
