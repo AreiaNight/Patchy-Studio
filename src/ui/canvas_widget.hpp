@@ -1115,6 +1115,16 @@ public:
   [[nodiscard]] QColor grid_color() const noexcept;
   void set_guide_color(QColor color) noexcept;
   [[nodiscard]] QColor guide_color() const noexcept;
+  // The pasteboard behind the document (GitHub issue 47). Unset, it is the theme's
+  // `canvas_backdrop` role; a user color from the backdrop's right-click menu (a view
+  // preference the host owns, `view/canvasBackdropColor`) replaces it in every window.
+  void set_backdrop_color_override(std::optional<QColor> color);
+  [[nodiscard]] std::optional<QColor> backdrop_color_override() const noexcept;
+  [[nodiscard]] QColor backdrop_color() const;
+  // Fired by the backdrop menu's preset entries (nullopt = Default) and by its Select
+  // Custom Color... entry; unset, the presets apply to this canvas alone.
+  void set_backdrop_color_change_requested_callback(std::function<void(std::optional<QColor>)> callback);
+  void set_custom_backdrop_color_requested_callback(std::function<void()> callback);
   void add_guide(GuideOrientation orientation, std::int32_t position_32);
   void clear_guides();
   void clear_selected_guides();
@@ -1557,6 +1567,8 @@ private:
   // Move-tool section of the canvas context menu (canvas_widget_move.cpp):
   // the hit leaf layers under the pointer. Returns whether any entry was added.
   bool add_move_layer_menu_entries(QMenu& menu, QPoint widget_point);
+  // Backdrop-color section of the canvas context menu, for a click outside the document.
+  void add_backdrop_color_menu_entries(QMenu& menu);
   void close_canvas_context_menu();
   // Canvas context menus are never deleted while the click that picked an entry is still
   // being dispatched (see show_canvas_context_menu). A hidden menu is retired here and
@@ -2475,6 +2487,9 @@ private:
   bool rulers_visible_{false};
   MeasurementUnit ruler_unit_{MeasurementUnit::Pixels};
   std::function<void(MeasurementUnit)> ruler_unit_change_requested_callback_;
+  std::optional<QColor> backdrop_color_override_;
+  std::function<void(std::optional<QColor>)> backdrop_color_change_requested_callback_;
+  std::function<void()> custom_backdrop_color_requested_callback_;
   bool grid_visible_{false};
   bool guides_visible_{true};
   bool guides_locked_{false};

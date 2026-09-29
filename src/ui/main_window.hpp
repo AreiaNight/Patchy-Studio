@@ -820,6 +820,10 @@ private:
   void clear_guides();
   void clear_selected_guides();
   void set_ruler_unit_preference(MeasurementUnit unit);
+  // The pasteboard color behind every document (nullopt = the theme's canvas_backdrop),
+  // chosen from the backdrop's right-click menu and persisted as view/canvasBackdropColor.
+  void set_canvas_backdrop_color_preference(std::optional<QColor> color);
+  void choose_custom_canvas_backdrop_color();
   void apply_canvas_aid_settings(CanvasWidget* canvas) const;
   void refresh_vector_preview_action();
   void apply_pen_input_settings(CanvasWidget* canvas) const;
@@ -2237,6 +2241,7 @@ private:
   int view_grid_subdivisions_{4};
   int view_grid_style_{0};
   QColor view_grid_color_{78, 154, 255, 105};
+  std::optional<QColor> view_canvas_backdrop_color_;
   QColor view_guide_color_{255, 70, 180, 230};
   CanvasWidget::PenInputSettings pen_input_settings_{};
   bool wheel_zooms_{kWheelZoomsDefault};

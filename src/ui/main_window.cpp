@@ -8358,6 +8358,9 @@ void MainWindow::configure_canvas(CanvasWidget* canvas) {
   canvas->set_error_status_callback([this](QString message) { show_status_error(message); });
   canvas->set_ruler_unit_change_requested_callback(
       [this](MeasurementUnit unit) { set_ruler_unit_preference(unit); });
+  canvas->set_backdrop_color_change_requested_callback(
+      [this](std::optional<QColor> color) { set_canvas_backdrop_color_preference(color); });
+  canvas->set_custom_backdrop_color_requested_callback([this] { choose_custom_canvas_backdrop_color(); });
   canvas->set_info_callback([this, canvas](CanvasInfoState info) {
     if (canvas != canvas_) {
       return;

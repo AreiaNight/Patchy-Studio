@@ -10103,6 +10103,34 @@ RGB: %2, %3, %4</source>
         <source>Y: %1</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Default</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Black</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Dark Gray</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Medium Gray</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Light Gray</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>White</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select Custom Color...</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::ChannelPanel</name>
@@ -17938,34 +17966,6 @@ Y: %2
         <source>%1 (built-in)</source>
         <translation type="unfinished"></translation>
     </message>
-</context>
-<context>
-    <name>patchy::ui::McpActivity</name>
-    <message>
-        <source>AI editing: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>AI reading: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>AI connected</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Running script: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Script paused: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>AI paused: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
     <message>
         <source>Cycle Marquee Tools</source>
         <translation type="unfinished"></translation>
@@ -18010,6 +18010,38 @@ Y: %2
         <source>Cycle Shape Tools</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Canvas Background Color</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::McpActivity</name>
+    <message>
+        <source>AI editing: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>AI reading: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>AI connected</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Running script: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Script paused: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>AI paused: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Script pausing: %1</source>
         <translation type="unfinished"></translation>
     </message>

@@ -787,7 +787,7 @@ void CanvasWidget::paintEvent(QPaintEvent* event) {
   ZoomTraceScope trace("paint", zoom_);
   QPainter painter(this);
   const auto exposed_rect = event != nullptr ? event->rect() : rect();
-  painter.fillRect(exposed_rect, theme().canvas_backdrop);
+  painter.fillRect(exposed_rect, backdrop_color());
 
   if (document_ == nullptr || document_->width() == 0 || document_->height() == 0) {
     painter.setPen(theme().canvas_empty_text);

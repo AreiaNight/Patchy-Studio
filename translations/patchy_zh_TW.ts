@@ -10085,6 +10085,34 @@ RGB：%2, %3, %4</translation>
         <source>Y: %1</source>
         <translation>Y: %1</translation>
     </message>
+    <message>
+        <source>Default</source>
+        <translation>預設</translation>
+    </message>
+    <message>
+        <source>Black</source>
+        <translation>黑色</translation>
+    </message>
+    <message>
+        <source>Dark Gray</source>
+        <translation>深灰色</translation>
+    </message>
+    <message>
+        <source>Medium Gray</source>
+        <translation>中灰色</translation>
+    </message>
+    <message>
+        <source>Light Gray</source>
+        <translation>淺灰色</translation>
+    </message>
+    <message>
+        <source>White</source>
+        <translation>白色</translation>
+    </message>
+    <message>
+        <source>Select Custom Color...</source>
+        <translation>選擇自訂顏色...</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::ChannelPanel</name>
@@ -17932,34 +17960,6 @@ Y：%2
         <source>%1 (built-in)</source>
         <translation>%1（內建）</translation>
     </message>
-</context>
-<context>
-    <name>patchy::ui::McpActivity</name>
-    <message>
-        <source>AI editing: %1</source>
-        <translation>AI 編輯中：%1</translation>
-    </message>
-    <message>
-        <source>AI reading: %1</source>
-        <translation>AI 讀取中：%1</translation>
-    </message>
-    <message>
-        <source>AI connected</source>
-        <translation>AI 已連線</translation>
-    </message>
-    <message>
-        <source>Running script: %1</source>
-        <translation>執行指令碼中：%1</translation>
-    </message>
-    <message>
-        <source>Script paused: %1</source>
-        <translation>指令碼已暫停：%1</translation>
-    </message>
-    <message>
-        <source>AI paused: %1</source>
-        <translation>AI 已暫停：%1</translation>
-    </message>
-    <message>
     <message>
         <source>Cycle Marquee Tools</source>
         <translation>循環切換選取畫面工具</translation>
@@ -18004,6 +18004,38 @@ Y：%2
         <source>Cycle Shape Tools</source>
         <translation>循環切換形狀工具</translation>
     </message>
+    <message>
+        <source>Canvas Background Color</source>
+        <translation>畫布背景顏色</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::McpActivity</name>
+    <message>
+        <source>AI editing: %1</source>
+        <translation>AI 編輯中：%1</translation>
+    </message>
+    <message>
+        <source>AI reading: %1</source>
+        <translation>AI 讀取中：%1</translation>
+    </message>
+    <message>
+        <source>AI connected</source>
+        <translation>AI 已連線</translation>
+    </message>
+    <message>
+        <source>Running script: %1</source>
+        <translation>執行指令碼中：%1</translation>
+    </message>
+    <message>
+        <source>Script paused: %1</source>
+        <translation>指令碼已暫停：%1</translation>
+    </message>
+    <message>
+        <source>AI paused: %1</source>
+        <translation>AI 已暫停：%1</translation>
+    </message>
+    <message>
         <source>Script pausing: %1</source>
         <translation>指令碼暫停中：%1</translation>
     </message>

@@ -10085,6 +10085,34 @@ Mixed selection</source>
         <source>Y: %1</source>
         <translation>Y: %1</translation>
     </message>
+    <message>
+        <source>Default</source>
+        <translation>既定</translation>
+    </message>
+    <message>
+        <source>Black</source>
+        <translation>黒</translation>
+    </message>
+    <message>
+        <source>Dark Gray</source>
+        <translation>ダークグレー</translation>
+    </message>
+    <message>
+        <source>Medium Gray</source>
+        <translation>ミディアムグレー</translation>
+    </message>
+    <message>
+        <source>Light Gray</source>
+        <translation>ライトグレー</translation>
+    </message>
+    <message>
+        <source>White</source>
+        <translation>白</translation>
+    </message>
+    <message>
+        <source>Select Custom Color...</source>
+        <translation>カスタムカラーを選択...</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::ChannelPanel</name>
@@ -17932,34 +17960,6 @@ Clipped to the layer below</source>
         <source>%1 (built-in)</source>
         <translation>%1（内蔵）</translation>
     </message>
-</context>
-<context>
-    <name>patchy::ui::McpActivity</name>
-    <message>
-        <source>Pause</source>
-        <translation>一時停止</translation>
-    </message>
-    <message>
-        <source>Resume</source>
-        <translation>再開</translation>
-    </message>
-    <message>
-        <source>AI paused: %1</source>
-        <translation>AI一時停止中: %1</translation>
-    </message>
-    <message>
-        <source>Script paused: %1</source>
-        <translation>スクリプト一時停止中: %1</translation>
-    </message>
-    <message>
-        <source>Slow</source>
-        <translation>ゆっくり</translation>
-    </message>
-    <message>
-        <source>Show each stroke or edit with a short pause and a separate Undo step. You can change this while work is running. History limits still apply.</source>
-        <translation>ストロークや編集ごとに短く待機して表示し、個別に元に戻せるようにします。処理中でも切り替えられます。履歴の保持上限は適用されます。</translation>
-    </message>
-    <message>
     <message>
         <source>Cycle Marquee Tools</source>
         <translation>選択ツールを切り替え</translation>
@@ -18004,6 +18004,38 @@ Clipped to the layer below</source>
         <source>Cycle Shape Tools</source>
         <translation>図形ツールを切り替え</translation>
     </message>
+    <message>
+        <source>Canvas Background Color</source>
+        <translation>カンバスの背景色</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::McpActivity</name>
+    <message>
+        <source>Pause</source>
+        <translation>一時停止</translation>
+    </message>
+    <message>
+        <source>Resume</source>
+        <translation>再開</translation>
+    </message>
+    <message>
+        <source>AI paused: %1</source>
+        <translation>AI一時停止中: %1</translation>
+    </message>
+    <message>
+        <source>Script paused: %1</source>
+        <translation>スクリプト一時停止中: %1</translation>
+    </message>
+    <message>
+        <source>Slow</source>
+        <translation>ゆっくり</translation>
+    </message>
+    <message>
+        <source>Show each stroke or edit with a short pause and a separate Undo step. You can change this while work is running. History limits still apply.</source>
+        <translation>ストロークや編集ごとに短く待機して表示し、個別に元に戻せるようにします。処理中でも切り替えられます。履歴の保持上限は適用されます。</translation>
+    </message>
+    <message>
         <source>Running script: %1</source>
         <translation>スクリプト実行中: %1</translation>
     </message>

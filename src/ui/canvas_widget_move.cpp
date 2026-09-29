@@ -270,6 +270,14 @@ bool CanvasWidget::show_canvas_context_menu(QPoint widget_point, QPoint global_p
       append_section(layer_context_actions_callback_());
     }
   }
+  // A click on the pasteboard (outside the document) offers its color, as in
+  // Photoshop; the menu's other sections all need the document under the pointer.
+  if (!document_contains(document_point)) {
+    if (!menu->isEmpty()) {
+      menu->addSeparator();
+    }
+    add_backdrop_color_menu_entries(*menu);
+  }
   if (menu->isEmpty()) {
     canvas_context_menu_.clear();
     menu->deleteLater();
@@ -277,6 +285,45 @@ bool CanvasWidget::show_canvas_context_menu(QPoint widget_point, QPoint global_p
   }
   menu->popup(global_position);
   return true;
+}
+
+// Photoshop's pasteboard presets. These are user-selectable data like the grid and
+// guide colors, not chrome, so they sit outside the theme palette on purpose
+// (docs/ui-conventions.md, "Some colors deliberately do not follow the scheme").
+void CanvasWidget::add_backdrop_color_menu_entries(QMenu& menu) {
+  const auto current = backdrop_color_override_;
+  const auto request = [this](std::optional<QColor> color) {
+    if (backdrop_color_change_requested_callback_) {
+      backdrop_color_change_requested_callback_(color);
+    } else {
+      set_backdrop_color_override(color);
+    }
+  };
+  bool preset_checked = false;
+  const auto add_entry = [&](const QString& label, const QString& object_name, std::optional<QColor> color) {
+    auto* action = menu.addAction(label);
+    action->setObjectName(object_name);
+    action->setCheckable(true);
+    action->setChecked(current == color);
+    preset_checked = preset_checked || action->isChecked();
+    connect(action, &QAction::triggered, this, [request, color] { request(color); });
+  };
+  add_entry(tr("Default"), QStringLiteral("canvasBackdropDefaultAction"), std::nullopt);
+  add_entry(tr("Black"), QStringLiteral("canvasBackdropBlackAction"), QColor(0, 0, 0));
+  add_entry(tr("Dark Gray"), QStringLiteral("canvasBackdropDarkGrayAction"), QColor(0x35, 0x35, 0x35));
+  add_entry(tr("Medium Gray"), QStringLiteral("canvasBackdropMediumGrayAction"), QColor(0x80, 0x80, 0x80));
+  add_entry(tr("Light Gray"), QStringLiteral("canvasBackdropLightGrayAction"), QColor(0xc0, 0xc0, 0xc0));
+  add_entry(tr("White"), QStringLiteral("canvasBackdropWhiteAction"), QColor(255, 255, 255));
+  menu.addSeparator();
+  auto* custom = menu.addAction(tr("Select Custom Color..."));
+  custom->setObjectName(QStringLiteral("canvasBackdropCustomAction"));
+  custom->setCheckable(true);
+  custom->setChecked(current.has_value() && !preset_checked);
+  connect(custom, &QAction::triggered, this, [this] {
+    if (custom_backdrop_color_requested_callback_) {
+      custom_backdrop_color_requested_callback_();
+    }
+  });
 }
 
 bool CanvasWidget::add_move_layer_menu_entries(QMenu& menu, QPoint widget_point) {

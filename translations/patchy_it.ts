@@ -10112,6 +10112,34 @@ RGB: %2, %3, %4</translation>
         <source>Y: %1</source>
         <translation>Y: %1</translation>
     </message>
+    <message>
+        <source>Default</source>
+        <translation>Predefinito</translation>
+    </message>
+    <message>
+        <source>Black</source>
+        <translation>Nero</translation>
+    </message>
+    <message>
+        <source>Dark Gray</source>
+        <translation>Grigio scuro</translation>
+    </message>
+    <message>
+        <source>Medium Gray</source>
+        <translation>Grigio medio</translation>
+    </message>
+    <message>
+        <source>Light Gray</source>
+        <translation>Grigio chiaro</translation>
+    </message>
+    <message>
+        <source>White</source>
+        <translation>Bianco</translation>
+    </message>
+    <message>
+        <source>Select Custom Color...</source>
+        <translation>Scegli colore personalizzato...</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::ChannelPanel</name>
@@ -17984,34 +18012,6 @@ Y: %2
         <source>%1 (built-in)</source>
         <translation>%1 (integrato)</translation>
     </message>
-</context>
-<context>
-    <name>patchy::ui::McpActivity</name>
-    <message>
-        <source>AI editing: %1</source>
-        <translation>IA in modifica: %1</translation>
-    </message>
-    <message>
-        <source>AI reading: %1</source>
-        <translation>IA in lettura: %1</translation>
-    </message>
-    <message>
-        <source>AI connected</source>
-        <translation>IA connessa</translation>
-    </message>
-    <message>
-        <source>Running script: %1</source>
-        <translation>Script in esecuzione: %1</translation>
-    </message>
-    <message>
-        <source>Script paused: %1</source>
-        <translation>Script in pausa: %1</translation>
-    </message>
-    <message>
-        <source>AI paused: %1</source>
-        <translation>IA in pausa: %1</translation>
-    </message>
-    <message>
     <message>
         <source>Cycle Marquee Tools</source>
         <translation>Alterna strumenti selezione</translation>
@@ -18056,6 +18056,38 @@ Y: %2
         <source>Cycle Shape Tools</source>
         <translation>Alterna strumenti forma</translation>
     </message>
+    <message>
+        <source>Canvas Background Color</source>
+        <translation>Colore di sfondo dell'area di lavoro</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::McpActivity</name>
+    <message>
+        <source>AI editing: %1</source>
+        <translation>IA in modifica: %1</translation>
+    </message>
+    <message>
+        <source>AI reading: %1</source>
+        <translation>IA in lettura: %1</translation>
+    </message>
+    <message>
+        <source>AI connected</source>
+        <translation>IA connessa</translation>
+    </message>
+    <message>
+        <source>Running script: %1</source>
+        <translation>Script in esecuzione: %1</translation>
+    </message>
+    <message>
+        <source>Script paused: %1</source>
+        <translation>Script in pausa: %1</translation>
+    </message>
+    <message>
+        <source>AI paused: %1</source>
+        <translation>IA in pausa: %1</translation>
+    </message>
+    <message>
         <source>Script pausing: %1</source>
         <translation>Script in fase di pausa: %1</translation>
     </message>

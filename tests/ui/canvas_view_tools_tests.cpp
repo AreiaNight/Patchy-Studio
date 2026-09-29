@@ -57,6 +57,7 @@
 #include "ui/sprite_sheet_dialog.hpp"
 #include "ui/splash_dialog.hpp"
 #include "ui/app_settings.hpp"
+#include "ui/theme_palette.hpp"
 #include "ui/update_checker.hpp"
 #include "ui/visual_filter_gallery_dialog.hpp"
 #include "ui/zoomable_image_preview.hpp"
@@ -858,6 +859,91 @@ void ui_canvas_scroll_bars_follow_zoom_and_resize() {
   CHECK(vertical->maximum() == 628);    // (500 - 16) - (16 - 160)
   CHECK(horizontal->geometry().bottom() == canvas.height() - 1);
   CHECK(vertical->geometry().right() == canvas.width() - 1);
+}
+
+// Right-click on the pasteboard offers Photoshop's backdrop presets (GitHub
+// issue 47): the pick repaints the pasteboard, persists as
+// view/canvasBackdropColor so a new window starts from it, and Default drops
+// the key and returns to the theme role. Inside the document nothing changes.
+void ui_canvas_backdrop_context_menu_sets_color() {
+  SettingsValueRestorer restore_backdrop(QStringLiteral("view/canvasBackdropColor"));
+  {
+    auto settings = patchy::ui::app_settings();
+    settings.remove(QStringLiteral("view/canvasBackdropColor"));
+    settings.sync();
+  }
+  const auto visible_context_menu = [](QWidget& canvas) -> QMenu* {
+    for (auto* menu : canvas.findChildren<QMenu*>(QStringLiteral("canvasContextMenu"))) {
+      if (menu->isVisible()) {
+        return menu;
+      }
+    }
+    return nullptr;
+  };
+  const auto right_click = [&](patchy::ui::CanvasWidget& canvas, QPoint point) {
+    send_mouse(canvas, QEvent::MouseButtonPress, point, Qt::RightButton, Qt::RightButton);
+    send_mouse(canvas, QEvent::MouseButtonRelease, point, Qt::RightButton, Qt::NoButton);
+    QApplication::processEvents();
+    return visible_context_menu(canvas);
+  };
+  const auto find_entry = [](QMenu& menu, const char* name) {
+    auto* action = menu.findChild<QAction*>(QString::fromLatin1(name));
+    CHECK(action != nullptr);
+    return action;
+  };
+  {
+    patchy::ui::MainWindow window;
+    show_window(window);
+    auto* canvas = require_canvas(window);
+    require_action_by_text(window, QStringLiteral("Brush"))->trigger();
+    canvas->set_zoom_centered(0.25);
+    QApplication::processEvents();
+    const auto backdrop_point = canvas->widget_position_for_document_point(QPoint(-300, -300));
+    CHECK(canvas->rect().contains(backdrop_point));
+    CHECK(!canvas->backdrop_color_override().has_value());
+    CHECK(canvas->backdrop_color() == patchy::ui::theme().canvas_backdrop);
+
+    // A painting tool inside the document still has no menu.
+    CHECK(right_click(*canvas, canvas->widget_position_for_document_point(QPoint(100, 100))) == nullptr);
+
+    auto* menu = right_click(*canvas, backdrop_point);
+    CHECK(menu != nullptr);
+    CHECK(find_entry(*menu, "canvasBackdropDefaultAction")->isChecked());
+    CHECK(!find_entry(*menu, "canvasBackdropWhiteAction")->isChecked());
+    CHECK(!find_entry(*menu, "canvasBackdropCustomAction")->isChecked());
+    find_entry(*menu, "canvasBackdropWhiteAction")->trigger();
+    QApplication::processEvents();
+    CHECK(canvas->backdrop_color() == QColor(255, 255, 255));
+    CHECK(canvas->backdrop_color_override().has_value());
+    CHECK(canvas->grab().toImage().pixelColor(backdrop_point) == QColor(255, 255, 255));
+    CHECK(patchy::ui::app_settings().value(QStringLiteral("view/canvasBackdropColor")).value<QColor>() ==
+          QColor(255, 255, 255));
+
+    menu = right_click(*canvas, backdrop_point);
+    CHECK(menu != nullptr);
+    CHECK(find_entry(*menu, "canvasBackdropWhiteAction")->isChecked());
+    CHECK(!find_entry(*menu, "canvasBackdropDefaultAction")->isChecked());
+    find_entry(*menu, "canvasBackdropDarkGrayAction")->trigger();
+    QApplication::processEvents();
+    CHECK(canvas->backdrop_color() == QColor(0x35, 0x35, 0x35));
+  }
+  {
+    // A new window starts from the saved color; Default clears the key.
+    patchy::ui::MainWindow window;
+    show_window(window);
+    auto* canvas = require_canvas(window);
+    CHECK(canvas->backdrop_color() == QColor(0x35, 0x35, 0x35));
+    canvas->set_zoom_centered(0.25);
+    QApplication::processEvents();
+    auto* menu = right_click(*canvas, canvas->widget_position_for_document_point(QPoint(-300, -300)));
+    CHECK(menu != nullptr);
+    CHECK(find_entry(*menu, "canvasBackdropDarkGrayAction")->isChecked());
+    find_entry(*menu, "canvasBackdropDefaultAction")->trigger();
+    QApplication::processEvents();
+    CHECK(canvas->backdrop_color() == patchy::ui::theme().canvas_backdrop);
+    CHECK(!canvas->backdrop_color_override().has_value());
+    CHECK(!patchy::ui::app_settings().contains(QStringLiteral("view/canvasBackdropColor")));
+  }
 }
 
 void ui_canvas_fractional_zoom_paints_to_document_edge() {
@@ -3192,3 +3278,4 @@ std::vector<patchy::test::TestCase> canvas_view_tools_tests() {
   };
 }
       {"ui_tool_cycle_hotkeys_walk_each_flyout", ui_tool_cycle_hotkeys_walk_each_flyout},
+      {"ui_canvas_backdrop_context_menu_sets_color", ui_canvas_backdrop_context_menu_sets_color},

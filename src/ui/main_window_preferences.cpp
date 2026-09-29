@@ -1816,6 +1816,36 @@ void MainWindow::set_ruler_unit_preference(MeasurementUnit unit) {
   refresh_document_info();
 }
 
+void MainWindow::set_canvas_backdrop_color_preference(std::optional<QColor> color) {
+  if (color.has_value() && !color->isValid()) {
+    color.reset();
+  }
+  if (color.has_value()) {
+    color->setAlpha(255);
+  }
+  view_canvas_backdrop_color_ = color;
+  for (const auto& active_session : sessions_) {
+    apply_canvas_aid_settings(active_session->canvas);
+  }
+  save_view_settings();
+}
+
+// Patchy's own picker with a live preview on every window; Cancel restores the
+// previous choice (a preset or Default), so the preference only changes on OK.
+void MainWindow::choose_custom_canvas_backdrop_color() {
+  const auto previous = view_canvas_backdrop_color_;
+  const auto initial = canvas_ != nullptr ? canvas_->backdrop_color() : theme().canvas_backdrop;
+  const auto preview = [this](QColor color) {
+    for (const auto& active_session : sessions_) {
+      if (active_session->canvas != nullptr) {
+        active_session->canvas->set_backdrop_color_override(color);
+      }
+    }
+  };
+  const auto chosen = request_patchy_color(this, initial, tr("Canvas Background Color"), preview);
+  set_canvas_backdrop_color_preference(chosen.has_value() ? std::optional<QColor>(*chosen) : previous);
+}
+
 void MainWindow::apply_canvas_aid_settings(CanvasWidget* canvas) const {
   if (canvas == nullptr) {
     return;
@@ -1834,6 +1864,7 @@ void MainWindow::apply_canvas_aid_settings(CanvasWidget* canvas) const {
   canvas->set_grid_subdivisions(view_grid_subdivisions_);
   canvas->set_grid_style(view_grid_style_);
   canvas->set_grid_color(view_grid_color_);
+  canvas->set_backdrop_color_override(view_canvas_backdrop_color_);
   canvas->set_guide_color(view_guide_color_);
   canvas->set_target_path_visible(view_target_path_visible_);
   canvas->set_vector_preview_enabled(view_vector_preview_enabled_);
@@ -1995,6 +2026,14 @@ void MainWindow::load_view_settings() {
       settings.value(QStringLiteral("view/gridColor"), view_grid_color_).value<QColor>();
   view_guide_color_ =
       settings.value(QStringLiteral("view/guideColor"), view_guide_color_).value<QColor>();
+  // Absent or invalid means Default (the theme role); the key is only written for a user color.
+  if (const auto backdrop = settings.value(QStringLiteral("view/canvasBackdropColor")).value<QColor>();
+      backdrop.isValid()) {
+    view_canvas_backdrop_color_ = backdrop;
+    view_canvas_backdrop_color_->setAlpha(255);
+  } else {
+    view_canvas_backdrop_color_.reset();
+  }
   zoom_layer_thumbnails_to_content_ =
       settings.value(QStringLiteral("view/zoomLayerThumbnailsToContent"), zoom_layer_thumbnails_to_content_)
           .toBool();
@@ -2063,6 +2102,11 @@ void MainWindow::save_view_settings() const {
   settings.setValue(QStringLiteral("view/gridStyle"), view_grid_style_);
   settings.setValue(QStringLiteral("view/gridColor"), view_grid_color_);
   settings.setValue(QStringLiteral("view/guideColor"), view_guide_color_);
+  if (view_canvas_backdrop_color_.has_value()) {
+    settings.setValue(QStringLiteral("view/canvasBackdropColor"), *view_canvas_backdrop_color_);
+  } else {
+    settings.remove(QStringLiteral("view/canvasBackdropColor"));
+  }
   settings.setValue(QStringLiteral("view/zoomLayerThumbnailsToContent"), zoom_layer_thumbnails_to_content_);
   settings.setValue(QStringLiteral("view/guideColorDefaultMigrated"), true);
 }

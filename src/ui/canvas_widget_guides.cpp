@@ -23,6 +23,7 @@
 #include "ui/image_document_io.hpp"
 #include "ui/qt_geometry.hpp"
 #include "ui/smart_object_render.hpp"
+#include "ui/theme_palette.hpp"
 #include "ui/tool_cursors.hpp"
 
 #include <QApplication>
@@ -351,6 +352,37 @@ void CanvasWidget::set_grid_color(QColor color) noexcept {
 
 QColor CanvasWidget::grid_color() const noexcept {
   return grid_color_;
+}
+
+void CanvasWidget::set_backdrop_color_override(std::optional<QColor> color) {
+  if (color.has_value() && !color->isValid()) {
+    color.reset();
+  }
+  if (color.has_value()) {
+    color->setAlpha(255);
+  }
+  if (backdrop_color_override_ == color) {
+    return;
+  }
+  backdrop_color_override_ = color;
+  update();
+}
+
+std::optional<QColor> CanvasWidget::backdrop_color_override() const noexcept {
+  return backdrop_color_override_;
+}
+
+QColor CanvasWidget::backdrop_color() const {
+  return backdrop_color_override_.value_or(theme().canvas_backdrop);
+}
+
+void CanvasWidget::set_backdrop_color_change_requested_callback(
+    std::function<void(std::optional<QColor>)> callback) {
+  backdrop_color_change_requested_callback_ = std::move(callback);
+}
+
+void CanvasWidget::set_custom_backdrop_color_requested_callback(std::function<void()> callback) {
+  custom_backdrop_color_requested_callback_ = std::move(callback);
 }
 
 void CanvasWidget::set_guide_color(QColor color) noexcept {
