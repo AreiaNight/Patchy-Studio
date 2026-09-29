@@ -49,7 +49,7 @@ flatpak install --user -y flathub org.freedesktop.Platform.ffmpeg-full//24.08
 
 ## Screenshots
 
-A few feature exam.  Click an image for the full-size capture.
+See it in action.  Click an image for the full-size capture.
 
 <table>
   <tr>
