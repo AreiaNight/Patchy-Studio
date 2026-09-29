@@ -1,140 +1,16 @@
 # Patchy Image Editor
 
-### [Download Patchy for Windows, macOS, and Linux, or try in your browser](#download)
+A free, open-source image editor for Windows, macOS, Linux, and the browser.
+Work with layered Photoshop files, editable text and vectors, masks, layer styles,
+Smart Objects, and classic Photoshop plug-ins.
 
-Patchy is a free, open-source image editor for Windows, macOS, and Linux, built for accurate PSD and PSB editing and round trips with Adobe Photoshop. It supports editable text and vectors, masks, layer styles, Smart Objects and Smart Filters, legacy 8BF plug-ins, JavaScript scripting, and command-line automation.
+**[Download](#download)** · **[Try in your browser](https://www.patchyimageeditor.com)** · **[Features](#features)** · **[Full gallery](docs/screenshots.md)**
 
-The browser version is the same editor compiled to WebAssembly. It runs entirely on your machine and nothing you open or make is sent online. The desktop builds are the faster and more capable way to use Patchy: they are not limited to a browser tab's 4 GB of memory, and they add printing, scanner and camera import, and command-line automation.
+For bug reports and feature requests, please [open an issue](https://github.com/SethRobinson/Patchy/issues/new) or post in [Discussions](https://github.com/SethRobinson/Patchy/discussions). These are the best places to post because search engines can index them, helping others find the questions and answers.  Want to chat? Join [Seth's Discord](https://discord.gg/QwV5VaZ).
 
-Local AI agents can use the native MCP connector to draw, inspect previews, revise
-layers, and save editable files. In the desktop app, Help > Set up AI Control gives
-you a short text to paste into your AI assistant, which then configures itself.
-Agents can work in a separate workspace or connect to your open desktop app, where
-you can watch edits, choose Slow playback, pause to make changes yourself, and stop
-an operation. Desktop packages include an installable skill and JavaScript examples. See
-[AI control setup](docs/ai-control.md).
+<a href="docs/images/screenshots/smart_filters.png"><img src="docs/images/screenshots/smart_filters.png" width="1000" alt="Cyclist photo with color-wheel and Levels controls, an editable Levels adjustment layer, a Smart Filter stack and shared mask, grouped text, and a clipping mask"></a>
 
-## Screenshots
-
-Click a thumbnail for the full-size image.
-
-<table>
-  <tr>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/levels.png"><img src="docs/images/screenshots/levels.png" width="270" alt="Levels adjustment dialog over an image with a live histogram and input and output controls"></a>
-      <br><sub>Non-destructive adjustment layers with live preview and editable settings</sub>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/layer_styles.png"><img src="docs/images/screenshots/layer_styles.png" width="270" alt="Layer Style dialog applying bevel, stroke, glow, and shadow effects to text"></a>
-      <br><sub>Layer styles with multiple effects, blending controls, and Photoshop-compatible presets</sub>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/brush_tips.png"><img src="docs/images/screenshots/brush_tips.png" width="270" alt="Brush Tip Manager showing a collection of textured and shaped brush presets"></a>
-      <br><sub>Brush tip presets, import, management, spacing, angle, roundness, and texture controls</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/brush_dynamics.png"><img src="docs/images/screenshots/brush_dynamics.png" width="270" alt="Brush Dynamics dialog with pressure and random controls beside a varied brush stroke"></a>
-      <br><sub>Pressure-aware brush dynamics for size, opacity, flow, angle, scatter, and color</sub>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/palette_mode.png"><img src="docs/images/screenshots/palette_mode.png" width="270" alt="Palette editing mode with a limited color palette and indexed-looking pixel art"></a>
-      <br><sub>Palette mode constrains painting and editing to a document color set</sub>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/image_trace.png"><img src="docs/images/screenshots/image_trace.png" width="270" alt="Trace Image to Shapes dialog converting a stylized sunset landscape into editable vector shape layers, with anchor points marked on the traced preview"></a>
-      <br><sub>Trace Image to Shapes turns any image into editable vector shape layers, with Illustrator-style presets and a live traced preview</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/warp_text.png"><img src="docs/images/screenshots/warp_text.png" width="270" alt="Warp Text dialog with the style list open over a poster with arced rainbow text and flag, fisheye and twist warped words"></a>
-      <br><sub>Warp Text with live preview: all 15 Photoshop warp styles on editable rich text</sub>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/tile_preview.png"><img src="docs/images/screenshots/tile_preview.png" width="270" alt="Pixel-art grass and path tile repeating across the whole canvas in seamless tiling mode, with a painted black line wrapping across every tile edge"></a>
-      <br><sub>Seamless tiling mode for game textures: paint on the canvas and strokes wrap live across every tile</sub>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/smart_objects.png"><img src="docs/images/screenshots/smart_objects.png" width="270" alt="Game title art with a smart object mid warp transform showing the Bezier cage, and its embedded contents open in a second tab"></a>
-      <br><sub>Smart Objects: Warp Transform bends them non-destructively, Edit Contents opens the embedded file in its own tab</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/pattern_manager.png"><img src="docs/images/screenshots/pattern_manager.png" width="270" alt="Pattern Manager showing the Textures folder with the bundled CC0 Weathered Marble photo texture selected in the large preview"></a>
-      <br><sub>Photo textures in the Pattern Manager, with full-resolution preview, import, organization, and editing</sub>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/smart_filters.png"><img src="docs/images/screenshots/smart_filters.png" width="270" alt="Photo with a Smart Filter stack containing Surface Blur, Dust and Scratches, and Gaussian Blur plus a shared mask"></a>
-      <br><sub>Editable native Smart Filters with one paintable shared mask and per-filter controls</sub>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/camera_raw.png"><img src="docs/images/screenshots/camera_raw.png" width="270" alt="Camera Raw develop dialog showing a snowy mountain photo with white balance, tone, color, and detail controls"></a>
-      <br><sub>16-bit Camera Raw development with white balance, tone, color, demosaic, and denoise controls</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/tilt_shift.png"><img src="docs/images/screenshots/tilt_shift.png" width="270" alt="Tilt-Shift Blur in the Filter Gallery over a real San Francisco city photograph with draggable focus controls"></a>
-      <br><sub>Tilt-Shift Blur with live on-image focus, angle, and transition controls</sub>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/material_styles.png"><img src="docs/images/screenshots/material_styles.png" width="270" alt="Layer Style dialog applying Riveted Steel to large text from the built-in Materials preset folder"></a>
-      <br><sub>Material layer styles backed by bundled CC0 wood, stone, metal, fabric, and ground textures</sub>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/quick_mask.png"><img src="docs/images/screenshots/quick_mask.png" width="270" alt="Quick Mask mode showing a clean feathered portrait-frame selection as a red overlay with the temporary Quick Mask channel visible"></a>
-      <br><sub>Quick Mask turns a selection into a brush-editable red overlay, then back into marching ants</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/vector_tools.png"><img src="docs/images/screenshots/vector_tools.png" width="270" alt="Flat vector sunset poster built from shape layers, with Direct Select showing a mountain ridge's anchors and the Paths panel floating beside the canvas"></a>
-      <br><sub>Vector shape layers: gradient fills, pen paths, anchor editing, and the Paths panel</sub>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/shape_appearance.png"><img src="docs/images/screenshots/shape_appearance.png" width="270" alt="Shape Appearance dialog editing a rounded-rectangle badge with a Golden Hour gradient fill, dashed stroke, and per-corner radius controls, beside a star with a rust pattern stroke"></a>
-      <br><sub>Shape fills and strokes: solid, gradient, or pattern paint, dashes, and live corner radii</sub>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/svg_import.png"><img src="docs/images/screenshots/svg_import.png" width="270" alt="CC0 hot air balloon SVG clip art opened as editable shape layers with group folders in the Layers panel and the big balloon's bezier anchors selected on canvas"></a>
-      <br><sub>SVG files open as editable shape layers: groups become folders, paths stay live vectors</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/script_manager.png"><img src="docs/images/screenshots/script_manager.png" width="270" alt="Script Manager running the bundled Breakout script, with breakout.js code, live run status, and stop button beside the game playing on a real document canvas with brick, paddle, and ball layers"></a>
-      <br><sub>Script Manager running the bundled Breakout: the game plays on a real canvas, with live run status and one-click stop</sub>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/script_options.png"><img src="docs/images/screenshots/script_options.png" width="270" alt="Duotone script options dialog with instructions, shadow and highlight color fields, and a contrast slider over a photo already remapped to navy and amber"></a>
-      <br><sub>Scripts ask with real options dialogs; the same script runs unattended from the command line with the same defaults</sub>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <a href="docs/images/screenshots/affinity_import.png"><img src="docs/images/screenshots/affinity_import.png" width="270" alt="Affinity Photo document open in Patchy as a layered file, the Layers panel showing groups, text layers with effect badges, and raster layers"></a>
-      <br><sub>Affinity Photo, Designer, and Publisher files open as layered documents: groups, editable text, effects, and rasters come through</sub>
-    </td>
-  </tr>
-</table>
-
-## PSD compatibility, measured
-
-Patchy is tested against Adobe Photoshop 2026 on a mixed PSD corpus. In the completed August 7, 2026 Testy run, Patchy had the strongest non-Adobe render result, Photoshop reopened all 64 Patchy saves, and all 312 text objects remained editable.
-
-| Tested editor           | Files opened | Perceptual render match | PSD saves rejected by Photoshop | Text still editable in resaved PSD |
-| ----------------------- | -----------: | ----------------------: | ------------------------------: | ---------------------------------: |
-| **Patchy `879a3a8`**    | **64 / 64**  | **98.83% (n=63)**       | **0 / 64**                      | **312 / 312**                      |
-| Photopea, web build     | 63 / 64      | 97.13% (n=62)           | 0 / 64                          | 306 / 312                          |
-| Affinity 3.2.3.4646     | 61 / 64      | 88.30% (n=60)           | 0 / 64                          | 0 / 305                            |
-| GIMP 3.2.4              | 62 / 64      | 88.11% (n=61)           | 0 / 64                          | 0 / 312                            |
-| PhotoDemon 2026.01.0251 | 64 / 64      | 81.97% (n=63)           | 0 / 64                          | 0 / 312                            |
-| Krita 5.3.2.1           | 56 / 64      | 81.17% (n=56)           | 9 / 64                          | 187 / 205                          |
-
-The text column counts original text objects that Photoshop still recognizes as editable text after reopening the editor's PSD save. It does not identify whether conversion happened during import or export.
-
-These are corpus-specific results, not universal product ratings. See the [full results and methodology](docs/psd-compatibility-benchmark.md), including the image-free per-file run data, tested versions, native PSD data preservation, Photoshop round-trip rendering, and known limitations.
+*Color and Levels controls, editable adjustment layers and Smart Filters, grouped text, and clipping masks in one workspace.*
 
 ## Download
 
@@ -171,38 +47,61 @@ command if it is needed:
 flatpak install --user -y flathub org.freedesktop.Platform.ffmpeg-full//24.08
 ```
 
+## Screenshots
+
+A few feature exam.  Click an image for the full-size capture.
+
+<table>
+  <tr>
+    <td valign="top" width="50%"><a href="docs/images/screenshots/layer_styles.png"><img src="docs/images/screenshots/layer_styles.png" width="460" alt="Layer Style and gradient color controls over layered artwork."></a><br><strong>Build up layer effects</strong><br>Layer styles with multiple effects, blending controls, and Photoshop-compatible presets.</td>
+    <td valign="top" width="50%"><a href="docs/images/screenshots/plugin_kpt5.png"><img src="docs/images/screenshots/plugin_kpt5.png" width="460" alt="Kai's Power Tools 5 running in its own window over Patchy. Classic 32-bit and 64-bit 8BF filters work on Windows."></a><br><strong>Bring your old plug-ins</strong><br>Kai's Power Tools 5 running in its own window over Patchy. Classic 32-bit and 64-bit 8BF filters work on Windows.</td>
+  </tr>
+  <tr>
+    <td valign="top" width="50%"><a href="docs/images/screenshots/smart_objects.png"><img src="docs/images/screenshots/smart_objects.png" width="460" alt="Warp a Smart Object while its embedded source stays available in another tab."></a><br><strong>Keep the original editable</strong><br>Warp a Smart Object while its embedded source stays available in another tab.</td>
+    <td valign="top" width="50%"><a href="docs/images/screenshots/vector_tools.png"><img src="docs/images/screenshots/vector_tools.png" width="460" alt="Editable paths, gradient and pattern paint, dashed strokes, rounded corners, and a Paths panel."></a><br><strong>Edit the paths</strong><br>Editable paths, gradient and pattern paint, dashed strokes, rounded corners, and a Paths panel.</td>
+  </tr>
+  <tr>
+    <td valign="top" width="50%"><a href="docs/images/screenshots/warp_text.png"><img src="docs/images/screenshots/warp_text.png" width="460" alt="Editable warped text, a paragraph with inline bold, italic, color and mixed fonts, tracked lettering, and vertical Japanese columns."></a><br><strong>Give type its own voice</strong><br>Warped text, mixed fonts and styles in one paragraph, letter spacing, and vertical Japanese. All editable.</td>
+    <td valign="top" width="50%"><a href="docs/images/screenshots/tilt_shift.png"><img src="docs/images/screenshots/tilt_shift.png" width="460" alt="Tilt-Shift Blur with on-image controls and live preview in the Filter Gallery."></a><br><strong>Shape the focus</strong><br>Tilt-Shift Blur with on-image controls and live preview in the Filter Gallery.</td>
+  </tr>
+</table>
+
+[See the full gallery](docs/screenshots.md) for painting, palette mode, seamless textures,
+Camera Raw, long shadows, scripting, and more.
+
 ## Features
 
-- Open and save layered PSD and PSB files with groups, masks, clipping masks, saved alpha and spot channels, text objects, Fill Opacity, the full Photoshop blend mode set, layer styles and more
-- Common raster editing tools, including Brush with Flow and timed Airbrush buildup, Healing Brush, Spot Healing, Patch, Clone Stamp, Dodge, Burn, Sponge, Blur, Sharpen, Smudge, Eraser, selections, transforms, gradients, and shapes
-- Vector tools: Pen paths, editable shape layers (Rectangle, Ellipse, Line, Polygon, Custom Shape) with solid, gradient, or pattern fills and strokes, vector masks, path selection and anchor editing, and a Paths panel with fill, stroke, and make-selection commands, all round-tripping through PSD files that open correctly in Photoshop
-- Dynamic Vector Preview keeps native shapes and vector masks sharp when zoomed in, alongside pixel layers, masks, adjustments, and effects. Merge Layers can preserve editable vectors and keep bitmap runs separate, with options for merging within groups or making a merged copy
-- Move tool layer selection: drag a rectangle to select overlapping layers, Shift-click to toggle individual layers, or right-click to choose among the layers under the pointer, with a selected-layer count in the status bar
-- Trace Image to Shapes: converts a pixel layer (logo, scan, photo) into a group of editable shape layers, one per color, with Illustrator-style presets, color, grayscale, and black-and-white modes, abutting or overlapping shapes, noise removal, and a live preview; export the result as SVG
-- Non-destructive adjustment layers (Levels, Curves, Hue/Saturation, Color Balance, Brightness/Contrast, Invert, Posterize, Threshold) with live preview, editable settings, native Photoshop PSD data, and .acv Curves preset import and export
-- Smart Objects: place or convert layers to embedded or linked smart objects, edit or replace their contents, transform them non-destructively, and build editable native Smart Filter stacks (13 filter types) with paintable shared masks and per-filter blending
-- Filter Gallery with 32 effects, live full-resolution preview, ordered effect stacks, favorites, and reusable Saved Looks, plus a manual Liquify workspace with warp, twirl, pucker, bloat, and freeze brushes
-- Photoshop-compatible layer style, pattern, and gradient preset libraries, including .asl, .pat, and .grd import/export, 39 built-in styles, and 20 bundled CC0 photo textures
-- Warp Transform tool and Warp Text with all 15 Photoshop warp styles and live preview
-- Multiple document interface: tabbed documents that can float in their own windows, Photoshop-style Tile and Cascade arrangement, a Window menu that lists every open document, and layers that drag or duplicate between documents. Open a whole folder of images as tabs (or drop the folder on the window), and export every open document as a numbered image set to a folder
-- Rich text with per-run color, font, size, and style, plus a searchable font picker and Character controls for leading, tracking, and horizontal or vertical glyph scaling, editable on the selected text layer without entering text-editing mode
-- Palettized (indexed color) editing mode for pixel art: paint constrained to a palette, quantize with optional dithering, built-in retro palettes (NES, C64, Game Boy, PICO-8, and more), palette files (.pal/.gpl/.hex/.act/.aco/.ase), and exact indexed PNG-8 and 2/4/8-bit BMP export. Layers, layer styles, and effects all keep working (Photoshop's indexed mode flattens and disables them)
-- Named palette colors appear in the Palette panel, color picker, Info panel, and eyedropper readout. Rename swatches, preserve names through GPL, PSD, and indexed PNG round trips, and manage palettes through scripts
-- Pixel-art and game-dev extras: seamless texture authoring (live tile preview window, in-canvas tiling mode, seam shifting), sprite sheet export/import, image sequence export/import (numbered files become layers and back), animated GIF import/export (frames become layers with their timings in the layer names, visible layers save back as a looping animation, and the layers panel's film button previews the animation in-app), and an Export Flat Image dialog with nearest-neighbor scaling (2x-8x), smooth resize, transparent-edge trimming, and background fill
-- Reads and writes a wide range of formats: PSD/PSB, PNG, JPEG, TIFF, WebP, BMP, TGA, GIF, PCX, Amiga IFF/LBM, Windows icons and cursors (ICO/CUR), Aseprite files, JPEG XR (.jxr, on Windows), Proton SDK textures (.rttex), and SVG (opens as editable shape layers, exports with vectors preserved)
-- Imports Affinity documents as layered files: the current .af format, Affinity 2 .afphoto/.afdesign/.afpub, and most Affinity 1.x-era files, bringing across rasters, groups, masks, clipping, blend modes, editable text layers, vector shapes, adjustment layers, layer effects, and placed images (which become embedded Smart Objects)
-- Opens camera raw files (CR2/CR3/NEF/ARW/RAF/DNG and more) through a 16-bit develop dialog with a Natural rendering profile, ISO-based noise reduction, and per-photo settings saved beside the original, and HEIC/HEIF photos through platform codecs
-- Opens HDR screenshots saved as JPEG XR (.jxr), the format NVIDIA's in-game capture uses, tone mapping the high dynamic range down to 8-bit so highlights keep their detail instead of clipping to white
-- Photoshop-compatible document resolution, physical measurement units, rulers, image sizing, and printing
-- Pen/stylus pressure and size dynamics, GUI scaling, scanner import (Windows and macOS), camera import (Windows), and command line options
-- Classic Photoshop filter plug-ins (.8bf, 32-bit and 64-bit) on Windows: see [Photoshop plug-ins](#photoshop-plug-ins-8bf-windows-only) below
-- JavaScript scripting: a built-in Script Manager (File > Scripts) with a folder tree over the bundled and user scripts, a code editor with live run status, a documented API covering documents, layers, text, selections, pixels, filters, form dialogs, file pickers, and batch processing, bundled examples ranging from CSV data merge, contact sheets, icon export, and versioned saves to glitch/duotone effects and playable Breakout and Pong (scripts can call other scripts), safe editing of bundled scripts (your saved copy overrides the original and can be reverted), and a --run-script command line flag with script arguments so external tools and AI agents can drive Patchy (add --headless to run with no display, on a server or in CI). See the [scripting guide](scripts/bundled/scripting-guide.md) (also under Help inside the app)
-- Local AI control through the bundled MCP connector: native pressure-aware brush strokes, reusable brush presets, editable vector shapes and paths, palette controls, image previews, and persistent document sessions. Help > Set up AI Control provides setup instructions and example prompts; see the [AI control guide](docs/ai-control.md)
-- Cross-platform: Windows is the lead platform, with native macOS (Apple Silicon) and Linux (Flatpak) builds
-- Built with C++ and Qt for a native desktop experience. No GPU used, should run on a potato
-- Privacy: YES! Absolutely no telemetry, no tracking, no data collection (if update checks are enabled, it contacts GitHub only to check for a newer version). Settings live in a plain local file, and the installer doesn't screw with your file extension preferences
-- Localized in English, German, Spanish, French, Italian, Japanese, and Chinese (Simplified and Traditional); the language follows your system or can be changed in File->Preferences
-- UI themes: Dark, Light, seven bundled themes (Darkest, Medium Gray, Solarized Dark, Nord, Dracula, Gruvbox Dark, High Contrast), or your own. A theme is a small JSON file (`.patchytheme`) that names a base scheme and overrides any of the interface colors, icon tints included; File->Preferences imports it and keeps it in your app-data themes folder (Open Themes Folder shows where). Start from [themes/example-high-contrast.patchytheme](themes/example-high-contrast.patchytheme) or export the current look, which writes every color so you can see the role names; colors you leave out keep the base scheme's value, and Reload Themes applies an edit without restarting
+| Workflow | What you get |
+| --- | --- |
+| **Layered Photoshop files** | PSD and PSB, editable text, groups, masks, clipping, blend modes, and layer styles. |
+| **Non-destructive editing** | Adjustment layers, embedded and linked Smart Objects, editable Smart Filters, and shared filter masks. |
+| **Paint and retouch** | Pressure-aware brushes, Mixer Brush, stroke smoothing, healing, cloning, Patch, Remove Object, selections, and Liquify. |
+| **Text and vectors** | Rich and vertical text, paragraph controls, Warp Text, Pen paths, shape layers, vector masks, SVG, and image tracing. |
+| **PDF documents** | Import pages as editable text, vectors, and images on desktop; export single or multi-page PDFs with editable or flattened content. |
+| **Photos and other formats** | Camera Raw development, HEIC/HEIF photos, layered Affinity import, and common image formats. |
+| **Pixel art and game assets** | Named palettes, indexed export, seamless tiling, sprite sheets, image sequences, and animated GIFs. |
+| **Extend your workflow** | Legacy Photoshop filters on Windows, JavaScript scripts, batch processing, command-line tools, and local MCP control. |
+
+[Full feature list and format support](docs/features.md) · [Scripting guide](scripts/bundled/scripting-guide.md) · [AI control setup](docs/ai-control.md)
+
+**Local by design.** No telemetry, tracking, or uploads of your images. The browser build
+runs the same editor locally through WebAssembly. Desktop builds have more memory
+available and add printing, scanner/camera import, and command-line automation.
+Optional update checks contact GitHub. Eight interface languages, dark and light
+schemes, and importable themes are included.
+
+## PSD compatibility, measured
+
+In the August 7, 2026 Testy run, Photoshop reopened **all 64 Patchy saves**, and
+**all 312 text objects stayed editable**. Patchy's perceptual render match was
+**98.83% across 63 measured files**, using commit `879a3a8`.
+
+These are dated, corpus-specific results. Read the [full comparison and methodology](docs/psd-compatibility-benchmark.md)
+for tested versions, per-file results, preservation checks, and limitations.
+
+**Know the limits:** editing is RGB/RGBA 8-bit; there is no GPU acceleration or
+CMYK/Lab/16-bit/32-bit editing. Unsupported Smart Filters can remain preview-locked,
+and Affinity import has format-specific limitations. See [current compatibility](docs/features.md#current-status).
 
 ## What's New
 
@@ -242,124 +141,21 @@ flatpak install --user -y flathub org.freedesktop.Platform.ffmpeg-full//24.08
 
 [Older releases](RELEASE-HISTORY.md)
 
-## Building it yourself
-
-Build the dependency-light core and tests without the Qt app:
-
-```sh
-cmake --preset dev -DPATCHY_BUILD_APP=OFF
-cmake --build --preset dev
-ctest --preset dev
-```
-
-Build the Qt desktop app:
-
-```sh
-cmake --preset qt-local
-cmake --build --preset qt-local
-```
-
-The local Qt app preset writes `patchy.exe` under `build/app`.
-
-Run the standard local test script:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/run-tests.ps1
-```
-
-### macOS and Linux
-
-Install Qt 6.8.3 into `.deps/Qt` (for example `pip install aqtinstall && aqt install-qt
-mac desktop 6.8.3 -m qtimageformats qtpdf -O .deps/Qt`, or `linux desktop 6.8.3
-linux_gcc_64` on Linux), then build the matching preset. The `qtpdf` module is optional:
-without it Patchy still exports PDF, it just cannot open one.
-
-```sh
-cmake --preset mac-release      # or linux-release
-cmake --build --preset mac-release
-```
-
-macOS produces `build/mac-release/Patchy.app`; Linux produces
-`build/linux-release/patchy`. `packaging/macos/make-dmg.sh` and
-`packaging/linux/make-flatpak.sh` create the distributable artifacts. Both test suites
-run offscreen on all three platforms (`QT_QPA_PLATFORM=offscreen`).
-
 ## Photoshop plug-ins (.8bf, Windows only)
 
-The Windows build runs classic Photoshop filter plug-ins, the `.8bf` files that
-third-party filter packs have shipped for decades. Both 32-bit and 64-bit plug-ins work.
+Choose **Plugins > Open Plug-ins Folder**, copy your `.8bf` files and their supporting
+files into it, then choose **Plugins > Rescan Plug-in Folders**. Both 32-bit and 64-bit
+filters appear under **Plugins > Legacy Photoshop Plug-ins**.
 
-1. Choose Plugins > Open Plug-ins Folder (also on the About screen). That is the `plugins`
-   folder next to `patchy.exe`; it ships with a README that says the same thing.
-2. Copy your `.8bf` files into it, subfolders included.
-3. Choose Plugins > Rescan Plug-in Folders, or just restart Patchy.
+Filters run on the active pixel layer, respect the selection, and apply as one undoable
+step. A separate helper isolates plug-in crashes. Plug-ins still run with your user
+permissions, so install only ones you trust. KPT and other formerly full-screen filters
+get a bounded, movable window. [Plug-in details](docs/plugins.md).
 
-Each plug-in then appears under Plugins > Legacy Photoshop Plug-ins, grouped by the category
-it declares, and runs on the active pixel layer inside the current selection with its own
-settings dialog and preview, as one undoable step:
+## Building it yourself
 
-<a href="docs/images/screenshots/plugin_dialog.png"><img src="docs/images/screenshots/plugin_dialog.png" width="540" alt="A third-party Photoshop filter plug-in showing its own settings dialog and preview inside Patchy"></a>
-
-Even the big 1990s suites work. This is Kai's Power Tools 5 (Orb-It) drawing its full-screen interface and live preview over a Patchy layer:
-
-<a href="docs/images/screenshots/plugin_kpt5.png"><img src="docs/images/screenshots/plugin_kpt5.png" width="540" alt="Kai's Power Tools 5 Orb-It running from Patchy, its full-screen MetaOS interface previewing the photo as 3D orbs"></a>
-
-Every run happens in a separate helper program (`patchy-8bf-host32.exe` or
-`patchy-8bf-host64.exe`), so a crashing plug-in cannot take Patchy down. It still runs with
-your user permissions, so only install plug-ins from sources you trust. Plug-in windows open on
-the monitor showing Patchy. Plug-ins with full-screen interfaces (KPT and friends predate
-multiple monitors) get a movable window of their own, titled "<plug-in> via Patchy", sized to
-the screen size chosen under File > Preferences > Plug-ins (1280 x 1024 by default), so they
-stay usable on a 4K display. Extra folders can be added on the same tab. Only filter plug-ins
-run; file-format (`.8bi`) and
-automation (`.8li`) plug-ins are listed as unsupported. The plug-ins are Windows programs, so
-the macOS and Linux builds cannot run them. Details for developers: [docs/plugins.md](docs/plugins.md).
-
-## Windows Release Package
-
-Create local Windows release artifacts:
-
-```bat
-scripts\release\build-release.bat
-```
-
-The script configures and builds the `release` preset, signs `build\release\patchy.exe`, the installer helper executables, and the installer when the local signing environment is available, deploys the minimum Qt runtime needed by the current app, copies third-party notices, and creates:
-
-```text
-build\package\PatchyWindowsNoInstaller.zip
-build\package\PatchyWindowsInstaller.exe
-```
-
-The zip contains a top-level `Patchy` folder so it can be dragged anywhere and does not include installer-only helpers. The installer is a local per-user installer that installs to `%LOCALAPPDATA%\Programs\Patchy`, creates a Start Menu shortcut, offers a desktop shortcut, and registers an uninstall entry.  `latest_version.json` is the update metadata file.
-
-## Current Status
-
-Patchy is not Photoshop-compatible across the full PSD surface yet, but a round-trip from/to Photoshop mostly works with RGB/RGBA 8-bit documents that use basic pixel layers, text objects, groups, masks, blend modes, layer styles, and the currently supported adjustment layers.
-
-Important Photoshop features that are not supported yet, or are only partially supported:
-
-- Editable Smart Filters cover 13 filter types with paintable shared masks and per-filter opacity and blend modes; unsupported imported filter types (including the Blur Gallery and Liquify smart filters) remain preview-locked and byte-preserved
-- Full Photoshop adjustment-layer compatibility beyond Patchy's current adjustment support
-- CMYK/Lab editing and export, editable spot separations and RGB component channels, multi-channel overlays, 16/32-bit editing, HDR/EXR, and full color-management parity (Patchy converts CMYK/Lab to RGB on open, but does not edit or save in those color modes)
-- Layer comps, timeline/video/animation workflows, generative tools
-- Photoshop's own automation surfaces: Actions (.atn), UXP/JSX panels, and scripts written for Photoshop (Patchy has its own JavaScript scripting and batch processing instead, see above)
-- High-fidelity PSD/PSB edge cases, including layered PSB writing and byte-perfect preservation of every Photoshop-only metadata block
-- Patchy is slower than Photoshop, especially on large documents and it doesn't support any GPU acceleration. (Like, layer styles being done in pixel shaders, etc)  However, being CPU only helps with porting, consistent output, and stability so kind of a trade-off that makes sense, for now.  That said, certain operations have been optimized for multicore - canvas compositing and image flattening are multithreaded, splitting large images (4 Mpx+) into strips rendered on all CPU cores.
-
-### Affinity import
-
-Patchy opens Affinity documents read-only: the current .af format ("Affinity by Canva"), the Affinity 2 formats (.afphoto, .afdesign, .afpub), and most Affinity 1.x-era files. Raster layers (including 16-bit, float, CMYK, and Lab documents), groups, masks (raster and vector), clipping, blend modes, opacity, editable text with per-run styles, vector curves, parametric shapes (rectangles, ellipses, polygons, stars, triangles, diamonds, trapezoids, pies, segments, crescents, hearts, tears, arrows, double and square stars, cogs, clouds), compound-shape booleans, Designer symbols, artboards, layer effects, supported adjustment layers, and placed images (which become embedded Smart Objects) all import, verified against Affinity's own renders and a wild-file corpus that includes real Affinity 2 documents from all three apps. Vector fills and strokes keep their width, alignment, dash pattern, and miter limit, crop-to-shape containers come in as masked groups, and the Erase blend mode imports as an isolated group with an inverse-alpha mask, which is how PSD stores that construction natively. If a file can't be imported as layers, Patchy falls back to its embedded preview instead of failing the open, and an import notice explains what was skipped.
-
-Affinity features that are not supported yet, or are only partially supported:
-
-- Saving to Affinity formats (import only; save your edits as PSD)
-- A few parametric shape kinds (callouts, spirals, QR codes, circle-rounded stars, and exotic arrow ends) import as named placeholders
-- Adjustment layers beyond the eight kinds Patchy models, and live filters, import as named empty placeholders; Brightness/Contrast and Color Balance import approximately
-- Affinity-only blend modes render through their closest Photoshop-compatible equivalent with a notice (Average matches exactly at half opacity; Negation, Reflect, Glow, and Pigment approximate; Contrast Negate falls back to Normal)
-- Bevel/Emboss and glow effects are approximated; Gaussian blur layer effects bake into the layer pixels (they render correctly but are no longer live)
-- Rotated or sheared frame text renders without its rotation (artistic text rotates correctly)
-- Multi-page documents open the first page only
-- Affinity 1.x-era files: embedded-document placement can land slightly off
+See [build instructions](docs/building.md) for the core, Qt desktop app, macOS, Linux,
+and Windows packaging. Contributors and automation tools should read [AGENTS.md](AGENTS.md) first.
 
 ## License
 
@@ -375,7 +171,7 @@ This project was developed with significant assistance from AI tools.  I mean, y
 
 Note:  All included textures/materials are real images taken by humans, not AI generated
 
-## Missing features?
+## Missing features / contributions?
 
 AI has reached the point where you can use your favorite AI to add the missing feature you want.
 

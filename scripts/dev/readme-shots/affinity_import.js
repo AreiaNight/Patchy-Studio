@@ -1,13 +1,12 @@
-// @name README shot: Affinity import
+// @name Manual visual check: Affinity import
 // @description Stages the tips.af Affinity import and captures the main window
-// @description for docs/images/screenshots/affinity_import.png. Dev tooling, never staged.
+// @description for a local visual check. Retired from the published screenshot gallery.
 // @cli --script-arg out=affinity_import.png --script-arg af=local-test-fixtures/af-spike/corpus/tips.af
 //
-// Run through scripts\make-readme-screenshots.ps1 (which pins DPI, isolates
-// settings via PATCHY_SETTINGS_DIR, and sets PATCHY_NO_SINGLE_INSTANCE=1 so a
-// fresh unattended instance runs the scene with the real windows platform and
-// every installed font). The window appears briefly; the capture never raises
-// or focuses it.
+// Run directly through --run-script with an output under build/. Use isolated
+// PATCHY_SETTINGS_DIR, PATCHY_NO_SINGLE_INSTANCE=1, QT_FONT_DPI=96 and
+// QT_ENABLE_HIGHDPI_SCALING=0 on the real Windows platform for installed fonts.
+// The window appears briefly; the capture never raises or focuses it.
 
 var out = patchy.args.out;
 var af = patchy.args.af;

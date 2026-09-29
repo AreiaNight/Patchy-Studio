@@ -21,12 +21,12 @@
 #
 # Some scenes need local fixtures (not committed): akiko_cycling_okinawa.jpg,
 # ipad_main_v04.psd, mow_master.psd in local-test-fixtures/psd/, the Camera Raw
-# scene's local-test-fixtures/raw/fujifilm_xt1.raf (CC0, raw.pixls.us), and the
-# Affinity scene's local-test-fixtures/af-spike/corpus/tips.af. Scenes whose
+# scene's local-test-fixtures/raw/fujifilm_xt1.raf (CC0, raw.pixls.us). Scenes whose
 # fixture is missing are skipped with a [SKIP] line.
 param(
     [switch]$SkipBuild,
-    [string]$Scene = 'shot_readme'
+    [ValidatePattern('^[a-z0-9_]+$')][string]$Scene = 'shot_readme',
+    [switch]$IncludeLegacyPlugins
 )
 
 $ErrorActionPreference = 'Stop'
@@ -90,18 +90,27 @@ function Set-RoundedWindowCorners {
 # Key = the README image base name; Script = the scene; Args = extra
 # --script-arg tokens; Fixture = skip the scene when this file is missing.
 $jsScenes = [ordered]@{
-    'affinity_import' = @{
-        Script  = Join-Path $repo 'scripts\dev\readme-shots\affinity_import.js'
-        Args    = @("af=$(Join-Path $repo 'local-test-fixtures\af-spike\corpus\tips.af')")
-        Fixture = Join-Path $repo 'local-test-fixtures\af-spike\corpus\tips.af'
+    'plugin_kpt5' = @{
+        Script = Join-Path $repo 'scripts\dev\readme-shots\plugin-kpt5.js'
+        Args = @("photo=$(Join-Path $repo 'test-fixtures\readme\san_francisco_cityscape_cc0.jpg')")
+        Fixture = Join-Path $repo 'local-test-fixtures\photoshop-plugins\kpt5\KPT5_Files\KPT5'
+        Legacy = $true
     }
 }
 
+# The hero uses the Smart Filters image directly. Retired gallery scenes stay
+# available as regression tests, but must not republish removed PNGs.
+if ($Scene -eq 'hero' -or $Scene -eq 'shot_readme_hero') { $Scene = 'smart_filters' }
+$retiredScenes = @('levels', 'brush_dynamics', 'shape_appearance', 'affinity_import')
 $sceneName = $Scene -replace '^shot_readme_?', ''
+if ($retiredScenes -contains $sceneName) {
+    throw "$sceneName is retired from the gallery; see docs/readme-showcase.md for the consolidated scenes"
+}
 $runAll = [string]::IsNullOrEmpty($sceneName)
 $jsToRun = @()
 if ($runAll) {
-    $jsToRun = @($jsScenes.Keys)
+    $jsToRun = @($jsScenes.Keys | Where-Object { -not $jsScenes[$_].Legacy -or $IncludeLegacyPlugins })
+    if (-not $IncludeLegacyPlugins) { Write-Host '[SKIP] plugin_kpt5 (use -IncludeLegacyPlugins or -Scene plugin_kpt5)' }
 } elseif ($jsScenes.Contains($sceneName)) {
     $jsToRun = @($sceneName)
 }
@@ -110,7 +119,7 @@ $runOffscreen = $runAll -or -not $jsScenes.Contains($sceneName)
 if (-not $SkipBuild) {
     Push-Location $repo
     try {
-        cmd /s /c 'scripts\vs-env.bat -arch=x64 -host_arch=x64 >nul && "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" --build --preset release --target patchy patchy_ui_visual_tests'
+        cmd /s /c 'scripts\vs-env.bat -arch=x64 -host_arch=x64 >nul && scripts\run-throttled.bat "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" --build --preset release -j 20 --target patchy patchy_ui_visual_tests'
         if ($LASTEXITCODE -ne 0) { throw "build failed (exit $LASTEXITCODE)" }
     } finally {
         Pop-Location
@@ -130,21 +139,28 @@ if ($runOffscreen) {
             Remove-Item -Force
     }
 
+    $oldPlatform = $env:QT_QPA_PLATFORM
+    $oldSound = $env:PATCHY_NO_SOUND
+    $testLog = Join-Path $buildDir "readme-shot-$filter.log"
     Push-Location $buildDir
     try {
         $env:QT_QPA_PLATFORM = 'offscreen'
         $env:PATCHY_NO_SOUND = '1'
-        & $exe $filter
-        if ($LASTEXITCODE -ne 0) { throw "screenshot scenes failed (exit $LASTEXITCODE)" }
+        & (Join-Path $repo 'scripts\run-throttled.bat') $exe $filter | Tee-Object -FilePath $testLog
+        if ($LASTEXITCODE -ne 0 -or (Select-String -LiteralPath $testLog -Pattern '^\[FAIL\]' -Quiet)) {
+            throw "screenshot scenes failed (exit $LASTEXITCODE); see $testLog"
+        }
     } finally {
         Pop-Location
-        Remove-Item Env:QT_QPA_PLATFORM -ErrorAction SilentlyContinue
+        $env:QT_QPA_PLATFORM = $oldPlatform
+        $env:PATCHY_NO_SOUND = $oldSound
     }
 
     $shots = @(Get-ChildItem (Join-Path $artifactDir $artifactPattern) -ErrorAction SilentlyContinue)
     if ($shots.Count -eq 0 -and $jsToRun.Count -eq 0) { throw "no $artifactPattern artifacts were produced" }
     foreach ($shot in $shots) {
         $name = $shot.Name -replace '^shot_readme_', ''
+        if ($retiredScenes -contains [System.IO.Path]::GetFileNameWithoutExtension($name)) { continue }
         if ($jsScenes.Contains([System.IO.Path]::GetFileNameWithoutExtension($name))) {
             continue  # migrated scene: the script-driven pipeline owns this image
         }
@@ -160,39 +176,107 @@ foreach ($name in $jsToRun) {
     # $scene would cast the hashtable into the typed [string]$Scene parameter.
     $spec = $jsScenes[$name]
     if ($spec.Fixture -and -not (Test-Path $spec.Fixture)) {
+        if (-not $runAll) { throw "missing fixture for $name : $($spec.Fixture)" }
         Write-Host "[SKIP] $name (missing $($spec.Fixture))"
         continue
     }
     $patchyExe = Join-Path $buildDir 'patchy.exe'
     if (-not (Test-Path $patchyExe)) { throw "missing $patchyExe (run without -SkipBuild)" }
 
-    $png = Join-Path $outDir "$name.png"
+    # Publish only freshly generated output. Failed runs leave the last good image.
+    $scratch = Join-Path $buildDir "readme-shot-$name"
+    New-Item -ItemType Directory -Force $scratch | Out-Null
+    $png = Join-Path $scratch "$name.png"
+    foreach ($suffix in @('', '.base.png', '.dialog.png')) {
+        $generated = "$png$suffix"
+        if (Test-Path -LiteralPath $generated) { Remove-Item -LiteralPath $generated }
+    }
     $scriptOut = Join-Path $buildDir "readme-shot-$name.txt"
     Remove-Item $scriptOut -ErrorAction SilentlyContinue
 
+    $envNames = @('PATCHY_NO_SINGLE_INSTANCE', 'PATCHY_NO_SOUND', 'PATCHY_SETTINGS_DIR', 'QT_ENABLE_HIGHDPI_SCALING', 'QT_FONT_DPI', 'QT_QPA_PLATFORM', 'PATCHY_8BF_DIALOG_SETTLE_MS', 'PATCHY_8BF_ACCEPT_CLICK')
+    $savedEnv = @{}
+    foreach ($envName in $envNames) { $savedEnv[$envName] = [Environment]::GetEnvironmentVariable($envName, 'Process') }
     $env:PATCHY_NO_SINGLE_INSTANCE = '1'
     $env:PATCHY_NO_SOUND = '1'
-    $env:PATCHY_SETTINGS_DIR = Join-Path $buildDir 'readme-shot-settings'
+    $env:PATCHY_SETTINGS_DIR = Join-Path $scratch ('settings-' + [guid]::NewGuid().ToString('N'))
     $env:QT_ENABLE_HIGHDPI_SCALING = '0'
     $env:QT_FONT_DPI = '96'
     Remove-Item Env:QT_QPA_PLATFORM -ErrorAction SilentlyContinue
+    $proc = $null
     try {
         $argList = @('--run-script', $spec.Script, '--script-output', $scriptOut, '--script-arg', "out=$png")
         foreach ($extra in $spec.Args) { $argList += @('--script-arg', $extra) }
-        $proc = Start-Process -FilePath $patchyExe -ArgumentList $argList -PassThru
+        if ($spec.Legacy) {
+            # An installed copy wins duplicate plug-in IDs during scanning. Give
+            # this capture its own portable host so it uses only its fixture copy.
+            $hostDir = Join-Path $scratch ('host-' + [guid]::NewGuid().ToString('N'))
+            New-Item -ItemType Directory -Force (Join-Path $hostDir 'plugins') | Out-Null
+            foreach ($binary in @('patchy.exe', 'patchy-8bf-host32.exe', 'patchy-8bf-host64.exe')) {
+                Copy-Item -LiteralPath (Join-Path $buildDir $binary) -Destination $hostDir
+            }
+            Get-ChildItem -LiteralPath $buildDir -Filter '*.dll' | Copy-Item -Destination $hostDir
+            foreach ($folder in @('platforms', 'imageformats', 'styles')) {
+                $source = Join-Path $buildDir $folder
+                if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination $hostDir -Recurse }
+            }
+            $patchyExe = Join-Path $hostDir 'patchy.exe'
+            $pluginCopy = Join-Path $hostDir 'plugins\KPT5'
+            Copy-Item -LiteralPath $spec.Fixture -Destination $pluginCopy -Recurse
+            $settingsFolder = Join-Path $env:PATCHY_SETTINGS_DIR 'Patchy'
+            New-Item -ItemType Directory -Force $settingsFolder | Out-Null
+            Set-Content -LiteralPath (Join-Path $settingsFolder 'Patchy.ini') -Value "[plugins]`nscreenSize=1024x768`n[preferences]`ncolorScheme=dark" -Encoding UTF8
+            $env:PATCHY_8BF_DIALOG_SETTLE_MS = '5000'
+            $env:PATCHY_8BF_ACCEPT_CLICK = '30,30'
+            $argList += @('--script-arg', "plugins=$pluginCopy")
+        }
+        # ProcessStartInfo on Windows needs quoted tokens, including paths with spaces.
+        $quotedArgs = $argList | ForEach-Object { '"' + ($_ -replace '(\\*)"', '$1$1\"' -replace '(\\+)$', '$1$1') + '"' }
+        $proc = Start-Process -FilePath $patchyExe -ArgumentList $quotedArgs -WindowStyle Hidden -PassThru
         if (-not $proc.WaitForExit(180000)) {
-            $proc.Kill()
             throw "$name scene timed out"
         }
     } finally {
-        Remove-Item Env:PATCHY_NO_SINGLE_INSTANCE, Env:PATCHY_SETTINGS_DIR, Env:QT_ENABLE_HIGHDPI_SCALING, Env:QT_FONT_DPI -ErrorAction SilentlyContinue
+        if ($proc -and -not $proc.HasExited) {
+            # Only this run's helper processes, from this run's executable folder.
+            $ownedFolder = Split-Path -Parent $patchyExe
+            $helpers = @(Get-CimInstance Win32_Process -Filter "ParentProcessId=$($proc.Id)" |
+                Where-Object {
+                    $_.Name -match '^patchy-8bf-host(32|64)\.exe$' -and
+                    $_.ExecutablePath -eq (Join-Path $ownedFolder $_.Name)
+                })
+            foreach ($helper in $helpers) { Stop-Process -Id $helper.ProcessId -ErrorAction SilentlyContinue }
+            if (-not $proc.HasExited) { $proc.Kill() }
+        }
+        foreach ($envName in $envNames) { [Environment]::SetEnvironmentVariable($envName, $savedEnv[$envName], 'Process') }
     }
 
     $log = if (Test-Path $scriptOut) { Get-Content $scriptOut -Raw } else { '' }
     if ($proc.ExitCode -ne 0 -or $log -notmatch '\[done\]') {
         throw "$name scene failed (exit $($proc.ExitCode)): $log"
     }
+    if ($spec.Legacy) {
+        Add-Type -AssemblyName System.Drawing
+        $base = [System.Drawing.Bitmap]::FromFile("$png.base.png")
+        $dialog = [System.Drawing.Bitmap]::FromFile("$png.dialog.png")
+        try {
+            if ($dialog.Width -lt 600 -or $dialog.Height -lt 400) { throw 'Captured a KPT stub, not its full interface' }
+            $g = [System.Drawing.Graphics]::FromImage($base)
+            try {
+                $scale = [Math]::Min(1.0, [Math]::Min(1040.0 / $dialog.Width, 800.0 / $dialog.Height))
+                $w = [int]($dialog.Width * $scale); $h = [int]($dialog.Height * $scale)
+                $x = $base.Width - $w - 18; $y = $base.Height - $h - 42
+                $shadow = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(70, 0, 0, 0))
+                try { $g.FillRectangle($shadow, $x - 6, $y + 6, $w + 12, $h + 6) } finally { $shadow.Dispose() }
+                $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+                $g.DrawImage($dialog, $x, $y, $w, $h)
+            } finally { $g.Dispose() }
+            $base.Save($png, [System.Drawing.Imaging.ImageFormat]::Png)
+        } finally { $dialog.Dispose(); $base.Dispose() }
+    }
     if (-not (Test-Path $png)) { throw "$name scene reported done but wrote no $png" }
     Set-RoundedWindowCorners -Path $png
-    Write-Host "updated $png"
+    $destination = Join-Path $outDir "$name.png"
+    Copy-Item -LiteralPath $png -Destination $destination -Force
+    Write-Host "updated $destination"
 }

@@ -1,0 +1,89 @@
+# Rebuilding the README showcase
+
+The README uses a hero image and six feature captures. The [full gallery](screenshots.md)
+keeps the other examples. Every capture has a script or a `shot_readme_*` scene;
+do not replace one with a manually arranged desktop screenshot.
+
+From the repository root on Windows:
+
+```powershell
+# Build the screenshot targets and regenerate the regular gallery.
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/make-readme-screenshots.ps1
+
+# Include the locally installed commercial KPT fixture.
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/make-readme-screenshots.ps1 -IncludeLegacyPlugins
+
+# Rebuild one capture using the current release binaries.
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/make-readme-screenshots.ps1 -SkipBuild -Scene long_shadow
+```
+
+The driver accepts image base names or full `shot_readme_*` names. `-Scene hero`
+regenerates `smart_filters.png`, which the README uses directly. Missing local
+fixtures are reported as skips during a full run; an explicitly selected script
+scene fails if its fixture is missing. KPT runs only with `-IncludeLegacyPlugins`
+or `-Scene plugin_kpt5`. It requires the Windows 32-bit legacy helper.
+
+| Image | Recipe | Input |
+| --- | --- | --- |
+| `smart_filters.png` (hero) | `shot_readme_smart_filters` | `local-test-fixtures/psd/akiko_cycling_okinawa.jpg`, grouped captions, clipping, a Levels adjustment, and color controls |
+| `layer_styles.png` | `shot_readme_layer_styles` | `local-test-fixtures/psd/ipad_main_v04.psd`, live layer styles and gradient color controls |
+| `plugin_kpt5.png` | `scripts/dev/readme-shots/plugin-kpt5.js` | Licensed KPT 5 fixture and the existing CC0 city photograph |
+| `smart_objects.png` | `shot_readme_smart_objects` | Local PSD fixtures used by the existing scene |
+| `vector_tools.png` | `shot_readme_vector_tools` | Generated vector artwork with gradient fill, rounded corners, and a dashed pattern stroke |
+| `warp_text.png` | `shot_readme_warp_text` | Generated editable type; Japanese-capable font required |
+| `tilt_shift.png` | `shot_readme_tilt_shift` | `test-fixtures/readme/san_francisco_cityscape_cc0.jpg` |
+| `long_shadow.png` (gallery only) | `shot_readme_long_shadow` | Generated editable type and live continuous shadows; no external artwork |
+
+Offscreen recipes live in `tests/ui/readme_screenshot_tests_*.cpp`. They create
+real Patchy documents, arrange the UI, and capture the widgets. The long-shadow
+scene opens the actual Layer Style dialog and checks its Continuous setting.
+Its typography uses a live continuous shadow, not a painted imitation.
+
+The hero keeps the native three-filter stack and shared mask on the photograph.
+The mask protects the cyclist's face and applies the blur stack to the surroundings.
+The color picker shows its wheel and palette, while a real Levels adjustment layer
+is open for editing with its histogram and live preview. Neutral Levels settings
+preserve the photograph; the scene checks the face pixels against the source.
+An expanded Ride notes group contains two editable text layers, a rounded caption
+card, and a color wash clipped to that card. The vector scene combines pen paths
+and anchor editing with gradient paint, a dashed pattern stroke, and rounded corners.
+
+The separate Levels, brush-dynamics, shape-appearance, and Affinity images are retired
+from the gallery. Their existing scenes remain regression coverage; the driver
+does not publish those artifacts. Brush dynamics are described with brush tips.
+Long Shadow remains in the gallery; the README's six feature cards use Layer Styles instead.
+
+The text showcase combines a live Warp Text preview with three warped words,
+a single boxed paragraph containing bold, italic, colored, and mixed-font runs,
+a tracked heading, and two Japanese vertical columns. The sample reads
+"Let's play with letters / Let's enjoy color." Every sample is an editable
+type layer. The scene registers its Latin and Japanese test fonts and reports
+a skip if no Japanese family is available; it never publishes missing-glyph boxes.
+
+The KPT recipe uses `local-test-fixtures/photoshop-plugins/kpt5/KPT5_Files/KPT5`.
+Keep the commercial binaries, presets, manuals, and generated state gitignored.
+Follow the fixture scan and first-run requirements in [plugins.md](plugins.md).
+The driver copies the fixture and a portable Patchy host into its task-owned
+scratch directory, isolating both Patchy's settings and KPT's writable state.
+An installed copy of KPT cannot override that fixture through duplicate IDs.
+
+The KPT recipe pins its virtual screen to 1024 x 768, allows five seconds for the
+preview to settle, then uses the runner's targeted `30,30` acceptance click.
+No global cursor movement or keyboard input is involved.
+
+The KPT picture combines two direct window captures: `patchy.ui.captureWindow`
+for Patchy and `layer.applyPlugin(..., {dialog: true, captureDialog: ...})` for
+the framed plug-in. The driver scales and positions the plug-in capture over
+Patchy. This is a presentation layout, not a claim about physical window
+positions. It never captures the desktop or crops a desktop screenshot.
+
+Raw captures and script logs stay under `build/release/readme-shot-*`. A failed
+script run leaves the last published image intact. The driver uses isolated
+settings, a separate process, pinned 96-DPI geometry, and bounded plug-in windows.
+Only task-owned processes may be stopped after a timeout. Never close a user's
+documents or attach this capture workflow to an unrelated running instance.
+
+See [testing.md](testing.md#readme-screenshots) for capture conventions, fixture
+requirements, and the separate Mehdi plug-in recipe. The photograph's source and
+license are recorded in [NOTICE-THIRD-PARTY.md](../NOTICE-THIRD-PARTY.md).
+

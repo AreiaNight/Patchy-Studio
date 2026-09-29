@@ -59,6 +59,12 @@ leave the user's documents and unrelated processes alone. See
 
 ### Tests
 
+The README's KPT example is regenerated with
+`scripts/make-readme-screenshots.ps1 -SkipBuild -Scene plugin_kpt5`.
+It runs Orb-It in an isolated fixture copy and combines direct captures of Patchy
+and the framed plug-in. See [readme-showcase.md](readme-showcase.md) for inputs,
+window geometry, and the distinction between this capture and the automated suite.
+
 - Core (`tests/core/pipl_tests.cpp`, filter `pipl`/`legacy`): PiPL blob round trip, the four committed Filter Foundry fixtures' property lists (every platform), the probe's names and bitness, and on Windows the helper self-tests in both bitnesses plus the crash exit code. `plugin_host_and_legacy_probe_work` and the Unicode probe tests remain.
 - UI (`tests/ui/legacy_plugin_tests.cpp`, filter `legacy_plugin`): folder scan and category submenu through `patchy.plugins`, non-filter files listed but not offered, a selection-limited run in both bitnesses with undo (Windows), the Plugins menu commands and `patchy.plugins.folder` creating the README (`ui_legacy_plugin_menu_opens_folder_and_rescans`), the About row (`ui_about_dialog_has_plugins_folder_row`), the packaged README pin, `ui_legacy_plugin_mehdi_filters_run_if_available` and `ui_legacy_plugin_mehdi_dialog_capture_if_available` over the local third-party set, and `ui_legacy_plugin_ui_absent_off_windows` on the other platforms. KPT has no automated suite case; its commercial fixtures stay local. Explicitly invoked scripted captures of its current framed window are permitted under the rules above, including targeted acceptance with `PATCHY_8BF_ACCEPT_CLICK`. Its former desktop-covering behavior is not a prohibition on that workflow. Tests that expect plug-in actions call `wait_for_legacy_plugin_scan` first. `ui_bundled_legacy_plugin_action_applies_filter` and `ui_transparency_checkerboard_and_copy_paste_preserve_alpha` now go through the real host.
 - Fixtures: `test-fixtures/photoshop-plugins/` holds Filter Foundry builds of Greyscale and White to Transparent in both bitnesses (test data only; never linked or shipped).

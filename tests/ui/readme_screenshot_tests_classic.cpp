@@ -23,6 +23,7 @@
 #include "ui/style_manager_dialog.hpp"
 #include "psd/asl_io.hpp"
 #include "psd/psd_binary.hpp"
+#include "psd/psd_text_runs.hpp"
 #include "psd/psd_layer_effects.hpp"
 #include "core/style_presets.hpp"
 #include "ui/brush_tip_library.hpp"
@@ -48,6 +49,7 @@
 #include "formats/ico_document_io.hpp"
 #include "formats/tga_document_io.hpp"
 #include "ui/image_document_io.hpp"
+#include "ui/qt_paths.hpp"
 #include "ui/image_save_options_dialog.hpp"
 #include "ui/image_trace_dialog.hpp"
 #include "ui/layer_list_widget.hpp"
@@ -532,7 +534,8 @@ QDialog* open_foreground_picker_for_readme_shot(patchy::ui::MainWindow& window, 
   return dialog;
 }
 
-// Photo-editing hero: the Okinawa cycling photo with rulers and grid on, the
+// Standalone Levels/color-picker regression scene, retired from the gallery:
+// the Okinawa cycling photo with rulers and grid on, the
 // Levels dialog's live histogram floating over the canvas, and the color
 // picker on the left in Wheel mode with its swatch grid on DOS / VGA 256. The
 // palette dropdown stays closed: it would cover the swatches, and the
@@ -1088,107 +1091,233 @@ patchy::LayerId add_readme_warp_text_layer(patchy::Document& document, const cha
   return id;
 }
 
-// Warp Text: a synthwave poster whose headline arcs through the Warp Text
-// dialog's live preview (style dropdown open on all 15 styles), over three
-// smaller words each pre-warped with the style they name — every text layer
-// rich-colored and styled, showing text + warps + layer styles composing.
-void shot_readme_warp_text() {
+// A finished type poster makes the continuous shadow legible at README size.
+// This stays offscreen because scripts cannot stage the Layer Style dialog.
+void shot_readme_long_shadow() {
   patchy::test::register_test_fonts(patchy::test::TestFontRole::ArialBlack);
-  patchy::test::register_test_fonts(patchy::test::TestFontRole::UiDefault);
+  QImage background(1180, 780, QImage::Format_RGB32);
+  background.fill(QColor("#ef684b"));
+  {
+    QPainter painter(&background);
+    painter.fillRect(60, 62, 48, 7, QColor("#fff1ce"));
+    QFont font(QStringLiteral("Arial"));
+    font.setPixelSize(20);
+    font.setBold(true);
+    painter.setFont(font);
+    painter.setPen(QColor("#fff1ce"));
+    painter.drawText(125, 75, QStringLiteral("TYPE / LIGHT / DEPTH"));
+    font.setPixelSize(18);
+    font.setBold(false);
+    painter.setFont(font);
+    painter.drawText(60, 725, QStringLiteral("One layer style. A different dimension."));
+  }
+  auto document = patchy::ui::document_from_qimage(background, "Coral paper");
+  const auto long_id = add_readme_warp_text_layer(document, "LONG", 60, 185, "LONG",
+      readme_text_runs(4, 174, "#fff1ce", "Arial Black"), 174, "#fff1ce", 0, 230, 0);
+  const auto shadow_id = add_readme_warp_text_layer(document, "SHADOW", 60, 390, "SHADOW",
+      readme_text_runs(6, 116, "#fff1ce", "Arial Black"), 116, "#fff1ce", 0, 230, 0);
+  for (const auto id : {long_id, shadow_id}) {
+    auto* layer = document.find_layer(id);
+    CHECK(layer != nullptr);
+    auto& style = layer->layer_style();
+    style.strokes.clear();
+    auto& shadow = style.drop_shadows.front();
+    shadow.continuous = true;
+    shadow.angle_degrees = 135.0F;
+    shadow.opacity = 1.0F;
+    shadow.color = patchy::RgbColor{0x36, 0x43, 0x49};
+    shadow.blend_mode = patchy::BlendMode::Normal;
+  }
+  document.set_active_layer(long_id);
   patchy::ui::MainWindow window;
   show_readme_shot_window(window);
-
-  QImage poster(1180, 780, QImage::Format_RGB32);
-  {
-    QPainter painter(&poster);
-    QLinearGradient sky(0, 0, 0, poster.height());
-    sky.setColorAt(0.00, QColor(0x1b, 0x14, 0x3c));
-    sky.setColorAt(0.45, QColor(0x51, 0x2b, 0x62));
-    sky.setColorAt(0.72, QColor(0xb4, 0x4a, 0x6b));
-    sky.setColorAt(1.00, QColor(0xf2, 0x9a, 0x5e));
-    painter.fillRect(poster.rect(), sky);
-    painter.setRenderHint(QPainter::Antialiasing, true);
-    painter.setPen(Qt::NoPen);
-    for (int i = 0; i < 60; ++i) {  // fixed-hash stars in the dark upper sky
-      const auto hash = static_cast<std::uint32_t>(i) * 2654435761u;
-      const auto star_x = static_cast<int>(hash % 1180u);
-      const auto star_y = static_cast<int>((hash / 1180u) % 320u);
-      painter.setBrush(QColor(255, 255, 255, 90 + static_cast<int>((hash >> 16) % 130u)));
-      const auto radius = 0.8 + ((hash >> 8) % 3u) * 0.5;
-      painter.drawEllipse(QPointF(star_x, star_y), radius, radius);
-    }
-    QPainterPath sun;
-    sun.addEllipse(QPointF(700, 650), 190, 190);
-    QPainterPath slits;  // the retro banded-sun look, above the near ridge line
-    int slit_y = 575;
-    int slit_thickness = 5;
-    for (int i = 0; i < 4; ++i) {
-      slits.addRect(500, slit_y, 400, slit_thickness);
-      slit_y += 28 + i * 6;
-      slit_thickness += 4;
-    }
-    QLinearGradient sun_fill(0, 460, 0, 840);
-    sun_fill.setColorAt(0.0, QColor(0xff, 0xe9, 0xb0));
-    sun_fill.setColorAt(1.0, QColor(0xff, 0x7d, 0x52));
-    painter.fillPath(sun.subtracted(slits), sun_fill);
-    // The far range dips behind the sun so the slit bands stay visible.
-    painter.setBrush(QColor(0x2a, 0x17, 0x46));
-    painter.drawPolygon(QPolygonF({{0, 640}, {150, 520}, {300, 655}, {430, 560}, {565, 675}, {700, 690},
-                                   {860, 675}, {985, 540}, {1180, 650}, {1180, 780}, {0, 780}}));
-    painter.setBrush(QColor(0x1c, 0x0f, 0x33));
-    painter.drawPolygon(QPolygonF(
-        {{0, 700}, {185, 605}, {365, 722}, {545, 645}, {760, 730}, {945, 660}, {1180, 718}, {1180, 780}, {0, 780}}));
-  }
-  auto built = patchy::ui::document_from_qimage(poster, "Background");
-  const char* black_font = "Arial%20Black";
-  const auto flag_id = add_readme_warp_text_layer(built, "Flag", 180, 320, "Flag",
-                                                  readme_text_runs(4, 56, "#f2f2f2", black_font), 56,
-                                                  "#f2f2f2", 3.0F, 6.0F, 8.0F);
-  const auto fisheye_id = add_readme_warp_text_layer(built, "Fisheye", 390, 320, "Fisheye",
-                                                     readme_text_runs(7, 56, "#ffd54f", black_font), 56,
-                                                     "#ffd54f", 3.0F, 6.0F, 8.0F);
-  const auto twist_id = add_readme_warp_text_layer(built, "Twist", 655, 320, "Twist",
-                                                   readme_text_runs(5, 56, "#ff8a65", black_font), 56,
-                                                   "#ff8a65", 3.0F, 6.0F, 8.0F);
-  const auto headline_id = add_readme_warp_text_layer(
-      built, "PATCHY", 220, 140, "PATCHY",
-      readme_rainbow_runs({"#ff6f61", "#ffb74d", "#ffe66d", "#7ee081", "#64b5f6", "#b388ff"}, 110, black_font),
-      110, "#ffe66d", 5.0F, 10.0F, 14.0F);
-  built.set_active_layer(headline_id);
-  window.add_document_session(std::move(built), QStringLiteral("Warp Text"));
-  QApplication::processEvents();
+  window.add_document_session(std::move(document), QStringLiteral("Long Shadow Poster"));
   close_untitled_start_tab(window);
-  require_action_by_text(window, QStringLiteral("Type"))->trigger();
-  QApplication::processEvents();
-  // The Type options bar starts on the new-text defaults; point it at the
-  // headline's face so the shot reads coherently. Neither control persists
-  // (only an open inline editor consumes them).
-  auto* font_combo = window.findChild<QFontComboBox*>(QStringLiteral("textFontCombo"));
-  auto* size_spin = window.findChild<QDoubleSpinBox*>(QStringLiteral("textSizeSpin"));
-  CHECK(font_combo != nullptr && size_spin != nullptr);
-  // setCurrentFont resolves through QFontInfo and can land on the base family;
-  // select the model row by name instead.
-  const auto black_row = font_combo->findText(QStringLiteral("Arial Black"));
-  if (black_row >= 0) {
-    font_combo->setCurrentIndex(black_row);
-  }
-  size_spin->setValue(110.0);
-  QApplication::processEvents();
-
-  // Identity warp = the committed unwarped render (glyphs through the real text
-  // pipeline); then bake each small word's namesake style. The headline stays
-  // unwarped so the dialog's live preview is what arcs it in the shot.
-  auto& document = patchy::ui::MainWindowTestAccess::document(window);
-  for (const auto id : {headline_id, flag_id, fisheye_id, twist_id}) {
-    auto* layer = document.find_layer(id);
+  auto& staged = patchy::ui::MainWindowTestAccess::document(window);
+  for (const auto id : {long_id, shadow_id}) {
+    auto* layer = staged.find_layer(id);
     CHECK(layer != nullptr);
     CHECK(patchy::ui::MainWindowTestAccess::apply_text_warp(window, *layer, patchy::TextWarp{}));
   }
-  const struct {
-    patchy::LayerId id;
-    const char* style;
-    double bend;
-  } word_warps[] = {{flag_id, "warpFlag", 45.0}, {fisheye_id, "warpFisheye", 55.0}, {twist_id, "warpTwist", 60.0}};
+  require_canvas(window)->document_changed();
+  require_action(window, "viewFitOnScreenAction")->trigger();
+  QApplication::processEvents();
+  bool captured = false;
+  std::exception_ptr error;
+  QTimer::singleShot(0, [&] {
+    auto* dialog = find_top_level_dialog(QStringLiteral("patchyLayerStyleDialog"));
+    try {
+      CHECK(dialog != nullptr);
+      auto* categories = dialog->findChild<QListWidget*>(QStringLiteral("layerStyleCategoryList"));
+      auto* continuous = dialog->findChild<QCheckBox*>(QStringLiteral("layerStyleDropShadowContinuousCheck"));
+      CHECK(categories != nullptr && continuous != nullptr);
+      const auto rows = categories->findItems(QStringLiteral("Drop Shadow"), Qt::MatchExactly);
+      CHECK(!rows.empty());
+      categories->setCurrentItem(rows.front());
+      CHECK(continuous->isChecked());
+      QApplication::processEvents();
+      const QPoint offset(window.width() - dialog->width() - 10, 145);
+      dialog->move(window.geometry().topLeft() + offset);
+      reset_readme_status_bar(window);
+      auto base = window.grab().toImage();
+      draw_readme_overlay(base, dialog->grab().toImage(), offset);
+      save_readme_shot("shot_readme_long_shadow", base);
+      captured = true;
+    } catch (...) {
+      error = std::current_exception();
+    }
+    if (dialog != nullptr) dialog->reject();
+  });
+  require_action(window, "layerBlendingOptionsAction")->trigger();
+  if (error) std::rethrow_exception(error);
+  CHECK(captured);
+}
+
+// Live typography specimen: warped type, mixed-run paragraph text, tracking,
+// and real Japanese vertical columns, with the Warp Text controls visible.
+void shot_readme_warp_text() {
+  for (const auto role : {patchy::test::TestFontRole::ArialBlack, patchy::test::TestFontRole::UiDefault,
+                          patchy::test::TestFontRole::Verdana, patchy::test::TestFontRole::Georgia,
+                          patchy::test::TestFontRole::JapaneseGothic}) {
+    patchy::test::register_test_fonts(role);
+  }
+  const auto japanese_families = QFontDatabase::families(QFontDatabase::Japanese);
+  if (japanese_families.isEmpty()) {
+    std::cout << "[SKIP] no Japanese font for the typography showcase\n";
+    return;
+  }
+  QString japanese_font = japanese_families.front();
+  for (const auto& family : japanese_families) {
+    if (family.contains(QStringLiteral("Gothic"), Qt::CaseInsensitive)) {
+      japanese_font = family;
+      break;
+    }
+  }
+  patchy::ui::MainWindow window;
+  show_readme_shot_window(window);
+  QImage poster(1180, 780, QImage::Format_RGB32);
+  poster.fill(QColor("#202a36"));
+  {
+    QPainter painter(&poster);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.fillRect(44, 432, 710, 292, QColor("#f3ede0"));
+    painter.fillRect(780, 432, 356, 292, QColor("#eb9976"));
+    painter.fillRect(60, 398, 1060, 2, QColor("#54616b"));
+    QFont font(QStringLiteral("Verdana"));
+    font.setPixelSize(17);
+    painter.setFont(font);
+    painter.setPen(QColor("#b5c2c8"));
+    painter.drawText(60, 382, QStringLiteral("WARP / LAYER EFFECTS"));
+    painter.drawText(60, 756, QStringLiteral("One paragraph. Mixed faces. Still editable."));
+    painter.drawText(800, 756, QStringLiteral("VERTICAL TYPE / JAPANESE"));
+    font.setPixelSize(16);
+    font.setBold(true);
+    painter.setFont(font);
+    painter.setPen(QColor("#5e6568"));
+    painter.drawText(70, 465, QStringLiteral("TYPE WITH CHARACTER"));
+  }
+  auto built = patchy::ui::document_from_qimage(poster, "Paper and ink");
+  const char* black_font = "Arial%20Black";
+  const auto flag_id = add_readme_warp_text_layer(built, "Flag", 60, 284, "Flag",
+      readme_text_runs(4, 42, "#f3ede0", black_font), 42, "#f3ede0", 2, 4, 6);
+  const auto fisheye_id = add_readme_warp_text_layer(built, "Fisheye", 225, 284, "Fisheye",
+      readme_text_runs(7, 42, "#e6bf70", black_font), 42, "#e6bf70", 2, 4, 6);
+  const auto twist_id = add_readme_warp_text_layer(built, "Twist", 448, 284, "Twist",
+      readme_text_runs(5, 42, "#ee9b7d", black_font), 42, "#ee9b7d", 2, 4, 6);
+  const auto headline_id = add_readme_warp_text_layer(built, "PATCHY / live warp", 120, 125, "PATCHY",
+      readme_rainbow_runs({"#ed997b", "#e6ba72", "#eee2b9", "#93c6ad", "#88bacd", "#b5a8cb"}, 100, black_font),
+      100, "#eee2b9", 3, 7, 9);
+
+  // Serialize real rich-text runs, so the paragraph can be edited as one object.
+  std::string paragraph_text;
+  std::vector<patchy::psd::PsdTextStyleRun> paragraph_runs;
+  const auto append_run = [&](const char* text, bool bold = false, bool italic = false,
+                               patchy::RgbColor color = {0x28, 0x36, 0x42}, const char* family = "Verdana") {
+    patchy::psd::PsdTextStyleRun run;
+    run.start = static_cast<int>(paragraph_text.size());
+    run.length = static_cast<int>(std::string_view(text).size());
+    run.family = family;
+    run.size = 27;
+    run.leading = 39;
+    run.bold = bold;
+    run.italic = italic;
+    run.color = color;
+    paragraph_runs.push_back(run);
+    paragraph_text += text;
+  };
+  append_run("Make something ");
+  append_run("bold", true);
+  append_run(", add a little ");
+  append_run("italic", false, true);
+  append_run(", and give ");
+  append_run("color", true, false, {0xb2, 0x48, 0x35});
+  append_run(" a voice. Mix ");
+  append_run("a serif", false, true, {0x26, 0x76, 0x79}, "Georgia");
+  append_run(" with a sans, shape the paragraph, and keep every word editable.");
+  const auto paragraph_id = add_readme_warp_text_layer(built, "One paragraph / mixed styles", 70, 490,
+      paragraph_text, patchy::psd::serialize_patchy_text_runs(paragraph_runs), 27, "#283642", 0, 0, 0);
+  auto* paragraph = built.find_layer(paragraph_id);
+  CHECK(paragraph != nullptr);
+  paragraph->layer_style().strokes.clear();
+  paragraph->layer_style().drop_shadows.clear();
+  paragraph->metadata()[patchy::kLayerMetadataTextFont] = "Verdana";
+  paragraph->metadata()[patchy::kLayerMetadataTextFlow] = "box";
+  paragraph->metadata()[patchy::kLayerMetadataTextBoxWidth] = "656";
+  paragraph->metadata()[patchy::kLayerMetadataTextBoxHeight] = "214";
+  paragraph->metadata()[patchy::kLayerMetadataTextLayoutMode] = patchy::kTextLayoutModePhotoshop;
+  patchy::psd::PsdTextParagraphRun paragraph_style;
+  paragraph_style.length = static_cast<int>(paragraph_text.size());
+  paragraph_style.first_line_indent = 18;
+  paragraph->metadata()[patchy::kLayerMetadataTextParagraphRuns] =
+      patchy::psd::serialize_patchy_paragraph_runs(std::span(&paragraph_style, 1));
+
+  const auto japanese = QStringLiteral("\u6587\u5b57\u3067\u904a\u307c\u3046\n\u8272\u3092\u697d\u3057\u3082\u3046");
+  patchy::psd::PsdTextStyleRun vertical_run;
+  vertical_run.length = static_cast<int>(japanese.size());
+  vertical_run.family = japanese_font.toUtf8().toStdString();
+  vertical_run.size = 39;
+  vertical_run.color = {0x28, 0x36, 0x42};
+  const auto vertical_id = add_readme_warp_text_layer(built, "Japanese / vertical columns", 961, 447,
+      japanese.toUtf8().toStdString(), patchy::psd::serialize_patchy_text_runs(std::span(&vertical_run, 1)),
+      39, "#283642", 0, 0, 0);
+  auto* vertical = built.find_layer(vertical_id);
+  CHECK(vertical != nullptr);
+  vertical->layer_style().strokes.clear();
+  vertical->layer_style().drop_shadows.clear();
+  vertical->metadata()[patchy::kLayerMetadataTextFont] = vertical_run.family;
+  vertical->metadata()[patchy::kLayerMetadataTextOrientation] = patchy::kTextOrientationVertical;
+  vertical->metadata()[patchy::kLayerMetadataTextParagraphRuns] =
+      "v1\n0\t7\tleft\n7\t6\tleft";
+
+  const std::string tracking_text = "LETTERS AT PLAY";
+  patchy::psd::PsdTextStyleRun tracking_run;
+  tracking_run.length = static_cast<int>(tracking_text.size());
+  tracking_run.family = "Verdana";
+  tracking_run.size = 22;
+  tracking_run.tracking = 220;
+  tracking_run.color = {0xc0, 0xd3, 0xd5};
+  const auto tracking_id = add_readme_warp_text_layer(built, "Tracking / +220", 60, 46, tracking_text,
+      patchy::psd::serialize_patchy_text_runs(std::span(&tracking_run, 1)), 22, "#c0d3d5", 0, 0, 0);
+  auto* tracked = built.find_layer(tracking_id);
+  CHECK(tracked != nullptr);
+  tracked->layer_style().strokes.clear();
+  tracked->layer_style().drop_shadows.clear();
+  tracked->metadata()[patchy::kLayerMetadataTextFont] = "Verdana";
+
+  built.set_active_layer(headline_id);
+  window.add_document_session(std::move(built), QStringLiteral("Type Playground"));
+  close_untitled_start_tab(window);
+  require_action_by_text(window, QStringLiteral("Type"))->trigger();
+  QApplication::processEvents();
+  auto& document = patchy::ui::MainWindowTestAccess::document(window);
+  for (const auto id : {headline_id, flag_id, fisheye_id, twist_id, paragraph_id, vertical_id, tracking_id}) {
+    auto* layer = document.find_layer(id);
+    CHECK(layer != nullptr);
+    CHECK(patchy::ui::MainWindowTestAccess::apply_text_warp(window, *layer, patchy::TextWarp{}));
+    CHECK(std::as_const(*layer).pixels().width() > 1 && std::as_const(*layer).pixels().height() > 1);
+  }
+  const struct { patchy::LayerId id; const char* style; double bend; } word_warps[] = {
+      {flag_id, "warpFlag", 45.0}, {fisheye_id, "warpFisheye", 55.0}, {twist_id, "warpTwist", 60.0}};
   for (const auto& spec : word_warps) {
     auto* layer = document.find_layer(spec.id);
     CHECK(layer != nullptr);
@@ -1200,41 +1329,33 @@ void shot_readme_warp_text() {
   require_canvas(window)->document_changed();
   require_action(window, "viewFitOnScreenAction")->trigger();
   QApplication::processEvents();
-
   bool captured = false;
+  std::exception_ptr error;
   QTimer::singleShot(0, [&] {
     auto* dialog = find_top_level_dialog(QStringLiteral("warpTextDialog"));
-    CHECK(dialog != nullptr);
-    auto* style_combo = dialog->findChild<QComboBox*>(QStringLiteral("warpTextStyleCombo"));
-    auto* bend_spin = dialog->findChild<QSpinBox*>(QStringLiteral("warpTextBendSpin"));
-    CHECK(style_combo != nullptr && bend_spin != nullptr);
-    style_combo->setCurrentIndex(style_combo->findData(QStringLiteral("warpArc")));
-    bend_spin->setValue(42);
-    process_events_for(300);  // let the live preview re-render the headline
-    // Over the empty starfield right of the headline: the style dropdown hangs
-    // over sky the words deliberately stop short of, keeping the dialog, the
-    // canvas text, and the Layers panel all visible at once.
-    const QPoint dialog_offset(920, 130);
-    dialog->move(window.geometry().topLeft() + dialog_offset);
-    QApplication::processEvents();
-    style_combo->showPopup();
-    QApplication::processEvents();
-    auto* popup = style_combo->view()->window();
-    CHECK(popup != nullptr);
-    CHECK(popup->isVisible());
-    reset_readme_status_bar(window);
-    auto base = window.grab().toImage();
-    draw_readme_overlay(base, dialog->grab().toImage(), dialog_offset);
-    const auto popup_offset =
-        dialog_offset + style_combo->mapTo(dialog, QPoint(0, style_combo->height() + 1));
-    draw_readme_overlay(base, popup->grab().toImage(), popup_offset);
-    save_readme_shot("shot_readme_warp_text", base);
-    captured = true;
-    style_combo->hidePopup();
-    dialog->reject();
+    try {
+      CHECK(dialog != nullptr);
+      auto* style_combo = dialog->findChild<QComboBox*>(QStringLiteral("warpTextStyleCombo"));
+      auto* bend_spin = dialog->findChild<QSpinBox*>(QStringLiteral("warpTextBendSpin"));
+      CHECK(style_combo != nullptr && bend_spin != nullptr);
+      style_combo->setCurrentIndex(style_combo->findData(QStringLiteral("warpArc")));
+      bend_spin->setValue(36);
+      process_events_for(300);
+      const QPoint dialog_offset(925, 185);
+      dialog->move(window.geometry().topLeft() + dialog_offset);
+      QApplication::processEvents();
+      reset_readme_status_bar(window);
+      auto base = window.grab().toImage();
+      draw_readme_overlay(base, dialog->grab().toImage(), dialog_offset);
+      save_readme_shot("shot_readme_warp_text", base);
+      captured = true;
+    } catch (...) {
+      error = std::current_exception();
+    }
+    if (dialog != nullptr) dialog->reject();
   });
   patchy::ui::MainWindowTestAccess::request_warp_text_dialog(window);
-  QApplication::processEvents();
+  if (error) std::rethrow_exception(error);
   CHECK(captured);
 }
 
@@ -1729,9 +1850,14 @@ void shot_readme_material_styles() {
   CHECK(captured);
 }
 
-// Smart Filters: convert a photo layer, build a native three-filter recipe,
-// and expose the shared mask plus editable stack in the Layers panel.
+// README hero: a filtered photo with a grouped caption design. Its color wash
+// is a real clipped layer; the photo retains its shared mask and native stack.
+// The color picker and a live Levels adjustment editor complete the workspace.
 void shot_readme_smart_filters() {
+  SettingsValueRestorer picker_tab_restorer(QStringLiteral("colorPanel/lastTab"));
+  SettingsValueRestorer palette_choice_restorer(QStringLiteral("palettes/lastPaletteChoice"));
+  patchy::test::register_test_fonts(patchy::test::TestFontRole::ArialBlack);
+  patchy::test::register_test_fonts(patchy::test::TestFontRole::Verdana);
   const auto path =
       patchy::test::local_psd_fixture_path("akiko_cycling_okinawa.jpg");
   if (!std::filesystem::exists(path)) {
@@ -1739,14 +1865,14 @@ void shot_readme_smart_filters() {
               << path.string() << '\n';
     return;
   }
-  QImage photo(QString::fromStdString(path.string()));
+  QImage photo(patchy::ui::to_qstring(path));
   CHECK(!photo.isNull());
   photo = photo.copy(0, 170, photo.width(), std::min(1180, photo.height() - 170))
               .scaled(900, 760, Qt::KeepAspectRatio, Qt::SmoothTransformation);
   patchy::ui::MainWindow window;
   show_readme_shot_window(window);
   window.add_document_session(patchy::ui::document_from_qimage(photo, "Cyclist"),
-                              QStringLiteral("Editable Smart Filters"));
+                              QStringLiteral("Coastal Ride"));
   QApplication::processEvents();
   close_untitled_start_tab(window);
   require_action(window, "filterConvertForSmartFiltersAction")->trigger();
@@ -1767,77 +1893,82 @@ void shot_readme_smart_filters() {
       const auto nx = static_cast<double>(x - cx) / radius_x;
       const auto ny = static_cast<double>(y - cy) / radius_y;
       const auto distance = std::sqrt(nx * nx + ny * ny);
+      // Protect the cyclist, including her face. Only the surroundings receive
+      // the blur stack; the soft transition avoids a hard cutout edge.
       row[static_cast<std::size_t>(x)] = static_cast<std::uint8_t>(
-          std::clamp((1.08 - distance) * 900.0, 0.0, 255.0));
+          255.0 - std::clamp((1.08 - distance) * 900.0, 0.0, 255.0));
     }
   }
   canvas->replace_selection_from_grayscale(
-      selection, QStringLiteral("Smart Filter portrait mask"));
-  window.repaint();
-  process_events_for(500);
-  const auto header = window.grab().toImage().copy(0, 0, window.width(), 82);
-
+      selection, QStringLiteral("Protect cyclist / soften background"));
   bool applied = false;
+  std::exception_ptr gallery_error;
   QTimer::singleShot(0, [&] {
     auto* dialog = find_top_level_dialog(QStringLiteral("filterGalleryDialog"));
-    CHECK(dialog != nullptr);
-    auto* looks = dialog->findChild<QListWidget*>(
-        QStringLiteral("filterGalleryLooksList"));
-    auto* duplicate = dialog->findChild<QPushButton*>(
-        QStringLiteral("filterGalleryDuplicateEffectButton"));
-    auto* buttons = dialog->findChild<QDialogButtonBox*>(
-        QStringLiteral("filterGalleryButtonBox"));
-    auto* status = dialog->findChild<QLabel*>(
-        QStringLiteral("filterGalleryStatusLabel"));
-    CHECK(looks != nullptr && duplicate != nullptr && buttons != nullptr &&
-          status != nullptr);
-    looks->setCurrentItem(require_readme_gallery_filter_item(
-        *looks, QStringLiteral("patchy.filters.gaussian_blur")));
-    QApplication::processEvents();
-    if (auto* radius = dialog->findChild<QDoubleSpinBox*>(
-            QStringLiteral("filterRadiusSpin"));
-      radius != nullptr) {
-      radius->setValue(1.1);
-    }
-    duplicate->click();
-    QApplication::processEvents();
-    looks->setCurrentItem(require_readme_gallery_filter_item(
-        *looks, QStringLiteral("patchy.filters.dust_and_scratches")));
-    QApplication::processEvents();
-    if (auto* radius = dialog->findChild<QSpinBox*>(
-            QStringLiteral("filterRadiusSpin"));
-      radius != nullptr) {
-      radius->setValue(1);
-    }
-    if (auto* threshold = dialog->findChild<QSpinBox*>(
-            QStringLiteral("filterThresholdSpin"));
+    try {
+      CHECK(dialog != nullptr);
+      auto* looks = dialog->findChild<QListWidget*>(
+          QStringLiteral("filterGalleryLooksList"));
+      auto* duplicate = dialog->findChild<QPushButton*>(
+          QStringLiteral("filterGalleryDuplicateEffectButton"));
+      auto* buttons = dialog->findChild<QDialogButtonBox*>(
+          QStringLiteral("filterGalleryButtonBox"));
+      auto* status = dialog->findChild<QLabel*>(
+          QStringLiteral("filterGalleryStatusLabel"));
+      CHECK(looks != nullptr && duplicate != nullptr && buttons != nullptr &&
+            status != nullptr);
+      looks->setCurrentItem(require_readme_gallery_filter_item(
+          *looks, QStringLiteral("patchy.filters.gaussian_blur")));
+      QApplication::processEvents();
+      if (auto* radius = dialog->findChild<QDoubleSpinBox*>(
+              QStringLiteral("filterRadiusSpin"));
+        radius != nullptr) {
+        radius->setValue(1.1);
+      }
+      duplicate->click();
+      QApplication::processEvents();
+      looks->setCurrentItem(require_readme_gallery_filter_item(
+          *looks, QStringLiteral("patchy.filters.dust_and_scratches")));
+      QApplication::processEvents();
+      if (auto* radius = dialog->findChild<QSpinBox*>(
+              QStringLiteral("filterRadiusSpin"));
+        radius != nullptr) {
+        radius->setValue(1);
+      }
+      if (auto* threshold = dialog->findChild<QSpinBox*>(
+              QStringLiteral("filterThresholdSpin"));
+          threshold != nullptr) {
+        threshold->setValue(12);
+      }
+      duplicate->click();
+      QApplication::processEvents();
+      looks->setCurrentItem(require_readme_gallery_filter_item(
+          *looks, QStringLiteral("patchy.filters.surface_blur")));
+      QApplication::processEvents();
+      if (auto* radius = dialog->findChild<QDoubleSpinBox*>(
+              QStringLiteral("filterRadiusSpin"));
+        radius != nullptr) {
+        radius->setValue(2.2);
+      }
+      if (auto* threshold = dialog->findChild<QSpinBox*>(
+              QStringLiteral("filterThresholdSpin"));
         threshold != nullptr) {
-      threshold->setValue(12);
+        threshold->setValue(20);
+      }
+      CHECK(process_events_until(
+          [&] {
+            return status->text() == QCoreApplication::translate("QObject", "Ready");
+          },
+          15000));
+      applied = true;
+      buttons->button(QDialogButtonBox::Ok)->click();
+    } catch (...) {
+      gallery_error = std::current_exception();
+      if (dialog != nullptr) dialog->reject();
     }
-    duplicate->click();
-    QApplication::processEvents();
-    looks->setCurrentItem(require_readme_gallery_filter_item(
-        *looks, QStringLiteral("patchy.filters.surface_blur")));
-    QApplication::processEvents();
-    if (auto* radius = dialog->findChild<QDoubleSpinBox*>(
-            QStringLiteral("filterRadiusSpin"));
-      radius != nullptr) {
-      radius->setValue(2.2);
-    }
-    if (auto* threshold = dialog->findChild<QSpinBox*>(
-            QStringLiteral("filterThresholdSpin"));
-      threshold != nullptr) {
-      threshold->setValue(20);
-    }
-    CHECK(process_events_until(
-        [&] {
-          return status->text() == QCoreApplication::translate("QObject", "Ready");
-        },
-        15000));
-    applied = true;
-    buttons->button(QDialogButtonBox::Ok)->click();
   });
   require_action(window, "filterGalleryAction")->trigger();
+  if (gallery_error) std::rethrow_exception(gallery_error);
   CHECK(applied);
   CHECK(process_events_until(
       [&] {
@@ -1846,6 +1977,64 @@ void shot_readme_smart_filters() {
       },
       15000));
   canvas->clear_selection();
+  auto& composed = patchy::ui::MainWindowTestAccess::document(window);
+  const QRect face_region(composed.width() * 47 / 100, composed.height() * 21 / 100,
+                          composed.width() * 13 / 100, composed.height() * 14 / 100);
+  const auto filtered_photo = patchy::ui::qimage_from_document(std::as_const(composed), false);
+  CHECK(filtered_photo.copy(face_region).convertToFormat(QImage::Format_RGBA8888) ==
+        photo.copy(face_region).convertToFormat(QImage::Format_RGBA8888));
+  const auto cyclist_id = *composed.active_layer_id();
+  const int caption_y = composed.height() - 178;
+  QImage card(composed.width(), composed.height(), QImage::Format_ARGB32);
+  card.fill(Qt::transparent);
+  {
+    QPainter painter(&card);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(QColor(255, 255, 255, 230));
+    painter.drawRoundedRect(QRectF(32, caption_y, composed.width() - 64, 146), 18, 18);
+  }
+  const auto card_id = composed.add_pixel_layer("Caption card", patchy::ui::pixels_from_image_rgba(card)).id();
+  QImage wash(card.size(), QImage::Format_ARGB32);
+  {
+    QPainter painter(&wash);
+    QLinearGradient gradient(0, 0, wash.width(), 0);
+    gradient.setColorAt(0, QColor("#123443"));
+    gradient.setColorAt(1, QColor("#277d8b"));
+    painter.fillRect(wash.rect(), gradient);
+  }
+  const auto wash_id = composed.add_pixel_layer("Ocean color / clipped", patchy::ui::pixels_from_image_rgba(wash)).id();
+  composed.find_layer(wash_id)->set_clipped(true);
+  const std::string title = "COASTAL RIDE";
+  const auto title_id = add_readme_warp_text_layer(composed, "COASTAL RIDE", 56, caption_y + 24,
+      title, readme_text_runs(title.size(), 48, "#fff7df", "Arial%20Black"), 48, "#fff7df", 0, 0, 0);
+  const std::string subtitle = "OKINAWA  /  A DAY ON TWO WHEELS";
+  const auto subtitle_id = add_readme_warp_text_layer(composed, "Ride details", 60, caption_y + 98,
+      subtitle, readme_text_runs(subtitle.size(), 18, "#d2ebed", "Verdana"), 18, "#d2ebed", 0, 0, 0);
+  composed.find_layer(subtitle_id)->metadata()[patchy::kLayerMetadataTextFont] = "Verdana";
+  for (const auto id : {title_id, subtitle_id}) {
+    auto* layer = composed.find_layer(id);
+    CHECK(layer != nullptr);
+    layer->layer_style().strokes.clear();
+    layer->layer_style().drop_shadows.clear();
+    CHECK(patchy::ui::MainWindowTestAccess::apply_text_warp(window, *layer, patchy::TextWarp{}));
+  }
+  patchy::Layer notes(composed.allocate_layer_id(), "Ride notes", patchy::LayerKind::Group);
+  notes.metadata()[patchy::kLayerMetadataGroupExpanded] = "true";
+  const auto notes_id = notes.id();
+  for (const auto id : {card_id, wash_id, title_id, subtitle_id}) {
+    auto layer = patchy::take_layer_from_tree(composed.layers(), id);
+    CHECK(layer.has_value());
+    notes.children().push_back(std::move(*layer));
+  }
+  composed.add_layer(std::move(notes));
+  composed.set_active_layer(cyclist_id);
+  const auto* group = std::as_const(composed).find_layer(notes_id);
+  CHECK(group != nullptr && group->children().size() == 4);
+  const auto* clip_base = patchy::effective_clip_base(group->children(), 1);
+  CHECK(clip_base != nullptr && clip_base->id() == card_id);
+  patchy::ui::MainWindowTestAccess::refresh_layer_ui(window);
+  canvas->document_changed();
   patchy::ui::MainWindowTestAccess::set_right_dock_stack_width(window, 380);
   require_action(window, "viewFitOnScreenAction")->trigger();
   process_events_for(900);
@@ -1860,12 +2049,69 @@ void shot_readme_smart_filters() {
   reset_readme_status_bar(window);
   window.repaint();
   process_events_for(600);
-  auto image = window.grab().toImage();
-  {
-    QPainter painter(&image);
-    painter.drawImage(0, 0, header);
-  }
-  save_readme_shot("shot_readme_smart_filters", image);
+  CHECK(require_layer_item(*layer_list, QStringLiteral("Ride notes")) != nullptr);
+  CHECK(require_layer_item(*layer_list, QStringLiteral("Ocean color / clipped")) != nullptr);
+
+  // Create an actual adjustment layer at neutral settings, preserving the
+  // photograph. Reopen its editor so the histogram and editable layer coexist.
+  bool levels_created = false;
+  std::exception_ptr levels_error;
+  QTimer::singleShot(0, [&] {
+    auto* dialog = find_top_level_dialog(QStringLiteral("patchyLevelsDialog"));
+    try {
+      CHECK(dialog != nullptr);
+      levels_created = true;
+      dialog->accept();
+    } catch (...) {
+      levels_error = std::current_exception();
+      if (dialog != nullptr) dialog->reject();
+    }
+  });
+  require_action(window, "layerNewLevelsAdjustmentAction")->trigger();
+  if (levels_error) std::rethrow_exception(levels_error);
+  CHECK(levels_created);
+  const auto levels_id = composed.active_layer_id();
+  CHECK(levels_id.has_value());
+  const auto* levels_layer = std::as_const(composed).find_layer(*levels_id);
+  CHECK(levels_layer != nullptr && patchy::layer_is_adjustment(*levels_layer));
+  const auto levels_settings = patchy::adjustment_settings_from_layer(*levels_layer);
+  CHECK(levels_settings.has_value() && levels_settings->kind == patchy::AdjustmentKind::Levels);
+
+  const QPoint picker_offset(18, 220);
+  auto* picker_dialog = open_foreground_picker_for_readme_shot(window, 1, "vga256", picker_offset);
+  auto* picker = picker_dialog->findChild<patchy::ui::PatchyColorPicker*>(
+      QStringLiteral("patchyAdvancedColorPicker"));
+  CHECK(picker != nullptr);
+  picker->setCurrentColor(QColor(0xE0, 0x50, 0x7A));
+  bool captured = false;
+  QTimer::singleShot(0, [&] {
+    auto* dialog = find_top_level_dialog(QStringLiteral("patchyLevelsDialog"));
+    try {
+      CHECK(dialog != nullptr);
+      auto* preview = dialog->findChild<QCheckBox*>(QStringLiteral("levelsPreviewCheck"));
+      CHECK(preview != nullptr && preview->isChecked());
+      const QPoint levels_offset(window.width() - 380 - dialog->width() - 18, 220);
+      dialog->move(window.geometry().topLeft() + levels_offset);
+      process_events_for(400);
+      const auto preview_image = patchy::ui::qimage_from_document(std::as_const(composed), false);
+      CHECK(preview_image.copy(face_region).convertToFormat(QImage::Format_RGBA8888) ==
+            photo.copy(face_region).convertToFormat(QImage::Format_RGBA8888));
+      reset_readme_status_bar(window);
+      auto base = window.grab().toImage();
+      draw_readme_overlay(base, picker_dialog->grab().toImage(), picker_offset);
+      draw_readme_overlay(base, dialog->grab().toImage(), levels_offset);
+      save_readme_shot("shot_readme_smart_filters", base);
+      captured = true;
+    } catch (...) {
+      levels_error = std::current_exception();
+    }
+    if (dialog != nullptr) dialog->reject();
+  });
+  require_action(window, "layerEditAdjustmentAction")->trigger();
+  picker_dialog->close();
+  QApplication::processEvents();
+  if (levels_error) std::rethrow_exception(levels_error);
+  CHECK(captured);
 }
 
 // Camera Raw: a real CC0 raw.pixls.us sample in the full develop dialog.
@@ -2057,12 +2303,19 @@ patchy::LayerStyleGradient readme_vector_gradient(
 
 // Vector tools: a flat sunset poster built layer by layer with the real shape
 // tools - gradient-filled sky and sun, two pen-drawn mountain ridges,
-// custom-shape pines, stars, and a ring moon - captured with Direct Select
-// showing the front ridge's anchors and the Paths panel floating beside the
-// canvas with the saved cloud path, the work path, and the ridge's shape path.
+// custom shapes, and a rounded gradient badge with a dashed pattern stroke.
+// Direct Select and the Paths panel expose the front ridge's editable anchors.
 void shot_readme_vector_tools() {
   VectorSettingsGuard vector_guard;
   SettingsValueRestorer custom_shape_restorer(QStringLiteral("tools/customShapeId"));
+  SettingsValueRestorer pattern_version_restorer(QStringLiteral("patterns/defaultPatternsVersion"));
+  patchy::test::register_test_fonts(patchy::test::TestFontRole::ArialBlack);
+  clear_pattern_test_state();
+  {
+    auto settings = patchy::ui::app_settings();
+    settings.setValue(QStringLiteral("patterns/defaultPatternsVersion"), 0);
+    settings.sync();
+  }
   patchy::ui::MainWindow window;
   show_readme_shot_window(window);
   patchy::Document poster(1180, 780, patchy::PixelFormat::rgb8());
@@ -2191,6 +2444,71 @@ void shot_readme_vector_tools() {
   stamp_cluster("shape.builtin.ring", QColor(0xff, 0xe9, 0xa8), "Moon",
                 {{QPoint(880, 90), QPoint(985, 195)}});
 
+  // Add the appearance examples to the same artwork. Editing options on a
+  // selected shape would restyle it, so select the raster background first.
+  patchy::ui::MainWindowTestAccess::refresh_layer_ui(window);
+  auto* shape_layers = window.findChild<QListWidget*>(QStringLiteral("layerList"));
+  CHECK(shape_layers != nullptr);
+  shape_layers->setCurrentItem(require_layer_item(*shape_layers, QStringLiteral("Background")));
+  require_action_by_text(window, QStringLiteral("Rect"))->trigger();
+  QApplication::processEvents();
+  radius_spin->setValue(32);
+  auto* stroke_check = window.findChild<QCheckBox*>(QStringLiteral("vectorStrokeCheck"));
+  auto* stroke_width = window.findChild<QDoubleSpinBox*>(QStringLiteral("vectorStrokeWidthSpin"));
+  CHECK(stroke_check != nullptr && stroke_width != nullptr);
+  stroke_check->setChecked(true);
+  stroke_width->setValue(8.0);
+  set_gradient_fill(readme_vector_gradient({{0.0, QColor("#efaa53")}, {1.0, QColor("#fff0bd")}},
+                                           patchy::LayerStyleGradientType::Linear, 90.0F));
+  auto& stroke_paint = patchy::ui::MainWindowTestAccess::current_vector_stroke_paint(window);
+  stroke_paint = patchy::VectorFill{};
+  stroke_paint.kind = patchy::VectorFillKind::Pattern;
+  stroke_paint.pattern_id = "f0705a00-000c-4c8b-9e3d-2a5b6c77e00c";
+  stroke_paint.pattern_name = "Coarse Rust";
+  CHECK(window.pattern_library().find_entry_by_pattern_id(
+      QString::fromStdString(stroke_paint.pattern_id)) != nullptr);
+  patchy::ui::MainWindowTestAccess::update_vector_swatch_icons(window);
+  readme_shape_drag(*canvas, QPoint(64, 68), QPoint(344, 245));
+  rename_active("Rounded badge / patterned dashes");
+  const auto badge_id = *document.active_layer_id();
+  auto badge_layer = patchy::take_layer_from_tree(document.layers(), badge_id);
+  CHECK(badge_layer.has_value());
+  document.add_layer(std::move(*badge_layer));
+  patchy::ui::MainWindowTestAccess::refresh_layer_ui(window);
+  std::exception_ptr appearance_error;
+  bool badge_styled = false;
+  QTimer::singleShot(0, [&] {
+    auto* dialog = find_top_level_dialog(QStringLiteral("shapeAppearanceDialog"));
+    try {
+      CHECK(dialog != nullptr);
+      auto* dashes = dialog->findChild<QComboBox*>(QStringLiteral("shapeStrokeDashCombo"));
+      CHECK(dashes != nullptr);
+      dashes->setCurrentIndex(1);
+      badge_styled = true;
+      dialog->accept();
+    } catch (...) {
+      appearance_error = std::current_exception();
+      if (dialog != nullptr) dialog->reject();
+    }
+  });
+  patchy::ui::MainWindowTestAccess::edit_active_shape_appearance(window);
+  if (appearance_error) std::rethrow_exception(appearance_error);
+  CHECK(badge_styled);
+  const auto* badge = std::as_const(document).find_layer(badge_id);
+  CHECK(badge != nullptr && badge->vector_shape() != nullptr);
+  CHECK(!badge->vector_shape()->stroke.dashes.empty());
+  const auto label_id = add_readme_warp_text_layer(document, "GOLDEN HOUR", 99, 103, "GOLDEN\nHOUR",
+      readme_text_runs(11, 38, "#4a2b68", "Arial%20Black"), 38, "#4a2b68", 0, 0, 0);
+  auto* label = document.find_layer(label_id);
+  CHECK(label != nullptr);
+  label->layer_style().strokes.clear();
+  label->layer_style().drop_shadows.clear();
+  CHECK(patchy::ui::MainWindowTestAccess::apply_text_warp(window, *label, patchy::TextWarp{}));
+  // Return to a shape before the Path-mode gestures below.
+  document.set_active_layer(front_ridge_id);
+  patchy::ui::MainWindowTestAccess::refresh_layer_ui(window);
+  canvas->document_changed();
+
   // A cloud path drawn in Path mode and saved (double-click promotes the work
   // path), then a fresh work-path halo around the sun, so the panel lists a
   // saved path, the work path, and the active layer's shape path together.
@@ -2259,8 +2577,8 @@ void shot_readme_vector_tools() {
   auto* paths_dock = window.findChild<QDockWidget*>(QStringLiteral("pathsDock"));
   CHECK(paths_dock != nullptr);
   paths_dock->setFloating(true);
-  paths_dock->resize(300, 320);
-  const QPoint paths_offset(64, 246);
+  paths_dock->resize(300, 255);
+  const QPoint paths_offset(64, 615);
   paths_dock->move(window.geometry().topLeft() + paths_offset);
   paths_dock->show();
   paths_dock->raise();
@@ -2277,6 +2595,7 @@ void shot_readme_vector_tools() {
   // Rulers persist to view settings on window teardown; restore the clean state.
   rulers_action->trigger();
   QApplication::processEvents();
+  clear_pattern_test_state();
 }
 
 // Shape appearance: a badge composition (ring accent, gradient rounded-rect
@@ -2590,5 +2909,6 @@ std::vector<patchy::test::TestCase> readme_screenshot_tests_part1() {
       {"shot_readme_vector_tools", shot_readme_vector_tools},
       {"shot_readme_shape_appearance", shot_readme_shape_appearance},
       {"shot_readme_svg_import", shot_readme_svg_import},
+      {"shot_readme_long_shadow", shot_readme_long_shadow},
   };
 }

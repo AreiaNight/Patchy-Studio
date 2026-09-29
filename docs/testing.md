@@ -78,13 +78,18 @@ Offscreen does not clear `QApplication::keyboardModifiers()` after synthetic key
 
 `scripts\make-readme-screenshots.ps1` regenerates `docs/images/screenshots/`. Two pipelines:
 
+The current showcase, per-image inputs, and regeneration commands are listed in
+[readme-showcase.md](readme-showcase.md). KPT is an explicit driver scene
+(`-Scene plugin_kpt5`, or `-IncludeLegacyPlugins` for a full run) using an isolated
+portable host and fixture copy. It combines direct Patchy and plug-in window
+captures; neither source is a desktop screenshot.
+
 - **Script-driven scenes** (`scripts/dev/readme-shots/*.js`, listed in the driver's
   `$jsScenes` table): a fresh unattended `patchy.exe --run-script` run stages the UI with the
   `patchy.ui` staging APIs (setWindowSize/setSidePanelWidth/captureWindow/setStatusMessage,
   plus the activeLayer panel reveal) on the REAL windows platform, so every installed font
-  renders. Offscreen enumerates no installed fonts, which is why any scene whose document
-  needs non-stock faces (the Affinity tips.af scene's Futura BT and FZ Script families) must
-  live in this pipeline. The driver pins DPI (`QT_ENABLE_HIGHDPI_SCALING=0`, `QT_FONT_DPI=96`),
+  renders. Offscreen enumerates no installed fonts, so scenes needing unregistered
+  installed faces use this pipeline. The driver pins DPI (`QT_ENABLE_HIGHDPI_SCALING=0`, `QT_FONT_DPI=96`),
   sets `PATCHY_NO_SINGLE_INSTANCE=1`, and isolates settings with `PATCHY_SETTINGS_DIR` (an
   app-level env hook in src/app/main.cpp that redirects the ini-backed `app_settings()` store)
   so a run never touches the user's real Patchy state. The app window appears on screen for a
@@ -96,7 +101,8 @@ Offscreen does not clear `QApplication::keyboardModifiers()` after synthetic key
   artifact whose scene has a script-driven owner). Scenes that picture a modal dialog the
   scripting surface cannot open stay here permanently: `shot_readme_image_trace` captures the
   Trace Image to Shapes dialog, which `layer.traceToShapes` bypasses and `app.runCommand`
-  would block a script on.
+  would block a script on; `shot_readme_long_shadow` opens the Layer Style dialog
+  beside generated editable text with a live continuous shadow.
 
 One scene is invoked separately: `scripts/dev/readme-shots/plugin-dialog.js` produces
 `docs/images/screenshots/plugin_dialog.png`, the dialog of a third-party 8bf plug-in
