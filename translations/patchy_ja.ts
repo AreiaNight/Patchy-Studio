@@ -8621,6 +8621,41 @@ Mixed selection</source>
     </message>
 </context>
 <context>
+    <name>ThemeFile</name>
+    <message>
+        <source>Not a valid theme file: %1</source>
+        <translation>有効なテーマファイルではありません: %1</translation>
+    </message>
+    <message>
+        <source>the top level is not an object</source>
+        <translation>最上位がオブジェクトではありません</translation>
+    </message>
+    <message>
+        <source>Theme file format %1 is not supported by this build (expected %2).</source>
+        <translation>テーマファイル形式 %1 はこのビルドでは対応していません（想定: %2）。</translation>
+    </message>
+    <message>
+        <source>Theme file is missing a valid &quot;base&quot; (must be &quot;dark&quot; or &quot;light&quot;).</source>
+        <translation>テーマファイルに有効な &quot;base&quot; がありません（&quot;dark&quot; または &quot;light&quot; が必要です）。</translation>
+    </message>
+    <message>
+        <source>Theme file&apos;s &quot;roles&quot; is not an object.</source>
+        <translation>テーマファイルの &quot;roles&quot; がオブジェクトではありません。</translation>
+    </message>
+    <message>
+        <source>Unknown color role &quot;%1&quot; (ignored).</source>
+        <translation>不明なカラーロール &quot;%1&quot;（無視されます）。</translation>
+    </message>
+    <message>
+        <source>Invalid color &quot;%1&quot; for role &quot;%2&quot; (expected #RRGGBB or #RRGGBBAA).</source>
+        <translation>ロール &quot;%2&quot; の色 &quot;%1&quot; が無効です（#RRGGBB または #RRGGBBAA が必要です）。</translation>
+    </message>
+    <message>
+        <source>Theme file &quot;%1&quot; could not be read.</source>
+        <translation>テーマファイル &quot;%1&quot; を読み込めませんでした。</translation>
+    </message>
+</context>
+<context>
     <name>VectorPreview</name>
     <message>
         <source>Dynamic Vector Preview: using the document&apos;s pixel view.</source>
@@ -17827,6 +17862,75 @@ Clipped to the layer below</source>
     <message>
         <source>Plug-ins work on one layer at a time. Select a single layer and run it again.</source>
         <translation>プラグインは一度に 1 つのレイヤーにしか適用できません。レイヤーを 1 つだけ選択してから、もう一度実行してください。</translation>
+    </message>
+    <message>
+        <source>Import Theme...</source>
+        <translation>テーマを読み込み...</translation>
+    </message>
+    <message>
+        <source>Export Theme...</source>
+        <translation>テーマを書き出し...</translation>
+    </message>
+    <message>
+        <source>Reload Themes</source>
+        <translation>テーマを再読み込み</translation>
+    </message>
+    <message>
+        <source>Re-read the theme files in the themes folder and apply the selected one.</source>
+        <translation>テーマフォルダー内のテーマファイルを再読み込みし、選択中のテーマを適用します。</translation>
+    </message>
+    <message>
+        <source>Delete Theme...</source>
+        <translation>テーマを削除...</translation>
+    </message>
+    <message>
+        <source>Open Themes Folder</source>
+        <translation>テーマフォルダーを開く</translation>
+    </message>
+    <message>
+        <source>Could not open the themes folder.</source>
+        <translation>テーマフォルダーを開けませんでした。</translation>
+    </message>
+    <message>
+        <source>Delete Theme</source>
+        <translation>テーマを削除</translation>
+    </message>
+    <message>
+        <source>Delete the theme &quot;%1&quot;? Its file is removed from the themes folder.</source>
+        <translation>テーマ &quot;%1&quot; を削除しますか？ファイルはテーマフォルダーから削除されます。</translation>
+    </message>
+    <message>
+        <source>Could not delete &quot;%1&quot;.</source>
+        <translation>&quot;%1&quot; を削除できませんでした。</translation>
+    </message>
+    <message>
+        <source>Import Theme</source>
+        <translation>テーマを読み込み</translation>
+    </message>
+    <message>
+        <source>Patchy theme (*.patchytheme)</source>
+        <translation>Patchy テーマ (*.patchytheme)</translation>
+    </message>
+    <message>
+        <source>Could not open &quot;%1&quot;.</source>
+        <translation>「%1」を開けませんでした。</translation>
+    </message>
+    <message>
+        <source>Could not create the themes folder.</source>
+        <translation>テーマフォルダーを作成できませんでした。</translation>
+    </message>
+    <message>
+        <source>Theme</source>
+        <comment>Default file name offered when exporting a theme; the save dialog appends the extension.</comment>
+        <translation>テーマ</translation>
+    </message>
+    <message>
+        <source>Export Theme</source>
+        <translation>テーマを書き出し</translation>
+    </message>
+    <message>
+        <source>%1 (built-in)</source>
+        <translation>%1（内蔵）</translation>
     </message>
 </context>
 <context>

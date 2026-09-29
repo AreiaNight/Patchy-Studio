@@ -202,6 +202,7 @@ flatpak install --user -y flathub org.freedesktop.Platform.ffmpeg-full//24.08
 - Built with C++ and Qt for a native desktop experience. No GPU used, should run on a potato
 - Privacy: YES! Absolutely no telemetry, no tracking, no data collection (if update checks are enabled, it contacts GitHub only to check for a newer version). Settings live in a plain local file, and the installer doesn't screw with your file extension preferences
 - Localized in English, German, Spanish, French, Italian, Japanese, and Chinese (Simplified and Traditional); the language follows your system or can be changed in File->Preferences
+- UI themes: Dark, Light, seven bundled themes (Darkest, Medium Gray, Solarized Dark, Nord, Dracula, Gruvbox Dark, High Contrast), or your own. A theme is a small JSON file (`.patchytheme`) that names a base scheme and overrides any of the interface colors, icon tints included; File->Preferences imports it and keeps it in your app-data themes folder (Open Themes Folder shows where). Start from [themes/example-high-contrast.patchytheme](themes/example-high-contrast.patchytheme) or export the current look, which writes every color so you can see the role names; colors you leave out keep the base scheme's value, and Reload Themes applies an edit without restarting
 
 ## What's New
 
@@ -394,6 +395,6 @@ Also, note that certain features are crippled or not included due to Adobe paten
 
 Created by Seth A. Robinson - [Homepage](https://www.rtsoft.com/) | [Blog](https://www.codedojo.com/) | [Twitter](https://twitter.com/rtsoft) | [Bluesky](https://bsky.app/profile/rtsoft.com) | [Mastodon](https://mastodon.gamedev.place/@rtsoft)
 
-Code contributions from [mcapogna](https://github.com/mcapogna), [csbun](https://github.com/csbun), and [ifloppy](https://github.com/ifloppy)
+Code contributions from [mcapogna](https://github.com/mcapogna), [csbun](https://github.com/csbun), [ifloppy](https://github.com/ifloppy), and [lucastucious](https://github.com/lucastucious)
 
 Photo "akiko_cycling_okinawa" (seen in the screenshots) by Seth A. Robinson

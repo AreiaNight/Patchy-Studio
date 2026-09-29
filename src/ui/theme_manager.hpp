@@ -13,6 +13,7 @@
 // the color picker, native title bars) agree with the app. That call is a no-op
 // under the offscreen platform, so it cannot move any pinned test color.
 
+#include "ui/theme_file.hpp"
 #include "ui/theme_palette.hpp"
 
 #include <QObject>
@@ -42,10 +43,31 @@ class ThemeManager : public QObject {
 
   // persist == false previews the scheme without touching settings, which is how
   // the Preferences combo shows a choice before the dialog is accepted.
+  //
+  // Also clears any active custom theme: a built-in preference and a custom
+  // theme are mutually exclusive, and switching to a built-in one always wins.
   void set_preference(ColorSchemePreference preference, bool persist);
 
-  // Reads the saved preference and applies it. Called once at startup, after
-  // QSettings::setPath so PATCHY_SETTINGS_DIR isolation holds.
+  // Applies a user-imported theme (see theme_file.hpp). `id` is the theme
+  // file's name within user_themes_directory(), persisted so
+  // load_saved_preference() can find it again; it does not touch the
+  // preferences/colorScheme preference, which stays as the fallback if the
+  // custom theme is ever cleared or its file goes missing.
+  //
+  // persist == false previews the theme without touching settings, matching
+  // set_preference.
+  void set_custom_theme(const QString& id, const CustomTheme& theme, bool persist);
+
+  // Reverts to the built-in scheme selected by the current preference(). A
+  // no-op when no custom theme is active.
+  void clear_custom_theme(bool persist);
+
+  // Empty when a built-in scheme is active.
+  [[nodiscard]] std::optional<QString> active_custom_theme_id() const { return active_custom_id_; }
+
+  // Reads the saved preference (and, if one was saved, the custom theme) and
+  // applies them. Called once at startup, after QSettings::setPath so
+  // PATCHY_SETTINGS_DIR isolation holds.
   void load_saved_preference();
 
   // Test seam. The offscreen platform reports Qt::ColorScheme::Unknown and never
@@ -66,6 +88,7 @@ class ThemeManager : public QObject {
 
   ColorSchemePreference preference_ = ColorSchemePreference::FollowSystem;
   std::optional<Qt::ColorScheme> system_scheme_override_;
+  std::optional<QString> active_custom_id_;
 };
 
 }  // namespace patchy::ui

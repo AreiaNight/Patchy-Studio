@@ -8639,6 +8639,41 @@ RGB: %2, %3, %4</source>
     </message>
 </context>
 <context>
+    <name>ThemeFile</name>
+    <message>
+        <source>Not a valid theme file: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>the top level is not an object</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Theme file format %1 is not supported by this build (expected %2).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Theme file is missing a valid &quot;base&quot; (must be &quot;dark&quot; or &quot;light&quot;).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Theme file&apos;s &quot;roles&quot; is not an object.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unknown color role &quot;%1&quot; (ignored).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Invalid color &quot;%1&quot; for role &quot;%2&quot; (expected #RRGGBB or #RRGGBBAA).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Theme file &quot;%1&quot; could not be read.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>VectorPreview</name>
     <message>
         <source>Dynamic Vector Preview: using the document&apos;s pixel view.</source>
@@ -17832,6 +17867,75 @@ Y: %2
     </message>
     <message>
         <source>Plug-ins work on one layer at a time. Select a single layer and run it again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Import Theme...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Export Theme...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reload Themes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Re-read the theme files in the themes folder and apply the selected one.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete Theme...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open Themes Folder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not open the themes folder.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete Theme</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete the theme &quot;%1&quot;? Its file is removed from the themes folder.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not delete &quot;%1&quot;.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Import Theme</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Patchy theme (*.patchytheme)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not open &quot;%1&quot;.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not create the themes folder.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Theme</source>
+        <comment>Default file name offered when exporting a theme; the save dialog appends the extension.</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Export Theme</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 (built-in)</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -1166,6 +1166,8 @@ ${PATCHY_LUPDATE_MANIFEST_SOURCES}
       src/ui/style_library.cpp
       src/ui/style_manager_dialog.hpp
       src/ui/style_manager_dialog.cpp
+      src/ui/theme_file.hpp
+      src/ui/theme_file.cpp
       src/ui/theme_manager.hpp
       src/ui/theme_manager.cpp
       src/ui/theme_palette.hpp
@@ -1203,6 +1205,7 @@ ${PATCHY_LUPDATE_MANIFEST_SOURCES}
       src/ui/zoom_status_bar.cpp
       src/ui/icons.qrc
       src/ui/textures.qrc
+      src/ui/themes.qrc
     )
     # The print dialog TU is the one QtPrintSupport user; Qt ships no
     # PrintSupport for wasm, so that build compiles the stub TU instead

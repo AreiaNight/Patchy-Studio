@@ -8648,6 +8648,41 @@ RGB: %2, %3, %4</translation>
     </message>
 </context>
 <context>
+    <name>ThemeFile</name>
+    <message>
+        <source>Not a valid theme file: %1</source>
+        <translation>Keine gültige Design-Datei: %1</translation>
+    </message>
+    <message>
+        <source>the top level is not an object</source>
+        <translation>die oberste Ebene ist kein Objekt</translation>
+    </message>
+    <message>
+        <source>Theme file format %1 is not supported by this build (expected %2).</source>
+        <translation>Das Design-Dateiformat %1 wird von dieser Version nicht unterstützt (erwartet: %2).</translation>
+    </message>
+    <message>
+        <source>Theme file is missing a valid &quot;base&quot; (must be &quot;dark&quot; or &quot;light&quot;).</source>
+        <translation>Der Design-Datei fehlt ein gültiges &quot;base&quot; (muss &quot;dark&quot; oder &quot;light&quot; sein).</translation>
+    </message>
+    <message>
+        <source>Theme file&apos;s &quot;roles&quot; is not an object.</source>
+        <translation>Das &quot;roles&quot; der Design-Datei ist kein Objekt.</translation>
+    </message>
+    <message>
+        <source>Unknown color role &quot;%1&quot; (ignored).</source>
+        <translation>Unbekannte Farbrolle &quot;%1&quot; (ignoriert).</translation>
+    </message>
+    <message>
+        <source>Invalid color &quot;%1&quot; for role &quot;%2&quot; (expected #RRGGBB or #RRGGBBAA).</source>
+        <translation>Ungültige Farbe &quot;%1&quot; für Rolle &quot;%2&quot; (erwartet #RRGGBB oder #RRGGBBAA).</translation>
+    </message>
+    <message>
+        <source>Theme file &quot;%1&quot; could not be read.</source>
+        <translation>Die Design-Datei &quot;%1&quot; konnte nicht gelesen werden.</translation>
+    </message>
+</context>
+<context>
     <name>VectorPreview</name>
     <message>
         <source>Dynamic Vector Preview: using the document&apos;s pixel view.</source>
@@ -17879,6 +17914,75 @@ Y: %2
     <message>
         <source>Plug-ins work on one layer at a time. Select a single layer and run it again.</source>
         <translation>Plug-ins arbeiten mit jeweils einer Ebene. Wählen Sie eine einzelne Ebene aus und führen Sie es erneut aus.</translation>
+    </message>
+    <message>
+        <source>Import Theme...</source>
+        <translation>Design importieren...</translation>
+    </message>
+    <message>
+        <source>Export Theme...</source>
+        <translation>Design exportieren...</translation>
+    </message>
+    <message>
+        <source>Reload Themes</source>
+        <translation>Designs neu laden</translation>
+    </message>
+    <message>
+        <source>Re-read the theme files in the themes folder and apply the selected one.</source>
+        <translation>Liest die Design-Dateien im Design-Ordner neu ein und wendet das ausgewählte an.</translation>
+    </message>
+    <message>
+        <source>Delete Theme...</source>
+        <translation>Design löschen...</translation>
+    </message>
+    <message>
+        <source>Open Themes Folder</source>
+        <translation>Design-Ordner öffnen</translation>
+    </message>
+    <message>
+        <source>Could not open the themes folder.</source>
+        <translation>Der Design-Ordner konnte nicht geöffnet werden.</translation>
+    </message>
+    <message>
+        <source>Delete Theme</source>
+        <translation>Design löschen</translation>
+    </message>
+    <message>
+        <source>Delete the theme &quot;%1&quot;? Its file is removed from the themes folder.</source>
+        <translation>Design &quot;%1&quot; löschen? Die Datei wird aus dem Design-Ordner entfernt.</translation>
+    </message>
+    <message>
+        <source>Could not delete &quot;%1&quot;.</source>
+        <translation>&quot;%1&quot; konnte nicht gelöscht werden.</translation>
+    </message>
+    <message>
+        <source>Import Theme</source>
+        <translation>Design importieren</translation>
+    </message>
+    <message>
+        <source>Patchy theme (*.patchytheme)</source>
+        <translation>Patchy-Design (*.patchytheme)</translation>
+    </message>
+    <message>
+        <source>Could not open &quot;%1&quot;.</source>
+        <translation>&quot;%1&quot; konnte nicht geöffnet werden.</translation>
+    </message>
+    <message>
+        <source>Could not create the themes folder.</source>
+        <translation>Der Design-Ordner konnte nicht erstellt werden.</translation>
+    </message>
+    <message>
+        <source>Theme</source>
+        <comment>Default file name offered when exporting a theme; the save dialog appends the extension.</comment>
+        <translation>Design</translation>
+    </message>
+    <message>
+        <source>Export Theme</source>
+        <translation>Design exportieren</translation>
+    </message>
+    <message>
+        <source>%1 (built-in)</source>
+        <translation>%1 (integriert)</translation>
     </message>
 </context>
 <context>
