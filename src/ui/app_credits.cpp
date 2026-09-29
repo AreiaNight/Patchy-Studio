@@ -18,6 +18,7 @@ QString code_contributors_link_html(const QString& link_color) {
       {"mcapogna", "https://github.com/mcapogna"},
       {"csbun", "https://github.com/csbun"},
       {"ifloppy", "https://github.com/ifloppy"},
+      {"lucastucious", "https://github.com/lucastucious"},
   };
 
   QStringList links;

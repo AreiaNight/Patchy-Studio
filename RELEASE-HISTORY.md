@@ -3,6 +3,19 @@
 Older Patchy release notes are collected here. The two most recent releases
 remain in [README.md](README.md#whats-new).
 
+## 0.99 - September 25, 2026
+
+- Automatic document recovery: a recovery copy of every modified document is written every 10 minutes (Preferences > Application sets the interval or turns it off). After a crash, a kill, or a power cut, the next launch reopens them as "(Recovered)" documents. Saving also writes to a temporary file first and swaps it in, so a crash or a full disk mid-save can no longer damage the original
+- Files as Layers: drop image files on the Layers panel, use File > Import > Files as Layers, or paste copied files, and each file becomes its own layer, with a cancellable progress dialog for big batches (issue 25)
+- Fill (paint bucket) tool: Tolerance and Contiguous options in the options bar, and Opacity and Soft now actually apply to the fill (issue 30)
+- Remove Object: the Reroll button, Tone match slider, and Edge feather setting the 0.98 notes described ship in this build (they missed the 0.98 packages), plus a Duplicate to New Layer option, and the fill runs on a worker thread so the dialog stays responsive and cancels cleanly
+- Layers panel: F2 or a double-click on the name renames a layer in place, and double-clicking a shape layer's row opens Layer Style like every other row
+- Imported Photoshop text renders pixel-exact against Photoshop on all three font engines, and glyph ink that overhangs the advance box is kept, so an unchanged edit of imported PSD text no longer shifts it (issue 20)
+- Scripting: setting layer.text keeps the first character's formatting, so retyped Photoshop layers commit at their interactive size
+- Downloads come from GitHub Releases now, with rtsoft.com as a mirror, and the in-app update check points there (issue 26)
+- The user-data folder moved from "Seth A. Robinson" to "RTsoft" (migrated automatically on first launch); the About dialog shows where it is
+- Options bar number boxes size themselves to their widest value, so the Fill tool's Tolerance no longer clips at 255
+
 ## 0.98 - September 24, 2026
 
 - The right mouse button now opens context menus on the canvas instead of panning.  (middle mouse button or holding space bar still pans)

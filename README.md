@@ -138,7 +138,7 @@ These are corpus-specific results, not universal product ratings. See the [full 
 
 ## Download
 
-**Latest release: 1.00** · September 27, 2026 · [Release notes](#whats-new) · [All releases](https://github.com/SethRobinson/Patchy/releases)
+**Latest release: 1.01** · September 29, 2026 · [Release notes](#whats-new) · [All releases](https://github.com/SethRobinson/Patchy/releases)
 
 Windows releases are code signed by Seth A. Robinson; the macOS app is signed and
 notarized (Robinson Technologies Corporation). Every release is published on the
@@ -206,9 +206,26 @@ flatpak install --user -y flathub org.freedesktop.Platform.ffmpeg-full//24.08
 
 ## What's New
 
+### 1.01 - September 29, 2026
+
+- UI themes! Dark, Light, seven bundled ones (Solarized, Nord, Dracula, Gruvbox and more) or make your own with a small `.patchytheme` file. Big thanks to [@lucastucious](https://github.com/lucastucious) for the theme system
+- Classic Photoshop .8bf filter plug-ins now run on Windows, 32-bit and 64-bit (Filter Foundry, Mehdi's filters, even Kai's Power Tools 5 works). Drop them in the plug-ins folder and they show up in the new Plugins menu
+- Scrubby labels: drag the label next to any number field to change its value, like Photoshop (issue 46)
+- Right-click the gray area around the canvas to change its color (issue 47)
+- Shift+letter cycles through a tool flyout, so Shift+M flips between the marquee tools and so on (issue 45)
+- Canvas Size uses real units now
+- Photoshop 5.x era text layers open as editable text instead of pixels
+- Grayscale PSDs open as RGB instead of coming out garbled (issue 39)
+- Duplicate Layer puts the copy directly above the original (issue 38)
+- Layer effects on a clipping base draw over the clipped layers, the way Photoshop does it (issue 41), and size 0 Inner Shadow and Inner Glow render like Photoshop too
+- Size sliders spend most of the track on the small values, so tiny brushes are easier to hit
+- Better font matching for PSD text (fonts are looked up by their real names), and user-added fonts work on the Mac under their Windows names
+- macOS: quitting no longer freezes when a network drive or a DNS lookup is stuck (issue 48)
+- Progress dialogs always pop up centered on the window
+
 ### 1.00 - September 27, 2026
 
-- A lot of work on the text engine, better compatibility with Photoshop, a new "Paragraph" panel with indentation optio
+- A lot of work on the text engine, better compatibility with Photoshop, a new "Paragraph" panel with indentation options
 - New Paragraph panel (Paragraph... in the Type tool's options bar): alignment, first line and left/right indents, and space before and after, all of which round-trip to Photoshop
 - Text options bar: font, size, face, smoothing, alignment, and color apply to every selected text layer without entering an edit session, and the Character panel edits all selected layers as one undo step (issue 31)
 - Smart Objects: Layer > Smart Objects > Convert to Layers unpacks the contents into a group in the Smart Object's place (issue 35)
@@ -222,19 +239,6 @@ flatpak install --user -y flathub org.freedesktop.Platform.ffmpeg-full//24.08
 - Windows: launching Patchy while it is already running (or double-clicking a file) now brings the open window to the front instead of only flashing its taskbar button, and focuses any dialog that is open
 - The recent files list no longer stalls startup or the File menu when entries sit on slow or disconnected network drives
 - Scripting/MCP improvements: text layers with mixed fonts, sizes, and colors in one layer, paragraph boxes and alignment (`addTextLayer`, `textRuns`, `setTextRuns`, `textBox`, `textAlign`, `textParagraph`), `app.listFonts()`, and headless runs see installed fonts
-
-### 0.99 - September 25, 2026
-
-- Automatic document recovery: a recovery copy of every modified document is written every 10 minutes (Preferences > Application sets the interval or turns it off). After a crash, a kill, or a power cut, the next launch reopens them as "(Recovered)" documents. Saving also writes to a temporary file first and swaps it in, so a crash or a full disk mid-save can no longer damage the original
-- Files as Layers: drop image files on the Layers panel, use File > Import > Files as Layers, or paste copied files, and each file becomes its own layer, with a cancellable progress dialog for big batches (issue 25)
-- Fill (paint bucket) tool: Tolerance and Contiguous options in the options bar, and Opacity and Soft now actually apply to the fill (issue 30)
-- Remove Object: the Reroll button, Tone match slider, and Edge feather setting the 0.98 notes described ship in this build (they missed the 0.98 packages), plus a Duplicate to New Layer option, and the fill runs on a worker thread so the dialog stays responsive and cancels cleanly
-- Layers panel: F2 or a double-click on the name renames a layer in place, and double-clicking a shape layer's row opens Layer Style like every other row
-- Imported Photoshop text renders pixel-exact against Photoshop on all three font engines, and glyph ink that overhangs the advance box is kept, so an unchanged edit of imported PSD text no longer shifts it (issue 20)
-- Scripting: setting layer.text keeps the first character's formatting, so retyped Photoshop layers commit at their interactive size
-- Downloads come from GitHub Releases now, with rtsoft.com as a mirror, and the in-app update check points there (issue 26)
-- The user-data folder moved from "Seth A. Robinson" to "RTsoft" (migrated automatically on first launch); the About dialog shows where it is
-- Options bar number boxes size themselves to their widest value, so the Fill tool's Tolerance no longer clips at 255
 
 [Older releases](RELEASE-HISTORY.md)
 

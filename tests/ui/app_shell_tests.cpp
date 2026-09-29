@@ -3633,6 +3633,8 @@ void ui_about_dialog_shows_labeled_external_links() {
     CHECK(contributors->text().contains(QStringLiteral(">csbun</a>")));
     CHECK(contributors->text().contains(QStringLiteral("href=\"https://github.com/ifloppy\"")));
     CHECK(contributors->text().contains(QStringLiteral(">ifloppy</a>")));
+    CHECK(contributors->text().contains(QStringLiteral("href=\"https://github.com/lucastucious\"")));
+    CHECK(contributors->text().contains(QStringLiteral(">lucastucious</a>")));
     CHECK(!contributors->text().contains(QLatin1Char('@')));
 
     auto* settings_caption = dialog->findChild<QLabel*>(QStringLiteral("splashSettingsCaption"));
@@ -4270,6 +4272,8 @@ void ui_start_panel_shows_about_info_and_update_status() {
   CHECK(contributors->text().contains(QStringLiteral(">csbun</a>")));
   CHECK(contributors->text().contains(QStringLiteral("href=\"https://github.com/ifloppy\"")));
   CHECK(contributors->text().contains(QStringLiteral(">ifloppy</a>")));
+  CHECK(contributors->text().contains(QStringLiteral("href=\"https://github.com/lucastucious\"")));
+  CHECK(contributors->text().contains(QStringLiteral(">lucastucious</a>")));
 
   const auto link_labels = panel->findChildren<QLabel*>(QStringLiteral("startPanelHome"));
   CHECK(link_labels.size() == 2);
