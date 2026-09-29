@@ -1043,6 +1043,7 @@ ${PATCHY_LUPDATE_MANIFEST_SOURCES}
       src/ui/main_window_filters.cpp
       src/ui/main_window_document_dialogs.cpp
       src/ui/main_window_files.cpp
+      src/ui/network_mounts.cpp
       src/ui/main_window_history.cpp
       src/ui/main_window_layer_ops.cpp
       src/ui/main_window_layer_panel.cpp

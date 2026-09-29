@@ -67,6 +67,7 @@
 #include "ui/app_settings.hpp"
 #include "ui/build_info.hpp"
 
+#include "ui/network_mounts.hpp"
 #include "ui/update_checker.hpp"
 #include "ui/visual_filter_gallery_dialog.hpp"
 #include "ui/zoomable_image_preview.hpp"
@@ -1434,6 +1435,72 @@ void ui_open_remembers_last_directory_and_lists_recent_folders() {
 // timeout. The unroutable TEST-NET host would hold a stat far past the wait
 // below, so the missing local entry dropping in time proves the share was not
 // stat'ed, and the share entry stays listed.
+// The mount classifier behind is_network_recent_path on macOS and Linux: a
+// synthetic table, so the result does not depend on the machine's mounts.
+void ui_network_mount_classification_uses_deepest_mount_point() {
+  using patchy::ui::MountEntry;
+  const std::vector<MountEntry> mounts{
+      {QStringLiteral("/"), QStringLiteral("apfs"), true},
+      {QStringLiteral("/Volumes/share"), QStringLiteral("smbfs"), false},
+      {QStringLiteral("/Volumes/share2"), QStringLiteral("apfs"), true},
+      {QStringLiteral("/Volumes/share/nested-local"), QStringLiteral("apfs"), true},
+      {QStringLiteral("/mnt/nas/"), QStringLiteral("nfs4"), true},  // Linux: the type decides
+      {QStringLiteral("/run/user/1000/gvfs"), QStringLiteral("fuse.gvfsd-fuse"), true},
+      {QStringLiteral("/net"), QStringLiteral("autofs"), true},
+      {QStringLiteral("/media/usb"), QStringLiteral("fuse.ntfs-3g"), true},
+  };
+  const auto network = [&](const char* path) {
+    return patchy::ui::path_is_on_network_mount(QString::fromUtf8(path), mounts);
+  };
+  CHECK(!network("/Users/seth/Pictures/a.psd"));
+  CHECK(network("/Volumes/share/a.psd"));
+  CHECK(network("/Volumes/share"));
+  CHECK(!network("/Volumes/share2/a.psd"));   // sibling with a common prefix
+  CHECK(!network("/Volumes/sharex/a.psd"));   // no component boundary match
+  CHECK(!network("/Volumes/share/nested-local/a.psd"));  // deeper local mount wins
+  CHECK(network("/mnt/nas/photos/a.psd"));    // trailing slash on the mount point
+  CHECK(network("/run/user/1000/gvfs/smb-share:server=nas/a.psd"));
+  CHECK(network("/net/box/a.psd"));           // automount trigger
+  CHECK(!network("/media/usb/a.psd"));        // local FUSE stays local
+  CHECK(!network(""));
+  CHECK(!patchy::ui::path_is_on_network_mount(QStringLiteral("/anything"), {}));
+
+  const auto* entry = patchy::ui::mount_for_path(QStringLiteral("/Volumes/share/x/y"), mounts);
+  CHECK(entry != nullptr && entry->file_system == QStringLiteral("smbfs"));
+  CHECK(patchy::ui::is_network_file_system_type(QStringLiteral("cifs")));
+  CHECK(patchy::ui::is_network_file_system_type(QStringLiteral("fuse.sshfs")));
+  CHECK(!patchy::ui::is_network_file_system_type(QStringLiteral("ext4")));
+  CHECK(!patchy::ui::is_network_file_system_type(QStringLiteral("fuse.portal")));
+
+  // /proc/self/mounts escapes spaces in mount points as \040.
+  const auto parsed = patchy::ui::parse_proc_mounts(
+      "proc /proc proc rw,nosuid 0 0\n"
+      "/dev/sda1 / ext4 rw,relatime 0 0\n"
+      "nas:/export /mnt/my\\040nas nfs4 rw,vers=4.2 0 0\n"
+      "gvfsd-fuse /run/user/1000/gvfs fuse.gvfsd-fuse rw,nosuid,nodev,user_id=1000 0 0\n"
+      "broken line\n");
+  CHECK(parsed.size() == 4);
+  if (parsed.size() == 4) {
+    CHECK(parsed[1].mount_point == QStringLiteral("/"));
+    CHECK(parsed[1].local);
+    CHECK(parsed[2].mount_point == QStringLiteral("/mnt/my nas"));
+    CHECK(parsed[2].file_system == QStringLiteral("nfs4"));
+    CHECK(!parsed[2].local);
+    CHECK(!parsed[3].local);
+  }
+  CHECK(patchy::ui::path_is_on_network_mount(QStringLiteral("/mnt/my nas/a.psd"), parsed));
+  CHECK(!patchy::ui::path_is_on_network_mount(QStringLiteral("/home/x/a.psd"), parsed));
+
+  // The live table never blocks and, off Windows, always knows the root.
+  const auto live = patchy::ui::read_system_mounts();
+#if defined(Q_OS_MACOS) || defined(Q_OS_LINUX)
+  CHECK(!live.empty());
+  CHECK(patchy::ui::mount_for_path(QStringLiteral("/"), live) != nullptr);
+#else
+  CHECK(live.empty());
+#endif
+}
+
 void ui_recent_history_checks_in_background_and_skips_network_paths() {
   ensure_artifact_dir();
   const auto live_file = QFileInfo(QStringLiteral("test-artifacts/recent-bg-live.png")).absoluteFilePath();
@@ -4951,6 +5018,8 @@ std::vector<patchy::test::TestCase> app_shell_tests() {
        ui_save_as_remembers_last_save_directory_between_windows},
       {"ui_open_remembers_last_directory_and_lists_recent_folders",
        ui_open_remembers_last_directory_and_lists_recent_folders},
+      {"ui_network_mount_classification_uses_deepest_mount_point",
+       ui_network_mount_classification_uses_deepest_mount_point},
       {"ui_recent_history_checks_in_background_and_skips_network_paths",
        ui_recent_history_checks_in_background_and_skips_network_paths},
       {"ui_open_dialog_hides_name_filter_details", ui_open_dialog_hides_name_filter_details},
