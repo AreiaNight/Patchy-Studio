@@ -728,7 +728,9 @@ int main(int argc, char* argv[]) {
     }
     qWarning("Patchy: %d background worker(s) still blocked 10 s after quit; ending the process without destructors.",
              patchy::ui::tracked_background_worker_count());
-#ifndef Q_OS_WASM
+#ifdef Q_OS_WASM
+    Q_UNUSED(window);  // no recovery folder on the web; keeps the capture used
+#else
     window.discard_recovery_folder_for_forced_exit();
 #endif
     patchy::ui::end_process_without_destructors(result);
