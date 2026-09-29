@@ -17980,6 +17980,10 @@ Y: %2
         <source>Export Theme</source>
         <translation>Esporta tema</translation>
     </message>
+    <message>
+        <source>%1 (built-in)</source>
+        <translation>%1 (integrato)</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>

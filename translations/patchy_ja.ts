@@ -17928,6 +17928,10 @@ Clipped to the layer below</source>
         <source>Export Theme</source>
         <translation>テーマを書き出し</translation>
     </message>
+    <message>
+        <source>%1 (built-in)</source>
+        <translation>%1（内蔵）</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>

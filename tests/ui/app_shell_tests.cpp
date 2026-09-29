@@ -2515,7 +2515,7 @@ void ui_bundled_themes_load_and_list_in_preferences() {
     CHECK(index >= 0);
     combo->setCurrentIndex(index);
     QApplication::processEvents();
-    CHECK(combo->currentText() == QStringLiteral("Nord"));
+    CHECK(combo->currentText() == QStringLiteral("Nord (built-in)"));
     save_widget_artifact("preferences_application_tab_nord", *dialog);
     CHECK(patchy::ui::has_active_custom_palette());
     CHECK(patchy::ui::theme().window_bg == QColor(0x2e, 0x34, 0x40));
@@ -2527,6 +2527,76 @@ void ui_bundled_themes_load_and_list_in_preferences() {
   QApplication::processEvents();
   CHECK(saw_dialog);
   CHECK(!patchy::ui::has_active_custom_palette());
+}
+
+// Export opens in the themes folder with the shown theme's name, and a file
+// saved there is listed and selected at once, beside the tagged built-in it
+// was copied from, as a deletable user theme.
+void ui_preferences_export_defaults_to_themes_folder_and_lists_the_copy() {
+  SettingsValueRestorer restore_scheme(QStringLiteral("preferences/colorScheme"));
+  SettingsValueRestorer restore_custom_id(QStringLiteral("preferences/customThemeId"));
+  ColorSchemeRestorer restore_active;
+  ColorSchemeRestorer::apply(patchy::ui::ColorSchemePreference::Dark);
+  ThemesDirEnvGuard themes_dir;
+  const auto names = patchy::ui::bundled_theme_file_names();
+
+  patchy::ui::MainWindow window;
+  show_window(window);
+  bool saw_dialog = false;
+  bool saw_save_dialog = false;
+  QTimer::singleShot(0, [&] {
+    auto* dialog = find_top_level_dialog(QStringLiteral("patchyPreferencesDialog"));
+    CHECK(dialog != nullptr);
+    if (dialog == nullptr) {
+      return;
+    }
+    auto* combo = dialog->findChild<QComboBox*>(QStringLiteral("preferencesColorSchemeCombo"));
+    auto* export_button = dialog->findChild<QPushButton*>(QStringLiteral("preferencesExportThemeButton"));
+    auto* remove = dialog->findChild<QPushButton*>(QStringLiteral("preferencesDeleteThemeButton"));
+    CHECK(combo != nullptr && export_button != nullptr && remove != nullptr);
+    if (combo == nullptr || export_button == nullptr || remove == nullptr) {
+      dialog->reject();
+      return;
+    }
+    combo->setCurrentIndex(combo->findData(QStringLiteral("custom:bundled:nord.patchytheme")));
+    QApplication::processEvents();
+
+    QTimer::singleShot(0, [&] {
+      auto* save = qobject_cast<QFileDialog*>(find_top_level_dialog(QStringLiteral("exportThemeFileDialog")));
+      CHECK(save != nullptr);
+      if (save == nullptr) {
+        return;
+      }
+      saw_save_dialog = true;
+      CHECK(QDir::cleanPath(save->directory().absolutePath()) == QDir::cleanPath(QDir(themes_dir.path()).absolutePath()));
+      const auto selected = save->selectedFiles();
+      CHECK(!selected.isEmpty());
+      CHECK(!selected.isEmpty() && QFileInfo(selected.first()).fileName() == QStringLiteral("Nord.patchytheme"));
+      save->selectFile(QDir(themes_dir.path()).filePath(QStringLiteral("Nord.patchytheme")));
+      static_cast<QDialog*>(save)->accept();  // QFileDialog::accept is protected
+    });
+    export_button->click();
+    QApplication::processEvents();
+
+    const auto copy_path = QDir(themes_dir.path()).filePath(QStringLiteral("Nord.patchytheme"));
+    CHECK(QFileInfo::exists(copy_path));
+    // Three built-ins, a separator, the bundled set, a separator, the one user file.
+    CHECK(combo->count() == 6 + names.size());
+    CHECK(combo->currentData().toString() == QStringLiteral("custom:Nord.patchytheme"));
+    CHECK(combo->currentText() == QStringLiteral("Nord"));
+    CHECK(combo->findData(QStringLiteral("custom:bundled:nord.patchytheme")) >= 0);
+    CHECK(remove->isEnabled());
+    CHECK(patchy::ui::theme().window_bg == QColor(0x2e, 0x34, 0x40));
+    const auto reread = patchy::ui::load_theme_by_id(QStringLiteral("Nord.patchytheme"));
+    CHECK(reread.theme.has_value());
+    CHECK(reread.theme.has_value() && reread.theme->name == QStringLiteral("Nord"));
+    saw_dialog = true;
+    dialog->reject();
+  });
+  require_action(window, "filePreferencesAction")->trigger();
+  QApplication::processEvents();
+  CHECK(saw_dialog);
+  CHECK(saw_save_dialog);
 }
 
 // A persisted bundled id needs no user folder at all (wasm has none), so it
@@ -4806,6 +4876,8 @@ std::vector<patchy::test::TestCase> app_shell_tests() {
       {"ui_preferences_reload_reapplies_an_edited_theme_file", ui_preferences_reload_reapplies_an_edited_theme_file},
       {"ui_preferences_delete_removes_theme_file_and_entry", ui_preferences_delete_removes_theme_file_and_entry},
       {"ui_bundled_themes_load_and_list_in_preferences", ui_bundled_themes_load_and_list_in_preferences},
+      {"ui_preferences_export_defaults_to_themes_folder_and_lists_the_copy",
+       ui_preferences_export_defaults_to_themes_folder_and_lists_the_copy},
       {"ui_bundled_theme_id_persists_and_reapplies_like_a_restart",
        ui_bundled_theme_id_persists_and_reapplies_like_a_restart},
       {"ui_color_scheme_switch_updates_existing_window", ui_color_scheme_switch_updates_existing_window},

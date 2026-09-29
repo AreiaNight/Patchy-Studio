@@ -17934,6 +17934,10 @@ Y: %2
         <source>Export Theme</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>%1 (built-in)</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>

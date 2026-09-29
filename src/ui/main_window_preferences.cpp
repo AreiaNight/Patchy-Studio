@@ -499,7 +499,12 @@ void MainWindow::show_preferences() {
   auto custom_themes = std::make_shared<QHash<QString, CustomTheme>>();
   const auto add_custom_theme_entry = [color_scheme_combo, custom_themes, custom_theme_token](
                                           const QString& id, const CustomTheme& custom_theme) {
-    color_scheme_combo->addItem(custom_theme.name.isEmpty() ? id : custom_theme.name, custom_theme_token(id));
+    const auto name = custom_theme.name.isEmpty() ? id : custom_theme.name;
+    // Compiled-in themes carry a tag: an exported copy in the user's folder
+    // keeps the same name, and the two must stay tellable apart in the list.
+    color_scheme_combo->addItem(is_bundled_theme_id(id) ? tr("%1 (built-in)").arg(name) : name,
+                                custom_theme_token(id));
+    color_scheme_combo->setItemData(color_scheme_combo->count() - 1, id, Qt::ToolTipRole);
     custom_themes->insert(id, custom_theme);
   };
   // Drops every theme entry (and the separators before them) and re-reads
@@ -717,27 +722,63 @@ void MainWindow::show_preferences() {
             color_scheme_combo->setCurrentIndex(color_scheme_combo->findData(custom_theme_token(file_name)));
           });
 
-  connect(export_theme_button, &QPushButton::clicked, &dialog, [&dialog] {
-    const auto suggested_name = tr("Theme", "Default file name offered when exporting a theme; the save dialog "
-                                             "appends the extension.") +
-                                QStringLiteral(".patchytheme");
-    const auto path =
-        get_save_file_name(&dialog, tr("Export Theme"), suggested_name, tr("Patchy theme (*.patchytheme)"));
-    if (path.isEmpty()) {
-      return;
-    }
-    const auto json = serialize_theme_to_json(theme(), active_color_scheme(), QFileInfo(path).completeBaseName());
-    try {
-      write_file_bytes_atomically(
-          to_filesystem_path(path),
-          std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t*>(json.constData()),
-                                        static_cast<std::size_t>(json.size())),
-          "Could not create the theme file", "Could not write the theme file");
-    } catch (const std::exception& error) {
-      show_critical_message(&dialog, tr("Export failed"), QString::fromUtf8(error.what()),
-                            QStringLiteral("exportThemeFailedMessageBox"));
-    }
-  });
+  // Export writes the palette the combo currently shows. It opens in the
+  // themes folder, suggests the shown theme's own name, and when the file
+  // lands in that folder lists and selects it at once, so "export a built-in,
+  // then edit it" is one step.
+  connect(export_theme_button, &QPushButton::clicked, &dialog,
+          [&dialog, color_scheme_combo, custom_themes, rescan_custom_themes, apply_combo_selection,
+           update_delete_enabled] {
+            auto suggested_name = color_scheme_combo->currentText();
+            if (const auto token = color_scheme_combo->currentData().toString();
+                token.startsWith(QStringLiteral("custom:"))) {
+              const auto found = custom_themes->find(token.mid(7));
+              if (found != custom_themes->end() && !found.value().name.isEmpty()) {
+                suggested_name = found.value().name;
+              }
+            }
+            if (suggested_name.isEmpty()) {
+              suggested_name = tr("Theme", "Default file name offered when exporting a theme; the save dialog "
+                                           "appends the extension.");
+            }
+            auto initial_path = suggested_name + QStringLiteral(".patchytheme");
+            const auto themes_dir = user_themes_directory();
+            if (!themes_dir.isEmpty() && QDir().mkpath(themes_dir)) {
+              initial_path = QDir(themes_dir).filePath(initial_path);
+            }
+            const auto path = get_save_file_name(&dialog, tr("Export Theme"), initial_path,
+                                                 tr("Patchy theme (*.patchytheme)"), nullptr,
+                                                 QStringLiteral("exportThemeFileDialog"));
+            if (path.isEmpty()) {
+              return;
+            }
+            const auto json =
+                serialize_theme_to_json(theme(), active_color_scheme(), QFileInfo(path).completeBaseName());
+            try {
+              write_file_bytes_atomically(
+                  to_filesystem_path(path),
+                  std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t*>(json.constData()),
+                                                static_cast<std::size_t>(json.size())),
+                  "Could not create the theme file", "Could not write the theme file");
+            } catch (const std::exception& error) {
+              show_critical_message(&dialog, tr("Export failed"), QString::fromUtf8(error.what()),
+                                    QStringLiteral("exportThemeFailedMessageBox"));
+              return;
+            }
+            const QFileInfo written(path);
+            if (themes_dir.isEmpty() ||
+                QDir::cleanPath(written.absolutePath()) != QDir::cleanPath(QDir(themes_dir).absolutePath())) {
+              return;
+            }
+            {
+              const QSignalBlocker blocker(color_scheme_combo);
+              rescan_custom_themes();
+              const auto index = color_scheme_combo->findData(QStringLiteral("custom:") + written.fileName());
+              color_scheme_combo->setCurrentIndex(index >= 0 ? index : 0);
+            }
+            apply_combo_selection();
+            update_delete_enabled();
+          });
 #endif
 
   // The combo previews the scheme live, so every path out of the dialog that is

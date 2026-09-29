@@ -17928,6 +17928,10 @@ Y：%2
         <source>Export Theme</source>
         <translation>匯出主題</translation>
     </message>
+    <message>
+        <source>%1 (built-in)</source>
+        <translation>%1（內建）</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
