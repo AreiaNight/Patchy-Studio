@@ -447,6 +447,12 @@ void ui_tilt_shift_blur_dialog_cancel_selection_apply_and_undo() {
           focus->value() == 10.0);
     CHECK(transition->minimum() == 0.0 && transition->maximum() == 100.0 &&
           transition->value() == 20.0);
+    // The parameter panel's "Label:" [slider] [spin] rows are scrub handles
+    // (GitHub issue 46): the panel installs them after every rebuild.
+    for (auto* spin : {static_cast<QAbstractSpinBox*>(blur), static_cast<QAbstractSpinBox*>(center_x),
+                       static_cast<QAbstractSpinBox*>(angle), static_cast<QAbstractSpinBox*>(transition)}) {
+      CHECK(spin->property(patchy::ui::kScrubHandleInstalledProperty).toBool());
+    }
     inspected_controls = true;
 
     blur->setValue(4.0);

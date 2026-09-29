@@ -328,6 +328,9 @@ void FilterParameterPanel::rebuild(const FilterDialogSpec& spec,
   if (options.build_companions) {
     build_companion_rows(spec, form);
   }
+  // The Filter Gallery rebuilds these rows while its dialog is already open, after
+  // the exec_dialog scrub install ran, so every rebuild pairs its own labels.
+  install_scrub_labels_in(this);
 }
 
 void FilterParameterPanel::build_companion_rows(const FilterDialogSpec& spec,

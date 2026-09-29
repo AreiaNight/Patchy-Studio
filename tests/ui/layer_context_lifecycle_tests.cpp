@@ -370,7 +370,15 @@ void ui_move_layer_menu_respects_pixels_masks_and_visibility() {
   CHECK(document.active_layer_id() == bottom_id);
   CHECK(move_layer_menu(canvas) == nullptr);
   CHECK(right_click_move_canvas(canvas, QPoint(90, 80)) == nullptr);
-  CHECK(right_click_move_canvas(canvas, QPoint(-10, 40)) == nullptr);
+  // Outside the document the menu offers only the pasteboard color (issue 47),
+  // never a layer entry.
+  auto* pasteboard_menu = right_click_move_canvas(canvas, QPoint(-10, 40));
+  CHECK(pasteboard_menu != nullptr);
+  CHECK(std::none_of(pasteboard_menu->actions().cbegin(), pasteboard_menu->actions().cend(),
+                     [](const QAction* action) { return action->data().toULongLong() != 0; }));
+  CHECK(pasteboard_menu->findChild<QAction*>(QStringLiteral("canvasBackdropDefaultAction")) != nullptr);
+  send_key(*pasteboard_menu, Qt::Key_Escape);
+  QApplication::processEvents();
   std::size_t index = 0;
   for (const auto& layer : std::as_const(document).layers()) {
     CHECK(layer.content_revision() == revisions[index++]);
@@ -2105,8 +2113,8 @@ void ui_canvas_size_preserves_layers_and_crop_option_resets() {
         CHECK(!checkbox->isChecked());
         CHECK(checkbox->text() == QStringLiteral("Also crop each actual layer to the canvas area"));
         checkbox->setChecked(crop);
-        auto* width = dialog->findChild<QSpinBox*>(QStringLiteral("canvasSizeWidthSpin"));
-        auto* height = dialog->findChild<QSpinBox*>(QStringLiteral("canvasSizeHeightSpin"));
+        auto* width = dialog->findChild<QDoubleSpinBox*>(QStringLiteral("canvasSizeWidthSpin"));
+        auto* height = dialog->findChild<QDoubleSpinBox*>(QStringLiteral("canvasSizeHeightSpin"));
         CHECK(width != nullptr && height != nullptr);
         width->setValue(size);
         height->setValue(size);

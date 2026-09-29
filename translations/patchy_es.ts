@@ -5604,10 +5604,6 @@ Abrir en Ampliación generativa...</translation>
         <translation>Anchura</translation>
     </message>
     <message>
-        <source>%1 px</source>
-        <translation>%1 px</translation>
-    </message>
-    <message>
         <source>Pixels</source>
         <translation>Píxeles</translation>
     </message>

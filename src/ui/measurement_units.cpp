@@ -200,6 +200,21 @@ double measurement_unit_to_pixels(double value, MeasurementUnit unit, double ppi
   }
 }
 
+double measurement_unit_single_step(MeasurementUnit unit) noexcept {
+  switch (unit) {
+    case MeasurementUnit::Inches:
+      return 0.01;
+    case MeasurementUnit::Centimeters:
+      return 0.1;
+    case MeasurementUnit::Pixels:
+    case MeasurementUnit::Millimeters:
+    case MeasurementUnit::Points:
+    case MeasurementUnit::Percent:
+      return 1.0;
+  }
+  return 1.0;
+}
+
 int measurement_unit_decimals(MeasurementUnit unit) noexcept {
   switch (unit) {
     case MeasurementUnit::Pixels:

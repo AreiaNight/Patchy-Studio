@@ -485,6 +485,7 @@ std::optional<NewDocumentSettings> request_new_document_settings(QWidget* parent
     for (auto* spin : {width, height}) {
       const QSignalBlocker blocker(spin);
       spin->setDecimals(measurement_unit_decimals(dimension_unit));
+      spin->setSingleStep(measurement_unit_single_step(dimension_unit));
       spin->setRange(dimension_unit == MeasurementUnit::Pixels ? 1.0 : 0.001, 999999.0);
     }
     {

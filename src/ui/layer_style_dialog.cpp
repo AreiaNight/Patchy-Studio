@@ -1337,7 +1337,10 @@ std::optional<LayerStyleSettings> request_layer_style_settings(
       state->noise_maximum[channel]->setSuffix(percent_suffix());
       configure_dialog_spinbox(state->noise_maximum[channel], 64);
       range_layout->addWidget(state->noise_minimum[channel]);
-      range_layout->addWidget(new QLabel(QObject::tr("to"), range_row));
+      auto *range_to = new QLabel(QObject::tr("to"), range_row);
+      // Not a field name: it must not become the maximum field's scrub handle.
+      range_to->setProperty(kScrubLabelExemptProperty, true);
+      range_layout->addWidget(range_to);
       range_layout->addWidget(state->noise_maximum[channel]);
       range_layout->addStretch(1);
       noise_form->addRow(QObject::tr("Channel %1 Range").arg(channel + 1U),

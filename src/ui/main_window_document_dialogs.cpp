@@ -586,8 +586,10 @@ std::optional<ImageSizeSettings> request_image_size_settings(QWidget* parent, co
   link->setToolTip(QObject::tr("Constrain proportions"));
 
   grid->addWidget(new QLabel(QObject::tr("Width:"), &dialog), 3, 0, Qt::AlignRight | Qt::AlignVCenter);
-  grid->addWidget(link, 3, 1, 2, 1, Qt::AlignCenter);
+  // The spin goes in right after its label (insertion order is what pairs the
+  // scrub handle, GitHub issue 46); the link button's grid cell is unaffected.
   grid->addWidget(width, 3, 2);
+  grid->addWidget(link, 3, 1, 2, 1, Qt::AlignCenter);
   grid->addWidget(width_unit, 3, 3);
   grid->addWidget(new QLabel(QObject::tr("Height:"), &dialog), 4, 0, Qt::AlignRight | Qt::AlignVCenter);
   grid->addWidget(height, 4, 2);
@@ -647,6 +649,7 @@ std::optional<ImageSizeSettings> request_image_size_settings(QWidget* parent, co
     const QSignalBlocker blocker(spin);
     const auto unit = current_unit(unit_combo);
     spin->setDecimals(measurement_unit_decimals(unit));
+    spin->setSingleStep(measurement_unit_single_step(unit));
     spin->setRange(unit == MeasurementUnit::Pixels ? 1.0 : 0.001, 999999.0);
     spin->setValue(pixels_to_measurement_unit(pixels, unit, state.ppi, reference_pixels));
   };
@@ -831,7 +834,7 @@ std::optional<CanvasSizeSettings> request_canvas_size_settings(QWidget* parent, 
       max-height: 1px;
       border: 0;
     }
-    QDialog#patchyCanvasSizeDialog QSpinBox,
+    QDialog#patchyCanvasSizeDialog QDoubleSpinBox,
     QDialog#patchyCanvasSizeDialog QComboBox {
       background: @dlg_tab_bg;
       border: 1px solid @dlg_tab_border;
@@ -840,7 +843,7 @@ std::optional<CanvasSizeSettings> request_canvas_size_settings(QWidget* parent, 
       min-height: 22px;
       padding: 0 8px;
     }
-    QDialog#patchyCanvasSizeDialog QSpinBox:focus,
+    QDialog#patchyCanvasSizeDialog QDoubleSpinBox:focus,
     QDialog#patchyCanvasSizeDialog QComboBox:focus {
       border-color: @dlg_focus_border;
       background: @dlg_button_bg;
@@ -930,10 +933,14 @@ std::optional<CanvasSizeSettings> request_canvas_size_settings(QWidget* parent, 
   current_grid->setVerticalSpacing(5);
   current_grid->setColumnMinimumWidth(0, 52);
   content_layout->addLayout(current_grid);
+  auto* current_width_label = new QLabel(&dialog);
+  current_width_label->setObjectName(QStringLiteral("canvasSizeCurrentWidthLabel"));
+  auto* current_height_label = new QLabel(&dialog);
+  current_height_label->setObjectName(QStringLiteral("canvasSizeCurrentHeightLabel"));
   current_grid->addWidget(new QLabel(QObject::tr("Width"), &dialog), 0, 0);
-  current_grid->addWidget(new QLabel(QObject::tr("%1 px").arg(current_width), &dialog), 0, 1);
+  current_grid->addWidget(current_width_label, 0, 1);
   current_grid->addWidget(new QLabel(QObject::tr("Height"), &dialog), 1, 0);
-  current_grid->addWidget(new QLabel(QObject::tr("%1 px").arg(current_height), &dialog), 1, 1);
+  current_grid->addWidget(current_height_label, 1, 1);
 
   auto* separator = new QFrame(&dialog);
   separator->setObjectName(QStringLiteral("canvasSizeSeparator"));
@@ -952,24 +959,41 @@ std::optional<CanvasSizeSettings> request_canvas_size_settings(QWidget* parent, 
   size_grid->setColumnMinimumWidth(0, 38);
   content_layout->addLayout(size_grid);
 
-  auto* width = new QSpinBox(&dialog);
+  // Pixels stay the stored truth (Image Size's model): the canonical state is the
+  // absolute target size in pixels, and the spins display it, or the delta from the
+  // current size in Relative mode, converted through the document PPI into the unit
+  // the combos select. Percent is relative to the current size on each axis.
+  const auto ppi = std::isfinite(document.print_settings().horizontal_ppi) &&
+                           document.print_settings().horizontal_ppi > 0.0
+                       ? std::clamp(document.print_settings().horizontal_ppi, 1.0, 9999.0)
+                       : 300.0;
+  struct CanvasSizeState {
+    int target_width;
+    int target_height;
+  };
+  CanvasSizeState state{current_width, current_height};
+
+  auto* width = new QDoubleSpinBox(&dialog);
   width->setObjectName(QStringLiteral("canvasSizeWidthSpin"));
-  width->setRange(1, 30000);
-  width->setValue(current_width);
   configure_dialog_spinbox(width, 84);
-  auto* height = new QSpinBox(&dialog);
+  auto* height = new QDoubleSpinBox(&dialog);
   height->setObjectName(QStringLiteral("canvasSizeHeightSpin"));
-  height->setRange(1, 30000);
-  height->setValue(current_height);
   configure_dialog_spinbox(height, 84);
 
+  const auto populate_dimension_units = [](QComboBox* combo) {
+    for (const auto unit : {MeasurementUnit::Percent, MeasurementUnit::Pixels, MeasurementUnit::Inches,
+                            MeasurementUnit::Centimeters, MeasurementUnit::Millimeters, MeasurementUnit::Points}) {
+      combo->addItem(measurement_unit_name(unit), static_cast<int>(unit));
+    }
+    combo->setCurrentIndex(combo->findData(static_cast<int>(MeasurementUnit::Pixels)));
+  };
   auto* width_unit = new QComboBox(&dialog);
   width_unit->setObjectName(QStringLiteral("canvasSizeWidthUnitCombo"));
-  width_unit->addItem(QObject::tr("Pixels"));
+  populate_dimension_units(width_unit);
   width_unit->setMinimumWidth(160);
   auto* height_unit = new QComboBox(&dialog);
   height_unit->setObjectName(QStringLiteral("canvasSizeHeightUnitCombo"));
-  height_unit->addItem(QObject::tr("Pixels"));
+  populate_dimension_units(height_unit);
   height_unit->setMinimumWidth(160);
 
   size_grid->addWidget(new QLabel(QObject::tr("Width"), &dialog), 0, 0, Qt::AlignVCenter);
@@ -1098,39 +1122,81 @@ std::optional<CanvasSizeSettings> request_canvas_size_settings(QWidget* parent, 
   });
   QObject::connect(color_swatch, &QPushButton::clicked, &dialog, choose_extension_color);
 
-  const auto target_width = [current_width, width, relative] {
-    return relative->isChecked() ? current_width + width->value() : width->value();
+  const auto current_unit = [width_unit] { return static_cast<MeasurementUnit>(width_unit->currentData().toInt()); };
+  const auto update_summary = [new_size_label, &state, &document] {
+    new_size_label->setText(QObject::tr("New Size: %1")
+                                .arg(format_image_size_bytes(state.target_width, state.target_height, document.format())));
   };
-  const auto target_height = [current_height, height, relative] {
-    return relative->isChecked() ? current_height + height->value() : height->value();
-  };
-  const auto update_summary = [new_size_label, target_width, target_height, &document] {
-    new_size_label->setText(
-        QObject::tr("New Size: %1").arg(format_image_size_bytes(target_width(), target_height(), document.format())));
-  };
-  update_summary();
-
-  QObject::connect(width, &QSpinBox::valueChanged, &dialog, [update_summary](int) { update_summary(); });
-  QObject::connect(height, &QSpinBox::valueChanged, &dialog, [update_summary](int) { update_summary(); });
-  QObject::connect(relative, &QCheckBox::toggled, &dialog, [current_width, current_height, width, height,
-                                                            update_summary](bool checked) {
-    const auto absolute_width = checked ? width->value() : current_width + width->value();
-    const auto absolute_height = checked ? height->value() : current_height + height->value();
-    const QSignalBlocker block_width(width);
-    const QSignalBlocker block_height(height);
-    if (checked) {
-      width->setRange(1 - current_width, 30000 - current_width);
-      height->setRange(1 - current_height, 30000 - current_height);
-      width->setValue(absolute_width - current_width);
-      height->setValue(absolute_height - current_height);
+  // A spin shows its axis in the selected unit: the absolute target, or in Relative
+  // mode the change from the current size, with the range mapped the same way so the
+  // field itself keeps the pixel result within 1..30000.
+  const auto refresh_dimension_spin = [relative, current_unit, ppi](QDoubleSpinBox* spin, int current,
+                                                                            int target) {
+    const QSignalBlocker blocker(spin);
+    const auto unit = current_unit();
+    const auto reference = static_cast<double>(current);
+    const auto to_unit = [unit, ppi, reference](int pixels) {
+      return pixels_to_measurement_unit(static_cast<double>(pixels), unit, ppi, reference);
+    };
+    spin->setDecimals(measurement_unit_decimals(unit));
+    spin->setSingleStep(measurement_unit_single_step(unit));
+    if (relative->isChecked()) {
+      spin->setRange(to_unit(1 - current), to_unit(30000 - current));
+      spin->setValue(to_unit(target - current));
     } else {
-      width->setRange(1, 30000);
-      height->setRange(1, 30000);
-      width->setValue(std::clamp(absolute_width, 1, 30000));
-      height->setValue(std::clamp(absolute_height, 1, 30000));
+      spin->setRange(to_unit(1), to_unit(30000));
+      spin->setValue(to_unit(target));
     }
+  };
+  const auto refresh_current_size_labels = [current_width_label, current_height_label, current_unit, ppi,
+                                            current_width, current_height] {
+    const auto unit = current_unit();
+    const auto decimals = measurement_unit_decimals(unit);
+    current_width_label->setText(format_measurement(
+        pixels_to_measurement_unit(current_width, unit, ppi, current_width), unit, decimals));
+    current_height_label->setText(format_measurement(
+        pixels_to_measurement_unit(current_height, unit, ppi, current_height), unit, decimals));
+  };
+  const auto refresh_all = [&](QDoubleSpinBox* except) {
+    if (except != width) {
+      refresh_dimension_spin(width, current_width, state.target_width);
+    }
+    if (except != height) {
+      refresh_dimension_spin(height, current_height, state.target_height);
+    }
+    refresh_current_size_labels();
     update_summary();
-  });
+  };
+  refresh_all(nullptr);
+
+  // An edit converts back to pixels; the edited field is left alone so typing never
+  // fights a re-rounded value.
+  const auto handle_dimension_edit = [&](bool editing_width) {
+    auto* spin = editing_width ? width : height;
+    const auto current = editing_width ? current_width : current_height;
+    const auto unit = current_unit();
+    const auto pixels = static_cast<int>(
+        std::lround(measurement_unit_to_pixels(spin->value(), unit, ppi, static_cast<double>(current))));
+    const auto target = std::clamp(relative->isChecked() ? current + pixels : pixels, 1, 30000);
+    (editing_width ? state.target_width : state.target_height) = target;
+    update_summary();
+  };
+  QObject::connect(width, &QDoubleSpinBox::valueChanged, &dialog, [&] { handle_dimension_edit(true); });
+  QObject::connect(height, &QDoubleSpinBox::valueChanged, &dialog, [&] { handle_dimension_edit(false); });
+  QObject::connect(relative, &QCheckBox::toggled, &dialog, [&](bool) { refresh_all(nullptr); });
+
+  // Photoshop keeps the two dimension units in step; changing one changes both.
+  const auto sync_unit_combos = [&](QComboBox* changed, QComboBox* other) {
+    {
+      const QSignalBlocker blocker(other);
+      other->setCurrentIndex(changed->currentIndex());
+    }
+    refresh_all(nullptr);
+  };
+  QObject::connect(width_unit, &QComboBox::currentIndexChanged, &dialog,
+                   [&](int) { sync_unit_combos(width_unit, height_unit); });
+  QObject::connect(height_unit, &QComboBox::currentIndexChanged, &dialog,
+                   [&](int) { sync_unit_combos(height_unit, width_unit); });
 
   auto* button_column = new QWidget(&dialog);
   button_column->setObjectName(QStringLiteral("canvasSizeButtonColumn"));
@@ -1160,7 +1226,7 @@ std::optional<CanvasSizeSettings> request_canvas_size_settings(QWidget* parent, 
   }
   const auto checked_anchor =
       anchor_group->checkedId() < 0 ? CanvasAnchor::Center : static_cast<CanvasAnchor>(anchor_group->checkedId());
-  return CanvasSizeSettings{target_width(), target_height(), checked_anchor, extension_color_value,
+  return CanvasSizeSettings{state.target_width, state.target_height, checked_anchor, extension_color_value,
                             crop_layers->isChecked()};
 }
 

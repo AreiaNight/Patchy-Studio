@@ -522,8 +522,107 @@ private:
 };
 
 bool label_names_a_field(const QLabel* label) {
+  if (label->property(kScrubLabelExemptProperty).toBool()) {
+    return false;
+  }
   const auto text = label->text();
   return std::any_of(text.cbegin(), text.cend(), [](QChar c) { return c.isLetter(); });
+}
+
+void install_scrub_labels_in_layout(QLayout* layout);
+
+// The child layouts of a container widget: its own layout, a QScrollArea's viewport
+// widget, every page of a QTabWidget. Spin boxes and other leaf widgets have none.
+std::vector<QLayout*> scrub_child_layouts(QWidget* widget) {
+  std::vector<QLayout*> layouts;
+  if (widget == nullptr || qobject_cast<QAbstractSpinBox*>(widget) != nullptr) {
+    return layouts;
+  }
+  if (auto* scroll = qobject_cast<QScrollArea*>(widget); scroll != nullptr) {
+    if (scroll->widget() != nullptr && scroll->widget()->layout() != nullptr) {
+      layouts.push_back(scroll->widget()->layout());
+    }
+    return layouts;
+  }
+  if (auto* tabs = qobject_cast<QTabWidget*>(widget); tabs != nullptr) {
+    // A page is often itself a QScrollArea (Preferences), so resolve it recursively.
+    for (int page = 0; page < tabs->count(); ++page) {
+      const auto page_layouts = scrub_child_layouts(tabs->widget(page));
+      layouts.insert(layouts.end(), page_layouts.begin(), page_layouts.end());
+    }
+    return layouts;
+  }
+  if (widget->layout() != nullptr) {
+    layouts.push_back(widget->layout());
+  }
+  return layouts;
+}
+
+// The first control inside a layout, in layout order and descending into sub-layouts
+// and containers: labels, sliders and spacers are passed over, so a form row's
+// "[slider] [spin]", "[spin] - +" and "[spin] Digits [spin]" fields all answer with
+// their spin box while "[color button] [spin]" answers with the button.
+QWidget* first_scrub_control(QLayout* layout) {
+  if (layout == nullptr) {
+    return nullptr;
+  }
+  for (int i = 0; i < layout->count(); ++i) {
+    auto* item = layout->itemAt(i);
+    if (item == nullptr) {
+      continue;
+    }
+    if (item->layout() != nullptr) {
+      if (auto* control = first_scrub_control(item->layout()); control != nullptr) {
+        return control;
+      }
+      continue;
+    }
+    auto* widget = item->widget();
+    if (widget == nullptr || qobject_cast<QLabel*>(widget) != nullptr || qobject_cast<QSlider*>(widget) != nullptr) {
+      continue;
+    }
+    const auto children = scrub_child_layouts(widget);
+    if (children.empty()) {
+      return widget;
+    }
+    for (auto* child : children) {
+      if (auto* control = first_scrub_control(child); control != nullptr) {
+        return control;
+      }
+    }
+  }
+  return nullptr;
+}
+
+// The spin box a label at `index` names, or nullptr: the label's buddy when that is a
+// spin box; else the next item, looking past one QSlider ("label, slider, spin" rows);
+// a spin box pairs directly, and a sub-layout or container pairs when its first
+// control is a spin box (a form row's "[slider] [spin]" or "[spin] - +" field).
+QAbstractSpinBox* scrub_target_for_label(QLayout* layout, int index, QLabel* label) {
+  if (auto* buddy = qobject_cast<QAbstractSpinBox*>(label->buddy()); buddy != nullptr) {
+    return buddy;
+  }
+  int next_index = index + 1;
+  auto* next = layout->itemAt(next_index);
+  if (next != nullptr && qobject_cast<QSlider*>(next->widget()) != nullptr) {
+    ++next_index;
+    next = layout->itemAt(next_index);
+  }
+  if (next == nullptr) {
+    return nullptr;
+  }
+  if (auto* spin = qobject_cast<QAbstractSpinBox*>(next->widget()); spin != nullptr) {
+    return spin;
+  }
+  if (next->layout() != nullptr) {
+    return qobject_cast<QAbstractSpinBox*>(first_scrub_control(next->layout()));
+  }
+  for (auto* child : scrub_child_layouts(next->widget())) {
+    if (auto* control = first_scrub_control(child); control != nullptr) {
+      return qobject_cast<QAbstractSpinBox*>(control);
+    }
+  }
+  return nullptr;
 }
 
 void install_scrub_labels_in_layout(QLayout* layout) {
@@ -544,15 +643,13 @@ void install_scrub_labels_in_layout(QLayout* layout) {
       continue;
     }
     if (auto* label = qobject_cast<QLabel*>(widget); label != nullptr) {
-      auto* next = layout->itemAt(i + 1);
-      auto* spin = next != nullptr ? qobject_cast<QAbstractSpinBox*>(next->widget()) : nullptr;
-      if (spin != nullptr && label_names_a_field(label)) {
-        install_scrub_label(label, spin);
+      if (label_names_a_field(label)) {
+        install_scrub_label(label, scrub_target_for_label(layout, i, label));
       }
       continue;
     }
-    if (qobject_cast<QAbstractSpinBox*>(widget) == nullptr && widget->layout() != nullptr) {
-      install_scrub_labels_in_layout(widget->layout());
+    for (auto* child : scrub_child_layouts(widget)) {
+      install_scrub_labels_in_layout(child);
     }
   }
 }
@@ -1641,6 +1738,7 @@ int exec_dialog(QDialog& dialog) {
     return QDialog::Rejected;
   }
   remember_dialog_position(dialog);
+  install_scrub_labels_in(&dialog);
 #ifdef Q_OS_WASM
   // The guards watch app-wide events; make sure they exist before the first
   // modal ever shows (run_non_modal_dialog installs them too, but a modal can
@@ -1872,6 +1970,7 @@ int run_non_modal_dialog(QDialog& dialog) {
     return QDialog::Rejected;
   }
   remember_dialog_position(dialog);
+  install_scrub_labels_in(&dialog);
 #ifdef Q_OS_WASM
   ensure_wasm_dialog_guards();
 #endif

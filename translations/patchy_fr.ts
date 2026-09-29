@@ -5604,10 +5604,6 @@ Ouvrir dans Agrandissement génératif...</translation>
         <translation>Largeur</translation>
     </message>
     <message>
-        <source>%1 px</source>
-        <translation>%1 px</translation>
-    </message>
-    <message>
         <source>Pixels</source>
         <translation>Pixels</translation>
     </message>
@@ -18058,7 +18054,7 @@ Y : %2
     </message>
     <message>
         <source>Canvas Background Color</source>
-        <translation>Couleur d'arrière-plan de la zone de travail</translation>
+        <translation>Couleur d&apos;arrière-plan de la zone de travail</translation>
     </message>
 </context>
 <context>

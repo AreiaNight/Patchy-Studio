@@ -64,11 +64,22 @@ inline constexpr char kToolbarSpinboxSliderCurvedProperty[] = "patchy.popupSlide
 // inside a prefixed spin box (Layers panel Opacity/Fill) the handle instead: a drag
 // there scrubs, a plain click focuses the field and selects the number, and the
 // number itself keeps ordinary text selection. `install_scrub_labels_in` walks a
-// container's layout, nested layouts and child containers included, and pairs every
-// QLabel with letters in its text with the spin box that directly follows it, which is
-// how the whole options bar opts in at once. A spin box that received a handle carries
-// the bool property kScrubHandleInstalledProperty.
+// container's layout (nested layouts, child containers, QScrollArea contents and
+// QTabWidget pages included) and pairs every QLabel with letters in its text with the
+// spin box it names: the label's buddy when that is a spin box, else the next item in
+// layout order, looking past one QSlider; a spin box pairs directly, and a sub-layout
+// or container widget pairs when its first control (labels, sliders and spacers passed
+// over) is a spin box: a form row's "[slider] [spin]" or "[spin] - +" field pairs, a
+// "[color button] [spin]" field does not. exec_dialog and run_non_modal_dialog call
+// it on every dialog, and build_options_bar on the options bar, so a new label+field
+// pair opts in by itself; surfaces built after their window is shown (the Filter
+// Gallery's parameter panel) call it again. A spin box that received a handle carries
+// the bool property kScrubHandleInstalledProperty, so repeated installs are no-ops. A
+// label that must not become a handle (the "to" between a range's two fields) sets
+// kScrubLabelExemptProperty. Tests: ui_dialog_scrub_labels_pair_every_row_shape,
+// ui_options_bar_label_scrub_changes_spin_value, ui_layer_opacity_prefix_scrub_is_one_undo_entry.
 inline constexpr char kScrubHandleInstalledProperty[] = "patchy.scrubHandleInstalled";
+inline constexpr char kScrubLabelExemptProperty[] = "patchy.scrubLabelExempt";
 void install_scrub_label(QLabel* label, QAbstractSpinBox* spin);
 void install_prefix_scrub(QSpinBox* spin);
 void install_scrub_labels_in(QWidget* container);

@@ -89,6 +89,10 @@
 #include <QDockWidget>
 #include <QDir>
 #include <QDoubleSpinBox>
+#include <QFormLayout>
+#include <QGridLayout>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
@@ -2505,6 +2509,109 @@ void ui_options_bar_label_scrub_changes_spin_value() {
   CHECK(handles >= 30);
 }
 
+// Dialogs get scrub handles from exec_dialog / run_non_modal_dialog through
+// install_scrub_labels_in, whose pairing must reach every row shape the dialogs
+// use (GitHub issue 46): a direct form row, a "[slider] [spin]" row widget, a
+// "[spin] - +" step-button row, a grid "label, slider, spin" row, a caption above
+// an HBox, and rows inside a QScrollArea inside a QTabWidget. A label followed by
+// a button and then a spin names the button, not the spin; a row label names the
+// first field of its row, and the "to" between a range's two fields is exempt.
+void ui_dialog_scrub_labels_pair_every_row_shape() {
+  QDialog dialog;
+  auto* root = new QVBoxLayout(&dialog);
+  auto* form = new QFormLayout();
+  root->addLayout(form);
+
+  auto* direct = new QSpinBox(&dialog);
+  direct->setRange(0, 100);
+  direct->setValue(20);
+  form->addRow(QStringLiteral("Direct:"), direct);
+  auto* slider_row_spin = patchy::ui::add_dialog_slider_spin_row(form, &dialog, QStringLiteral("Slider row:"),
+                                                                 QStringLiteral("scrubTestSlider"),
+                                                                 QStringLiteral("scrubTestSliderSpin"), 0, 100, 40);
+  auto* stepped = new QSpinBox(&dialog);
+  stepped->setRange(0, 100);
+  form->addRow(QStringLiteral("Stepped:"),
+               patchy::ui::wrap_spin_with_step_buttons(stepped, &dialog, QStringLiteral("Stepped")));
+  auto* button_then_spin = new QSpinBox(&dialog);
+  auto* button_row = new QWidget(&dialog);
+  auto* button_row_layout = new QHBoxLayout(button_row);
+  button_row_layout->addWidget(new QPushButton(QStringLiteral("Pick"), button_row));
+  button_row_layout->addWidget(button_then_spin);
+  auto* color_label = new QLabel(QStringLiteral("Grid color:"), &dialog);
+  form->addRow(color_label, button_row);
+  // A form row whose field starts with a spin box pairs that first field with the
+  // row label; the exempt "to" leaves the second field alone.
+  auto* range_row = new QWidget(&dialog);
+  auto* range_layout = new QHBoxLayout(range_row);
+  auto* range_minimum = new QSpinBox(range_row);
+  auto* range_to = new QLabel(QStringLiteral("to"), range_row);
+  range_to->setProperty(patchy::ui::kScrubLabelExemptProperty, true);
+  auto* range_maximum = new QSpinBox(range_row);
+  range_layout->addWidget(range_minimum);
+  range_layout->addWidget(range_to);
+  range_layout->addWidget(range_maximum);
+  form->addRow(QStringLiteral("Range:"), range_row);
+
+  auto* grid = new QGridLayout();
+  root->addLayout(grid);
+  auto* grid_label = new QLabel(QStringLiteral("Jitter"), &dialog);
+  auto* grid_spin = new QSpinBox(&dialog);
+  grid->addWidget(grid_label, 0, 0);
+  grid->addWidget(new QSlider(Qt::Horizontal, &dialog), 0, 1);
+  grid->addWidget(grid_spin, 0, 2);
+
+  auto* caption = new QLabel(QStringLiteral("Bend"), &dialog);
+  root->addWidget(caption);
+  auto* caption_row = new QHBoxLayout();
+  auto* caption_spin = new QDoubleSpinBox(&dialog);
+  caption_row->addWidget(new QSlider(Qt::Horizontal, &dialog));
+  caption_row->addWidget(caption_spin);
+  root->addLayout(caption_row);
+
+  auto* tabs = new QTabWidget(&dialog);
+  auto* scroll = new QScrollArea(tabs);
+  auto* page = new QWidget(scroll);
+  auto* page_form = new QFormLayout(page);
+  auto* page_spin = new QSpinBox(page);
+  page_form->addRow(QStringLiteral("Spacing:"), page_spin);
+  scroll->setWidget(page);
+  tabs->addTab(scroll, QStringLiteral("Page"));
+  root->addWidget(tabs);
+
+  patchy::ui::install_scrub_labels_in(&dialog);
+  for (auto* spin : {static_cast<QAbstractSpinBox*>(direct), static_cast<QAbstractSpinBox*>(slider_row_spin),
+                     static_cast<QAbstractSpinBox*>(stepped), static_cast<QAbstractSpinBox*>(grid_spin),
+                     static_cast<QAbstractSpinBox*>(caption_spin), static_cast<QAbstractSpinBox*>(page_spin),
+                     static_cast<QAbstractSpinBox*>(range_minimum)}) {
+    CHECK(spin->property(patchy::ui::kScrubHandleInstalledProperty).toBool());
+  }
+  for (auto* spin : {button_then_spin, range_maximum}) {
+    CHECK(!spin->property(patchy::ui::kScrubHandleInstalledProperty).toBool());
+  }
+  CHECK(grid_label->cursor().shape() == Qt::SizeHorCursor);
+  CHECK(caption->cursor().shape() == Qt::SizeHorCursor);
+  CHECK(color_label->cursor().shape() != Qt::SizeHorCursor);
+  CHECK(range_to->cursor().shape() != Qt::SizeHorCursor);
+  auto* slider_row_label = qobject_cast<QLabel*>(form->labelForField(slider_row_spin->parentWidget()));
+  CHECK(slider_row_label != nullptr);
+  CHECK(slider_row_label->cursor().shape() == Qt::SizeHorCursor);
+
+  // Installing again is a no-op, and a drag on a form-row label moves its field.
+  patchy::ui::install_scrub_labels_in(&dialog);
+  dialog.show();
+  QApplication::processEvents();
+  const auto origin = slider_row_label->rect().center();
+  const int drag_start = QApplication::startDragDistance();
+  send_mouse(*slider_row_label, QEvent::MouseButtonPress, origin, Qt::LeftButton, Qt::LeftButton);
+  send_mouse(*slider_row_label, QEvent::MouseMove, origin + QPoint(drag_start + 12, 0), Qt::NoButton,
+             Qt::LeftButton);
+  send_mouse(*slider_row_label, QEvent::MouseButtonRelease, origin + QPoint(drag_start + 12, 0), Qt::LeftButton,
+             Qt::NoButton);
+  QApplication::processEvents();
+  CHECK(slider_row_spin->value() == 40 + drag_start + 12);
+}
+
 // The Layers panel's "Opacity:" prefix scrubs the field (GitHub issue 46): the
 // drag is one undo entry, a plain click on the prefix focuses the field with the
 // number selected, and a drag on the number still selects text.
@@ -3411,6 +3518,7 @@ std::vector<patchy::test::TestCase> canvas_view_tools_tests() {
       {"ui_right_docks_collapse_layers_show_metadata_and_info_updates",
        ui_right_docks_collapse_layers_show_metadata_and_info_updates},
       {"ui_options_bar_label_scrub_changes_spin_value", ui_options_bar_label_scrub_changes_spin_value},
+      {"ui_dialog_scrub_labels_pair_every_row_shape", ui_dialog_scrub_labels_pair_every_row_shape},
       {"ui_layer_opacity_prefix_scrub_is_one_undo_entry", ui_layer_opacity_prefix_scrub_is_one_undo_entry},
       {"ui_layer_opacity_control_defers_slow_rendering_and_undoes_once",
        ui_layer_opacity_control_defers_slow_rendering_and_undoes_once},

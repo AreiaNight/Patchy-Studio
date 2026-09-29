@@ -3967,6 +3967,12 @@ void ui_image_size_dialog_unit_and_resolution_links_work() {
       CHECK(width_unit->currentText() == QStringLiteral("Pixels"));
       CHECK(width->value() == 1024.0);
       CHECK(std::abs(resolution->value() - 72.0) < 0.01);
+      // Every "Label:" in the dialog scrubs its field (GitHub issue 46), including
+      // Width, whose link button shares the grid row.
+      CHECK(width->property(patchy::ui::kScrubHandleInstalledProperty).toBool());
+      CHECK(height->property(patchy::ui::kScrubHandleInstalledProperty).toBool());
+      CHECK(resolution->property(patchy::ui::kScrubHandleInstalledProperty).toBool());
+      CHECK(width->singleStep() == 1.0);
 
       // Physical units display through the resolution; the two unit combos stay in step.
       width_unit->setCurrentIndex(width_unit->findText(QStringLiteral("Inches")));
@@ -3974,6 +3980,8 @@ void ui_image_size_dialog_unit_and_resolution_links_work() {
       CHECK(height_unit->currentText() == QStringLiteral("Inches"));
       CHECK(std::abs(width->value() - 1024.0 / 72.0) < 0.005);
       CHECK(std::abs(height->value() - 768.0 / 72.0) < 0.005);
+      // A scrub or arrow step in inches moves a hundredth, never a whole inch.
+      CHECK(std::abs(width->singleStep() - 0.01) < 1e-9);
 
       // Resample ON + physical units: a resolution change keeps the print size and
       // re-derives the pixel dimensions (72 -> 36 halves them).
@@ -4016,6 +4024,98 @@ void ui_image_size_dialog_unit_and_resolution_links_work() {
   CHECK(document.height() == 768);
   CHECK(std::abs(document.print_settings().horizontal_ppi - 200.0) < 0.05);
   CHECK(std::abs(document.print_settings().vertical_ppi - 200.0) < 0.05);
+}
+
+// Canvas Size converts its fields like Image Size: pixels stay the truth, the two
+// unit combos stay in step, Percent is relative to the current size, Relative mode
+// shows the change in the chosen unit, and the Current Size lines follow the unit.
+void ui_canvas_size_dialog_units_convert_through_resolution() {
+  patchy::ui::MainWindow window;  // default document: 1024x768 at 72 ppi
+  show_window(window);
+
+  bool drove_dialog = false;
+  QTimer::singleShot(0, [&] {
+    for (auto* widget : QApplication::topLevelWidgets()) {
+      if (widget->objectName() != QStringLiteral("patchyCanvasSizeDialog")) {
+        continue;
+      }
+      auto* dialog = qobject_cast<QDialog*>(widget);
+      auto* width = dialog->findChild<QDoubleSpinBox*>(QStringLiteral("canvasSizeWidthSpin"));
+      auto* height = dialog->findChild<QDoubleSpinBox*>(QStringLiteral("canvasSizeHeightSpin"));
+      auto* width_unit = dialog->findChild<QComboBox*>(QStringLiteral("canvasSizeWidthUnitCombo"));
+      auto* height_unit = dialog->findChild<QComboBox*>(QStringLiteral("canvasSizeHeightUnitCombo"));
+      auto* relative = dialog->findChild<QCheckBox*>(QStringLiteral("canvasSizeRelativeCheck"));
+      auto* current_width = dialog->findChild<QLabel*>(QStringLiteral("canvasSizeCurrentWidthLabel"));
+      auto* new_size = dialog->findChild<QLabel*>(QStringLiteral("canvasSizeNewSizeLabel"));
+      CHECK(width != nullptr && height != nullptr && width_unit != nullptr && height_unit != nullptr &&
+            relative != nullptr && current_width != nullptr && new_size != nullptr);
+
+      CHECK(width_unit->count() == 6);
+      CHECK(width_unit->currentText() == QStringLiteral("Pixels"));
+      CHECK(width->value() == 1024.0 && height->value() == 768.0);
+      CHECK(width->decimals() == 0);
+      CHECK(current_width->text() == QStringLiteral("1024 px"));
+      // The Width / Height labels scrub the fields (GitHub issue 46).
+      CHECK(width->property(patchy::ui::kScrubHandleInstalledProperty).toBool());
+      CHECK(height->property(patchy::ui::kScrubHandleInstalledProperty).toBool());
+
+      // Inches through the 72 ppi document; the height combo follows the width combo.
+      width_unit->setCurrentIndex(width_unit->findText(QStringLiteral("Inches")));
+      QApplication::processEvents();
+      CHECK(height_unit->currentText() == QStringLiteral("Inches"));
+      CHECK(std::abs(width->value() - 1024.0 / 72.0) < 0.005);
+      CHECK(std::abs(height->value() - 768.0 / 72.0) < 0.005);
+      CHECK(std::abs(width->singleStep() - 0.01) < 1e-9);
+      CHECK(current_width->text().startsWith(QStringLiteral("14.222")));
+      // The summary is the dialog's "New Size: <megabytes>" line for the target pixels.
+      const auto bytes_per_pixel =
+          static_cast<double>(patchy::bytes_per_pixel(patchy::ui::MainWindowTestAccess::document(window).format()));
+      const auto summary_for = [bytes_per_pixel](int w, int h) {
+        return QStringLiteral("New Size: %1M")
+            .arg(static_cast<double>(w) * h * bytes_per_pixel / (1024.0 * 1024.0), 0, 'f', 1);
+      };
+      width->setValue(10.0);
+      QApplication::processEvents();
+      CHECK(new_size->text() == summary_for(720, 768));
+
+      // Relative mode shows the change in the unit: the width is now 10 in (720 px), so
+      // the field reads -4.222 in; a typed +1 in makes the canvas 1096 px wide.
+      relative->setChecked(true);
+      QApplication::processEvents();
+      CHECK(std::abs(width->value() - (720.0 - 1024.0) / 72.0) < 0.005);
+      CHECK(std::abs(height->value()) < 0.0005);
+      width->setValue(1.0);
+      QApplication::processEvents();
+      CHECK(new_size->text() == summary_for(1096, 768));
+
+      // Percent is relative to the current size on each axis: +50% of the height.
+      height_unit->setCurrentIndex(height_unit->findText(QStringLiteral("Percent")));
+      QApplication::processEvents();
+      CHECK(width_unit->currentText() == QStringLiteral("Percent"));
+      CHECK(std::abs(width->value() - 7.03125) < 0.005);
+      height->setValue(50.0);
+      QApplication::processEvents();
+      CHECK(new_size->text() == summary_for(1096, 1152));
+
+      // Back to absolute pixels: the state is unchanged, only the display flips.
+      relative->setChecked(false);
+      width_unit->setCurrentIndex(width_unit->findText(QStringLiteral("Pixels")));
+      QApplication::processEvents();
+      CHECK(width->value() == 1096.0 && height->value() == 1152.0);
+      widget->grab().save(QStringLiteral("test-artifacts/ui_canvas_size_dialog_units.png"));
+      drove_dialog = true;
+      dialog->accept();
+      return;
+    }
+    CHECK(false);
+  });
+  require_action(window, "imageCanvasSizeAction")->trigger();
+  QApplication::processEvents();
+  CHECK(drove_dialog);
+
+  auto& document = patchy::ui::MainWindowTestAccess::document(window);
+  CHECK(document.width() == 1096);
+  CHECK(document.height() == 1152);
 }
 
 void ui_imported_image_density_follows_photoshop_conventions() {
@@ -4865,6 +4965,8 @@ std::vector<patchy::test::TestCase> import_print_resolution_tests() {
        ui_print_dialog_exposes_printer_and_visible_checkboxes},
       {"ui_image_size_dialog_unit_and_resolution_links_work",
        ui_image_size_dialog_unit_and_resolution_links_work},
+      {"ui_canvas_size_dialog_units_convert_through_resolution",
+       ui_canvas_size_dialog_units_convert_through_resolution},
       {"ui_imported_image_density_follows_photoshop_conventions",
        ui_imported_image_density_follows_photoshop_conventions},
       {"ui_ruler_unit_preference_changes_ruler_ticks", ui_ruler_unit_preference_changes_ruler_ticks},

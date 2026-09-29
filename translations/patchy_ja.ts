@@ -3506,10 +3506,6 @@ Open in Generative Upscale...</source>
         <translation>現在のサイズ: %1</translation>
     </message>
     <message>
-        <source>%1 px</source>
-        <translation>%1 px</translation>
-    </message>
-    <message>
         <source>Relative to current dimension</source>
         <translation>現在の寸法を基準にする</translation>
     </message>

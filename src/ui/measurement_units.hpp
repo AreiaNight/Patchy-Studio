@@ -63,6 +63,10 @@ enum class MeasurementUnit {
 
 // Spin-box decimal places appropriate for entering values in the unit.
 [[nodiscard]] int measurement_unit_decimals(MeasurementUnit unit) noexcept;
+// Spin-box single step for a dimension shown in the unit: one arrow-key press or
+// one pixel of a scrubby-label drag (dialog_utils.hpp). Whole units for px, mm, pt
+// and percent; 0.1 cm; 0.01 in, so a drag never jumps by an inch per pixel.
+[[nodiscard]] double measurement_unit_single_step(MeasurementUnit unit) noexcept;
 
 // Ruler tick spacing for a unit-space ruler. pixels_per_unit_on_screen is how many
 // screen pixels one unit currently spans (document px/unit x zoom). The major step is

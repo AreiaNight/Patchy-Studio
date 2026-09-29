@@ -397,6 +397,9 @@ BrushDynamicsPanel::BrushDynamicsPanel(QWidget* parent) : QWidget(parent) {
   // Keep - / + buttons on the panel's spin boxes (see the sub-control gotcha in dialog_utils);
   // applied after all children exist.
   set_themed_style(*this, dialog_spinbox_button_style());
+  // The popup is a Qt::Popup frame, not a dialog, so the exec_dialog hook never sees
+  // these rows: pair every "Label", slider, spin row here (GitHub issue 46).
+  install_scrub_labels_in(this);
 }
 
 void BrushDynamicsPanel::set_values(const patchy::BrushDynamics& dynamics, double base_angle_degrees,

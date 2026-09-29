@@ -5603,10 +5603,6 @@ Open in Generative Upscale...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>%1 px</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Pixels</source>
         <translation type="unfinished"></translation>
     </message>

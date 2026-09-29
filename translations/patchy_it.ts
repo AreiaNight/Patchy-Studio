@@ -5604,10 +5604,6 @@ Apri in Upscaling generativo...</translation>
         <translation>Larghezza</translation>
     </message>
     <message>
-        <source>%1 px</source>
-        <translation>%1 px</translation>
-    </message>
-    <message>
         <source>Pixels</source>
         <translation>Pixel</translation>
     </message>
@@ -18058,7 +18054,7 @@ Y: %2
     </message>
     <message>
         <source>Canvas Background Color</source>
-        <translation>Colore di sfondo dell'area di lavoro</translation>
+        <translation>Colore di sfondo dell&apos;area di lavoro</translation>
     </message>
 </context>
 <context>

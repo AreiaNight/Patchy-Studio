@@ -48,6 +48,12 @@ enables the destructive layer/mask crop, even when the canvas dimensions are unc
 The checkbox starts unchecked on every opening and is never persisted. Both modes are
 undoable. Document alpha/spot channels remain canvas-sized; editable vector paths, text
 transforms and Smart Object placements continue to follow the anchor translation.
+Units (`request_canvas_size_settings`): the state is the absolute target size in
+pixels; the W/H fields show it converted through the document PPI in the unit the two
+linked combos select (Percent/Pixels/Inches/Cm/Mm/Points, Pixels on every opening).
+Percent is relative to the current size per axis. Relative mode shows the change in that
+unit (negative allowed) with the range mapped so the pixel result stays 1..30000, and the
+Current Size lines follow the unit. `ui_canvas_size_dialog_units_convert_through_resolution`.
 
 Image Size (`request_image_size_settings`, main_window.cpp): canonical state is pixel
 W/H + PPI. W/H unit combos (Percent/Pixels/Inches/Cm/Mm/Points) stay in step. Resample ON:
@@ -122,7 +128,9 @@ document width/height; the W/H fields (native percent) take pixels relative to t
 session's original extent (`TransformControlsState::original_size`); text size (native
 pt) takes px through the PPI; a degree field accepts only degrees; a percent typed into a
 field with no basis is refused. Converted values clamp to the range; plain numbers keep
-the stock spin-box typing rules. A switchable field (`set_display_unit_switchable`, the
+the stock spin-box typing rules. A dimension field that switches units also takes
+`measurement_unit_single_step` (1 for px/mm/pt/%, 0.1 cm, 0.01 in) so arrow keys and a
+scrubby-label drag ([ui-conventions.md](ui-conventions.md)) never move a whole inch per step. A switchable field (`set_display_unit_switchable`, the
 transform X/Y/W/H fields) also adopts a typed unit as its display unit, Photoshop-style:
 `value()` stays native, `textFromValue` converts for display, a plain number is then read in
 the shown unit, and a right-click lists the units (`display_unit_changed` lets the linked

@@ -5604,10 +5604,6 @@ In „Generatives Hochskalieren“ öffnen...</translation>
         <translation>Breite</translation>
     </message>
     <message>
-        <source>%1 px</source>
-        <translation>%1 px</translation>
-    </message>
-    <message>
         <source>Pixels</source>
         <translation>Pixel</translation>
     </message>
