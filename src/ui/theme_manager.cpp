@@ -2,10 +2,7 @@
 
 #include "ui/app_settings.hpp"
 
-#include <QDir>
-#include <QFile>
 #include <QGuiApplication>
-#include <QIODevice>
 #include <QSettings>
 #include <QStyleHints>
 
@@ -189,15 +186,10 @@ void ThemeManager::load_saved_preference() {
   if (custom_id.isEmpty()) {
     return;
   }
-  const auto themes_dir = user_themes_directory();
-  QFile file(themes_dir.isEmpty() ? QString() : QDir(themes_dir).filePath(custom_id));
-  if (!file.open(QIODevice::ReadOnly)) {
-    // The saved theme file is gone (moved or deleted by hand outside Patchy);
-    // fall back to the built-in preference already applied above rather than
-    // failing startup.
-    return;
-  }
-  auto result = load_theme_from_json(file.readAll());
+  // A missing or invalid file (moved or deleted by hand outside Patchy, or a
+  // bundled theme this build no longer ships) falls back to the built-in
+  // preference already applied above rather than failing startup.
+  auto result = load_theme_by_id(custom_id);
   if (!result.theme) {
     return;
   }

@@ -8650,6 +8650,10 @@ RGB：%2, %3, %4</translation>
         <source>Invalid color &quot;%1&quot; for role &quot;%2&quot; (expected #RRGGBB or #RRGGBBAA).</source>
         <translation>角色 &quot;%2&quot; 的顏色 &quot;%1&quot; 無效（應為 #RRGGBB 或 #RRGGBBAA）。</translation>
     </message>
+    <message>
+        <source>Theme file &quot;%1&quot; could not be read.</source>
+        <translation>無法讀取主題檔案 &quot;%1&quot;。</translation>
+    </message>
 </context>
 <context>
     <name>VectorPreview</name>

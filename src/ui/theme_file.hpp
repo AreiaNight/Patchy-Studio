@@ -51,9 +51,24 @@ struct ThemeLoadResult {
                                                   const QString& name);
 
 // Desktop persistence directory for imported theme files; empty on wasm (no
-// AppData store there -- Import/Export is desktop-only, see
+// AppData store there -- the theme buttons are desktop-only, see
 // docs/ui-conventions.md). Honors the PATCHY_THEMES_DIR environment override
 // for test isolation, like PATCHY_RECOVERY_DIR (document_recovery.hpp).
 [[nodiscard]] QString user_themes_directory();
+
+// A theme id, the value ThemeManager persists, is either a file name within
+// user_themes_directory() or kBundledThemeIdPrefix followed by the name of a
+// theme compiled into the binary (themes.qrc, the files in themes/bundled/).
+// Bundled themes exist on every platform, wasm included.
+inline constexpr QLatin1StringView kBundledThemeIdPrefix{"bundled:"};
+[[nodiscard]] bool is_bundled_theme_id(const QString& id);
+// The bundled theme file names, in the order the Preferences combo lists them.
+[[nodiscard]] QStringList bundled_theme_file_names();
+// The path (a resource path for a bundled id) the id reads from; empty when a
+// user id has no directory (wasm).
+[[nodiscard]] QString theme_file_path_for_id(const QString& id);
+// Reads and parses the file behind an id. A missing or unreadable file is an
+// error like any other, so callers have one branch.
+[[nodiscard]] ThemeLoadResult load_theme_by_id(const QString& id);
 
 }  // namespace patchy::ui

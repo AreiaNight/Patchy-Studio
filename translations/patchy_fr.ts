@@ -8677,6 +8677,10 @@ RVB : %2, %3, %4</translation>
         <source>Invalid color &quot;%1&quot; for role &quot;%2&quot; (expected #RRGGBB or #RRGGBBAA).</source>
         <translation>Couleur non valide &quot;%1&quot; pour le rôle &quot;%2&quot; (attendu #RRGGBB ou #RRGGBBAA).</translation>
     </message>
+    <message>
+        <source>Theme file &quot;%1&quot; could not be read.</source>
+        <translation>Impossible de lire le fichier de thème &quot;%1&quot;.</translation>
+    </message>
 </context>
 <context>
     <name>VectorPreview</name>

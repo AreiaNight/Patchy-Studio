@@ -1,0 +1,11 @@
+<RCC>
+  <qresource prefix="/patchy/themes">
+    <file alias="darkest.patchytheme">../../themes/bundled/darkest.patchytheme</file>
+    <file alias="medium-gray.patchytheme">../../themes/bundled/medium-gray.patchytheme</file>
+    <file alias="solarized-dark.patchytheme">../../themes/bundled/solarized-dark.patchytheme</file>
+    <file alias="nord.patchytheme">../../themes/bundled/nord.patchytheme</file>
+    <file alias="dracula.patchytheme">../../themes/bundled/dracula.patchytheme</file>
+    <file alias="gruvbox-dark.patchytheme">../../themes/bundled/gruvbox-dark.patchytheme</file>
+    <file alias="high-contrast.patchytheme">../../themes/bundled/high-contrast.patchytheme</file>
+  </qresource>
+</RCC>

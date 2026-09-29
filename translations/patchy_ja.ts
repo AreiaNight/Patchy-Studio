@@ -8650,6 +8650,10 @@ Mixed selection</source>
         <source>Invalid color &quot;%1&quot; for role &quot;%2&quot; (expected #RRGGBB or #RRGGBBAA).</source>
         <translation>ロール &quot;%2&quot; の色 &quot;%1&quot; が無効です（#RRGGBB または #RRGGBBAA が必要です）。</translation>
     </message>
+    <message>
+        <source>Theme file &quot;%1&quot; could not be read.</source>
+        <translation>テーマファイル &quot;%1&quot; を読み込めませんでした。</translation>
+    </message>
 </context>
 <context>
     <name>VectorPreview</name>

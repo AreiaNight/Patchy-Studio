@@ -1205,6 +1205,7 @@ ${PATCHY_LUPDATE_MANIFEST_SOURCES}
       src/ui/zoom_status_bar.cpp
       src/ui/icons.qrc
       src/ui/textures.qrc
+      src/ui/themes.qrc
     )
     # The print dialog TU is the one QtPrintSupport user; Qt ships no
     # PrintSupport for wasm, so that build compiles the stub TU instead

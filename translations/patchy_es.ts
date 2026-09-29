@@ -8677,6 +8677,10 @@ RGB: %2, %3, %4</translation>
         <source>Invalid color &quot;%1&quot; for role &quot;%2&quot; (expected #RRGGBB or #RRGGBBAA).</source>
         <translation>Color no válido &quot;%1&quot; para el rol &quot;%2&quot; (se esperaba #RRGGBB o #RRGGBBAA).</translation>
     </message>
+    <message>
+        <source>Theme file &quot;%1&quot; could not be read.</source>
+        <translation>No se pudo leer el archivo de tema &quot;%1&quot;.</translation>
+    </message>
 </context>
 <context>
     <name>VectorPreview</name>

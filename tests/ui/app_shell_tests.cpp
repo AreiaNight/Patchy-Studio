@@ -2447,8 +2447,9 @@ void ui_preferences_delete_removes_theme_file_and_entry() {
 
     CHECK(!QFileInfo::exists(path));
     CHECK(combo->findData(QStringLiteral("custom:doomed.patchytheme")) < 0);
-    // No custom entry left, so the separator went too: only the three built-ins remain.
-    CHECK(combo->count() == 3);
+    // No user entry left, so its separator went too: the built-ins, one
+    // separator, and the bundled set remain.
+    CHECK(combo->count() == 4 + patchy::ui::bundled_theme_file_names().size());
     CHECK(combo->currentIndex() == 0);
     CHECK(!remove->isEnabled());
     CHECK(!patchy::ui::has_active_custom_palette());
@@ -2461,6 +2462,91 @@ void ui_preferences_delete_removes_theme_file_and_entry() {
   CHECK(saw_confirm);
   CHECK(!patchy::ui::has_active_custom_palette());
   CHECK(!patchy::ui::ThemeManager::instance().active_custom_theme_id().has_value());
+}
+
+// Every bundled theme (themes.qrc) parses cleanly with no unknown-role warning
+// (the generator writes every role, so a warning means the palette and the
+// generated files drifted), lists in Preferences under a "bundled:" id right
+// after the built-in entries, and cannot be deleted.
+void ui_bundled_themes_load_and_list_in_preferences() {
+  ColorSchemeRestorer restore_active;
+  ColorSchemeRestorer::apply(patchy::ui::ColorSchemePreference::Dark);
+  ThemesDirEnvGuard themes_dir;  // an empty user folder, so only bundled entries follow the built-ins
+
+  const auto names = patchy::ui::bundled_theme_file_names();
+  CHECK(names.size() >= 5);
+  for (const auto& name : names) {
+    const auto id = patchy::ui::kBundledThemeIdPrefix + name;
+    CHECK(patchy::ui::is_bundled_theme_id(id));
+    const auto result = patchy::ui::load_theme_by_id(id);
+    if (!result.theme) {
+      fprintf(stderr, "  %s: %s\n", name.toUtf8().constData(), result.error.toUtf8().constData());
+    }
+    CHECK(result.theme.has_value());
+    CHECK(result.error.isEmpty());
+    CHECK(result.warnings.isEmpty());
+    CHECK(!result.theme->name.isEmpty());
+  }
+  CHECK(!patchy::ui::load_theme_by_id(QStringLiteral("bundled:missing.patchytheme")).theme.has_value());
+
+  patchy::ui::MainWindow window;
+  show_window(window);
+  bool saw_dialog = false;
+  QTimer::singleShot(0, [&] {
+    auto* dialog = find_top_level_dialog(QStringLiteral("patchyPreferencesDialog"));
+    CHECK(dialog != nullptr);
+    if (dialog == nullptr) {
+      return;
+    }
+    auto* combo = dialog->findChild<QComboBox*>(QStringLiteral("preferencesColorSchemeCombo"));
+    auto* remove = dialog->findChild<QPushButton*>(QStringLiteral("preferencesDeleteThemeButton"));
+    CHECK(combo != nullptr && remove != nullptr);
+    if (combo == nullptr || remove == nullptr) {
+      dialog->reject();
+      return;
+    }
+    // Three built-ins, one separator, then the bundled set in authored order.
+    CHECK(combo->count() == 4 + names.size());
+    for (int i = 0; i < names.size(); ++i) {
+      CHECK(combo->itemData(4 + i).toString() == QStringLiteral("custom:bundled:") + names[i]);
+    }
+    save_widget_artifact("preferences_application_tab", *dialog);
+    const auto index = combo->findData(QStringLiteral("custom:bundled:nord.patchytheme"));
+    CHECK(index >= 0);
+    combo->setCurrentIndex(index);
+    QApplication::processEvents();
+    CHECK(combo->currentText() == QStringLiteral("Nord"));
+    save_widget_artifact("preferences_application_tab_nord", *dialog);
+    CHECK(patchy::ui::has_active_custom_palette());
+    CHECK(patchy::ui::theme().window_bg == QColor(0x2e, 0x34, 0x40));
+    CHECK(!remove->isEnabled());
+    saw_dialog = true;
+    dialog->reject();
+  });
+  require_action(window, "filePreferencesAction")->trigger();
+  QApplication::processEvents();
+  CHECK(saw_dialog);
+  CHECK(!patchy::ui::has_active_custom_palette());
+}
+
+// A persisted bundled id needs no user folder at all (wasm has none), so it
+// reapplies at startup through the resource path.
+void ui_bundled_theme_id_persists_and_reapplies_like_a_restart() {
+  ColorSchemeRestorer restore_active;
+  ColorSchemeRestorer::apply(patchy::ui::ColorSchemePreference::Dark);
+  SettingsValueRestorer restore_scheme(QStringLiteral("preferences/colorScheme"));
+  SettingsValueRestorer restore_custom_id(QStringLiteral("preferences/customThemeId"));
+  {
+    auto settings = patchy::ui::app_settings();
+    settings.setValue(QStringLiteral("preferences/colorScheme"), QStringLiteral("dark"));
+    settings.setValue(QStringLiteral("preferences/customThemeId"), QStringLiteral("bundled:dracula.patchytheme"));
+    settings.sync();
+  }
+  patchy::ui::ThemeManager::instance().load_saved_preference();
+  const auto active_id = patchy::ui::ThemeManager::instance().active_custom_theme_id();
+  CHECK(active_id.has_value());
+  CHECK(*active_id == QStringLiteral("bundled:dracula.patchytheme"));
+  CHECK(patchy::ui::theme().window_bg == QColor(0x28, 0x2a, 0x36));
 }
 
 // The regression guard for "live, no restart": an already-built window has to
@@ -4719,6 +4805,9 @@ std::vector<patchy::test::TestCase> app_shell_tests() {
       {"ui_theme_file_newer_format_is_a_hard_error", ui_theme_file_newer_format_is_a_hard_error},
       {"ui_preferences_reload_reapplies_an_edited_theme_file", ui_preferences_reload_reapplies_an_edited_theme_file},
       {"ui_preferences_delete_removes_theme_file_and_entry", ui_preferences_delete_removes_theme_file_and_entry},
+      {"ui_bundled_themes_load_and_list_in_preferences", ui_bundled_themes_load_and_list_in_preferences},
+      {"ui_bundled_theme_id_persists_and_reapplies_like_a_restart",
+       ui_bundled_theme_id_persists_and_reapplies_like_a_restart},
       {"ui_color_scheme_switch_updates_existing_window", ui_color_scheme_switch_updates_existing_window},
       {"ui_themed_icons_recolor_between_schemes", ui_themed_icons_recolor_between_schemes},
       {"ui_main_window_persists_window_geometry", ui_main_window_persists_window_geometry},

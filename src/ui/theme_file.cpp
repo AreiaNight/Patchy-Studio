@@ -2,16 +2,28 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QFile>
 #include <QHash>
+#include <QIODevice>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
 #include <QJsonValue>
 #include <QStandardPaths>
 
+// The bundled theme resources (themes.qrc) live in the static patchy_ui
+// library; force registration before first use, as icon_theme.cpp does for
+// icons.qrc.
+int qInitResources_themes();
+
 namespace patchy::ui {
 
 namespace {
+
+void ensure_theme_resources() {
+  static const int registered = ::qInitResources_themes();
+  (void)registered;
+}
 
 [[nodiscard]] std::optional<ColorScheme> parse_base_token(const QString& token) {
   if (token == QStringLiteral("dark")) {
@@ -163,6 +175,40 @@ QByteArray serialize_theme_to_json(const ThemePalette& palette, ColorScheme base
   object.insert(QStringLiteral("base"), base_token(base));
   object.insert(QStringLiteral("roles"), roles_object);
   return QJsonDocument(object).toJson(QJsonDocument::Indented);
+}
+
+bool is_bundled_theme_id(const QString& id) { return id.startsWith(kBundledThemeIdPrefix); }
+
+QStringList bundled_theme_file_names() {
+  // Listed in an authored order rather than alphabetically: the two neutral
+  // brightness steps first, then the named palettes, then the accessibility one.
+  static const QStringList names{
+      QStringLiteral("darkest.patchytheme"),      QStringLiteral("medium-gray.patchytheme"),
+      QStringLiteral("solarized-dark.patchytheme"), QStringLiteral("nord.patchytheme"),
+      QStringLiteral("dracula.patchytheme"),      QStringLiteral("gruvbox-dark.patchytheme"),
+      QStringLiteral("high-contrast.patchytheme"),
+  };
+  return names;
+}
+
+QString theme_file_path_for_id(const QString& id) {
+  if (is_bundled_theme_id(id)) {
+    ensure_theme_resources();
+    return QStringLiteral(":/patchy/themes/") + id.mid(kBundledThemeIdPrefix.size());
+  }
+  const auto directory = user_themes_directory();
+  return directory.isEmpty() ? QString() : QDir(directory).filePath(id);
+}
+
+ThemeLoadResult load_theme_by_id(const QString& id) {
+  const auto path = theme_file_path_for_id(id);
+  QFile file(path);
+  if (path.isEmpty() || !file.open(QIODevice::ReadOnly)) {
+    ThemeLoadResult result;
+    result.error = QCoreApplication::translate("ThemeFile", "Theme file \"%1\" could not be read.").arg(id);
+    return result;
+  }
+  return load_theme_from_json(file.readAll());
 }
 
 QString user_themes_directory() {
