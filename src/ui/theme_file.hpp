@@ -20,6 +20,11 @@
 
 namespace patchy::ui {
 
+// The "format" key a theme file carries. A file without one is format 1. Bump
+// only for a change an older build could not read correctly; adding roles never
+// needs it (unknown roles are ignored, missing ones fall back to the base).
+inline constexpr int kThemeFileFormat = 1;
+
 struct CustomTheme {
   QString name;
   ColorScheme base = ColorScheme::Dark;

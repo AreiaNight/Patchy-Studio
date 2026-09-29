@@ -3620,6 +3620,10 @@ void ui_title02_tracked_legacy_text_caret_matches_glyphs_if_available() {
   patchy::test::register_test_fonts(patchy::test::TestFontRole::UiDefault);
   const auto futura = QStringLiteral(PATCHY_SOURCE_DIR) + QStringLiteral("/local-test-fixtures/fonts/FUTURABC.TTF");
   const bool futura_registered = QFile::exists(futura) && QFontDatabase::addApplicationFont(futura) >= 0;
+  if (!futura_registered) {
+    std::cout << "[SKIP] Futura fixture font missing: " << futura.toStdString() << '\n';
+    return;
+  }
   auto document = patchy::psd::DocumentIo::read_file(path);
   patchy::LayerId layer_id = 0;
   patchy::Rect source_bounds{};

@@ -448,6 +448,10 @@ void MainWindow::show_preferences() {
   auto* tabs = new QTabWidget(&dialog);
   tabs->setObjectName(QStringLiteral("preferencesTabWidget"));
   tabs->setDocumentMode(true);
+  // Every tab stays visible: without scroll buttons the tab bar's minimum
+  // width is the full row, which the layout passes on to the dialog, so the
+  // last tabs never hide behind arrows.
+  tabs->setUsesScrollButtons(false);
   suppress_native_tab_bar_base(*tabs);
 
   auto [application_page, application_layout] = make_tab_page(tabs);
@@ -502,11 +506,25 @@ void MainWindow::show_preferences() {
                                 custom_theme_token(file_name));
     custom_themes->insert(file_name, custom_theme);
   };
-  const auto themes_dir = user_themes_directory();
-  if (!themes_dir.isEmpty()) {
-    QDir dir(themes_dir);
-    const auto entries = dir.entryList({QStringLiteral("*.patchytheme"), QStringLiteral("*.json")}, QDir::Files,
-                                       QDir::Name);
+  // Drops every custom entry (and the separator before them) and re-reads the
+  // folder: at open, after Delete, and from the Reload button, which is the
+  // authoring loop (edit the JSON in a text editor, click Reload). Callers
+  // block the combo's signals around it, because removing the current item
+  // moves the selection.
+  const auto rescan_custom_themes = [color_scheme_combo, custom_themes, add_custom_theme_entry] {
+    for (int i = color_scheme_combo->count() - 1; i >= 0; --i) {
+      const auto token = color_scheme_combo->itemData(i).toString();
+      if (token.isEmpty() || token.startsWith(QStringLiteral("custom:"))) {
+        color_scheme_combo->removeItem(i);
+      }
+    }
+    custom_themes->clear();
+    const auto themes_dir = user_themes_directory();
+    if (themes_dir.isEmpty()) {
+      return;
+    }
+    const QDir dir(themes_dir);
+    const auto entries = dir.entryList({QStringLiteral("*.patchytheme")}, QDir::Files, QDir::Name);
     for (const auto& file_name : entries) {
       QFile file(dir.filePath(file_name));
       if (!file.open(QIODevice::ReadOnly)) {
@@ -517,7 +535,22 @@ void MainWindow::show_preferences() {
         add_custom_theme_entry(file_name, *result.theme);
       }
     }
-  }
+  };
+  rescan_custom_themes();
+  // Applies whatever the combo currently shows as a live preview (never
+  // persisted here; the commit branch below persists on OK). Shared by the
+  // combo's change handler, Reload, and Delete.
+  const auto apply_combo_selection = [color_scheme_combo, custom_themes] {
+    const auto token = color_scheme_combo->currentData().toString();
+    if (token.startsWith(QStringLiteral("custom:"))) {
+      const auto found = custom_themes->find(token.mid(7));
+      if (found != custom_themes->end()) {
+        ThemeManager::instance().set_custom_theme(token.mid(7), found.value(), /*persist=*/false);
+      }
+      return;
+    }
+    ThemeManager::instance().set_preference(color_scheme_preference_from_token(token), /*persist=*/false);
+  };
 
   const auto entry_color_scheme = ThemeManager::instance().preference();
   const auto entry_custom_id = ThemeManager::instance().active_custom_theme_id();
@@ -528,17 +561,94 @@ void MainWindow::show_preferences() {
   application_form->addRow(tr("Color scheme:"), color_scheme_combo);
 
 #ifndef Q_OS_WASM
-  // Import/Export are desktop-only: wasm has no AppData store to hold the
+  // The theme buttons are desktop-only: wasm has no AppData store to hold the
   // imported files (user_themes_directory() is empty there).
   auto* import_theme_button = new QPushButton(tr("Import Theme..."), application_group);
   import_theme_button->setObjectName(QStringLiteral("preferencesImportThemeButton"));
   auto* export_theme_button = new QPushButton(tr("Export Theme..."), application_group);
   export_theme_button->setObjectName(QStringLiteral("preferencesExportThemeButton"));
+  auto* reload_themes_button = new QPushButton(tr("Reload Themes"), application_group);
+  reload_themes_button->setObjectName(QStringLiteral("preferencesReloadThemesButton"));
+  reload_themes_button->setToolTip(tr("Re-read the theme files in the themes folder and apply the selected one."));
+  auto* delete_theme_button = new QPushButton(tr("Delete Theme..."), application_group);
+  delete_theme_button->setObjectName(QStringLiteral("preferencesDeleteThemeButton"));
+  auto* open_themes_folder_button = new QPushButton(tr("Open Themes Folder"), application_group);
+  open_themes_folder_button->setObjectName(QStringLiteral("preferencesOpenThemesFolderButton"));
   auto* theme_buttons_row = new QHBoxLayout();
   theme_buttons_row->addWidget(import_theme_button);
   theme_buttons_row->addWidget(export_theme_button);
+  theme_buttons_row->addWidget(reload_themes_button);
+  theme_buttons_row->addWidget(delete_theme_button);
+  theme_buttons_row->addWidget(open_themes_folder_button);
   theme_buttons_row->addStretch(1);
   application_form->addRow(QString(), theme_buttons_row);
+
+  // Delete applies to the custom entry the combo shows; a built-in scheme
+  // cannot be deleted.
+  const auto update_delete_enabled = [color_scheme_combo, delete_theme_button] {
+    delete_theme_button->setEnabled(
+        color_scheme_combo->currentData().toString().startsWith(QStringLiteral("custom:")));
+  };
+  update_delete_enabled();
+  connect(color_scheme_combo, &QComboBox::currentIndexChanged, &dialog, update_delete_enabled);
+
+  connect(open_themes_folder_button, &QPushButton::clicked, &dialog, [&dialog] {
+    const auto themes_dir = user_themes_directory();
+    if (themes_dir.isEmpty() || !QDir().mkpath(themes_dir) ||
+        !QDesktopServices::openUrl(QUrl::fromLocalFile(themes_dir))) {
+      show_critical_message(&dialog, tr("Open Themes Folder"), tr("Could not open the themes folder."),
+                            QStringLiteral("openThemesFolderFailedMessageBox"));
+    }
+  });
+
+  connect(reload_themes_button, &QPushButton::clicked, &dialog,
+          [color_scheme_combo, rescan_custom_themes, apply_combo_selection, update_delete_enabled] {
+            const auto token = color_scheme_combo->currentData().toString();
+            {
+              const QSignalBlocker blocker(color_scheme_combo);
+              rescan_custom_themes();
+              const auto index = color_scheme_combo->findData(token);
+              color_scheme_combo->setCurrentIndex(index >= 0 ? index : 0);
+            }
+            // A re-read file may hold new colors under the same name, so apply
+            // even when the selection did not move.
+            apply_combo_selection();
+            update_delete_enabled();
+          });
+
+  connect(delete_theme_button, &QPushButton::clicked, &dialog,
+          [&dialog, color_scheme_combo, rescan_custom_themes, apply_combo_selection, update_delete_enabled] {
+            const auto token = color_scheme_combo->currentData().toString();
+            if (!token.startsWith(QStringLiteral("custom:"))) {
+              return;
+            }
+            const auto file_name = token.mid(7);
+            QMessageBox confirm(QMessageBox::Question, tr("Delete Theme"),
+                                tr("Delete the theme \"%1\"? Its file is removed from the themes folder.")
+                                    .arg(color_scheme_combo->currentText()),
+                                QMessageBox::NoButton, &dialog);
+            confirm.setObjectName(QStringLiteral("preferencesDeleteThemeConfirm"));
+            auto* delete_button = confirm.addButton(tr("Delete"), QMessageBox::AcceptRole);
+            confirm.addButton(QMessageBox::Cancel);
+            confirm.setDefaultButton(delete_button);
+            exec_dialog(confirm);
+            if (confirm.clickedButton() != delete_button) {
+              return;
+            }
+            const auto themes_dir = user_themes_directory();
+            if (themes_dir.isEmpty() || !QFile::remove(QDir(themes_dir).filePath(file_name))) {
+              show_critical_message(&dialog, tr("Delete Theme"), tr("Could not delete \"%1\".").arg(file_name),
+                                    QStringLiteral("deleteThemeFailedMessageBox"));
+              return;
+            }
+            {
+              const QSignalBlocker blocker(color_scheme_combo);
+              rescan_custom_themes();
+              color_scheme_combo->setCurrentIndex(0);
+            }
+            apply_combo_selection();
+            update_delete_enabled();
+          });
 
   // Import copies the picked file into user_themes_directory() and previews it
   // immediately, independent of the dialog's Accept/Reject (like "Remove Added
@@ -548,7 +658,7 @@ void MainWindow::show_preferences() {
   connect(import_theme_button, &QPushButton::clicked, &dialog,
           [&dialog, color_scheme_combo, add_custom_theme_entry, custom_theme_token] {
             const auto path = get_open_file_name(&dialog, tr("Import Theme"), QString(),
-                                                 tr("Patchy theme (*.patchytheme *.json)"));
+                                                 tr("Patchy theme (*.patchytheme)"));
             if (path.isEmpty()) {
               return;
             }
@@ -863,17 +973,7 @@ void MainWindow::show_preferences() {
 
   // Connected after setCurrentIndex so restoring the saved value does not count
   // as a user choice.
-  connect(color_scheme_combo, &QComboBox::currentIndexChanged, &dialog, [color_scheme_combo, custom_themes] {
-    const auto token = color_scheme_combo->currentData().toString();
-    if (token.startsWith(QStringLiteral("custom:"))) {
-      const auto found = custom_themes->find(token.mid(7));
-      if (found != custom_themes->end()) {
-        ThemeManager::instance().set_custom_theme(token.mid(7), found.value(), /*persist=*/false);
-      }
-      return;
-    }
-    ThemeManager::instance().set_preference(color_scheme_preference_from_token(token), /*persist=*/false);
-  });
+  connect(color_scheme_combo, &QComboBox::currentIndexChanged, &dialog, apply_combo_selection);
 
   auto [pen_page, pen_layout] = make_tab_page(tabs);
   auto* pen_group = new QFrame(pen_page);
@@ -1183,16 +1283,136 @@ void MainWindow::show_preferences() {
   snapping_layout->addStretch(1);
   tabs->addTab(snapping_page, tr("Snapping"));
 
-  // Applied here, after every widget these rules can reach already exists
-  // (Application/Pen/Grid & Guides/Snapping, including every dialog spin box),
-  // but before the Hotkeys tab: Qt does not reliably pick up sub-control rules
-  // (QSpinBox::up-button) for widgets created on hidden tab pages after the
-  // stylesheet was set, so anything the rules target must already exist. The
-  // Hotkeys tab has no spin box and none of the IDs below, so building it
-  // afterward is fine and, unlike appending after it, avoids forcing Qt to
-  // repolish its several-hundred-widget subtree along with everything else
-  // (the September 2026 Preferences-open slowdown: this repolish alone cost
-  // seconds with the full command list).
+  auto [hotkeys_page, hotkeys_layout] = make_tab_page(tabs);
+  hotkeys_layout->addStretch(1);
+  const int hotkeys_tab_index = tabs->addTab(hotkeys_page, tr("Hotkeys"));
+
+  // Building ~150 hotkey rows is the single most expensive part of opening this
+  // dialog, so the panel is built on the first visit to its tab; most
+  // Preferences opens never switch to it. Built on demand, it is also created
+  // after the dialog stylesheet below is set, so Qt never repolishes its
+  // several-hundred-widget subtree (the September 2026 Preferences-open
+  // slowdown). The tab itself stays at this position: tests and the Windows
+  // Plug-ins tab after it depend on the order.
+  HotkeyEditorPanel* hotkey_editor = nullptr;
+  connect(tabs, &QTabWidget::currentChanged, &dialog,
+          [this, hotkeys_page, hotkeys_layout, hotkeys_tab_index, &hotkey_editor](int index) {
+            if (index != hotkeys_tab_index || hotkey_editor != nullptr) {
+              return;
+            }
+            hotkey_editor = new HotkeyEditorPanel(hotkey_registry_, menuBar(), hotkeys_page);
+            hotkeys_layout->insertWidget(0, hotkey_editor);
+          });
+
+#ifdef Q_OS_WIN
+  // Plug-ins: the folders scanned for legacy Photoshop .8bf filters (Windows
+  // only, where they can run). The two automatic folders are fixed; the list
+  // holds the user-added ones (docs/plugins.md). Scanning never runs a plug-in.
+  auto [plugins_page, plugins_layout] = make_tab_page(tabs);
+  auto* plugins_group = new QFrame(plugins_page);
+  plugins_group->setObjectName(QStringLiteral("preferencesPluginsGroup"));
+  configure_panel(plugins_group);
+  auto* plugins_form = new QFormLayout(plugins_group);
+  configure_form(plugins_form);
+  auto* plugins_intro = new QLabel(
+      tr("Photoshop filter plug-ins (.8bf, 32-bit or 64-bit) are found in these folders and their "
+         "subfolders and listed under Plugins > Legacy Photoshop Plug-ins. Only run plug-ins you trust: "
+         "they execute with your permissions."),
+      plugins_group);
+  plugins_intro->setWordWrap(true);
+  plugins_intro->setObjectName(QStringLiteral("preferencesPluginsIntro"));
+  plugins_form->addRow(plugins_intro);
+  auto* plugins_auto_label = new QLabel(plugins_group);
+  plugins_auto_label->setObjectName(QStringLiteral("preferencesPluginsAutomaticFolders"));
+  plugins_auto_label->setWordWrap(true);
+  plugins_auto_label->setTextInteractionFlags(Qt::TextSelectableByMouse);
+  {
+    // The scan roots minus the user list (and the developer fixture folder).
+    QStringList fixed;
+    const auto user_folders = stored_legacy_plugin_folders();
+    for (const auto& scan_root : legacy_plugin_scan_roots()) {
+      if (!user_folders.contains(scan_root) &&
+          !scan_root.endsWith(QStringLiteral("test-fixtures/photoshop-plugins"))) {
+        fixed << QDir::toNativeSeparators(scan_root);
+      }
+    }
+    plugins_auto_label->setText(fixed.join(QLatin1Char('\n')));
+  }
+  plugins_form->addRow(tr("Always scanned:"), plugins_auto_label);
+  auto* plugin_folders_list = new QListWidget(plugins_group);
+  plugin_folders_list->setObjectName(QStringLiteral("preferencesPluginFoldersList"));
+  plugin_folders_list->setSelectionMode(QAbstractItemView::SingleSelection);
+  const auto entry_plugin_folders = stored_legacy_plugin_folders();
+  for (const auto& folder : entry_plugin_folders) {
+    plugin_folders_list->addItem(QDir::toNativeSeparators(folder));
+  }
+  auto* plugin_folder_buttons = new QWidget(plugins_group);
+  auto* plugin_folder_buttons_layout = new QHBoxLayout(plugin_folder_buttons);
+  plugin_folder_buttons_layout->setContentsMargins(0, 0, 0, 0);
+  auto* add_plugin_folder = new QPushButton(tr("Add Folder..."), plugin_folder_buttons);
+  add_plugin_folder->setObjectName(QStringLiteral("preferencesAddPluginFolderButton"));
+  auto* remove_plugin_folder = new QPushButton(tr("Remove"), plugin_folder_buttons);
+  remove_plugin_folder->setObjectName(QStringLiteral("preferencesRemovePluginFolderButton"));
+  remove_plugin_folder->setEnabled(false);
+  plugin_folder_buttons_layout->addWidget(add_plugin_folder);
+  plugin_folder_buttons_layout->addWidget(remove_plugin_folder);
+  plugin_folder_buttons_layout->addStretch(1);
+  connect(plugin_folders_list, &QListWidget::itemSelectionChanged, &dialog,
+          [plugin_folders_list, remove_plugin_folder] {
+            remove_plugin_folder->setEnabled(!plugin_folders_list->selectedItems().isEmpty());
+          });
+  connect(add_plugin_folder, &QPushButton::clicked, &dialog, [&dialog, plugin_folders_list] {
+    const auto chosen = QFileDialog::getExistingDirectory(&dialog, tr("Add Plug-in Folder"), QString());
+    if (chosen.isEmpty()) {
+      return;
+    }
+    const auto native = QDir::toNativeSeparators(chosen);
+    for (int row = 0; row < plugin_folders_list->count(); ++row) {
+      if (plugin_folders_list->item(row)->text() == native) {
+        return;
+      }
+    }
+    plugin_folders_list->addItem(native);
+  });
+  connect(remove_plugin_folder, &QPushButton::clicked, &dialog, [plugin_folders_list] {
+    qDeleteAll(plugin_folders_list->selectedItems());
+  });
+  plugins_form->addRow(tr("Added folders:"), plugin_folders_list);
+  plugins_form->addRow(QString(), plugin_folder_buttons);
+  // The virtual screen (docs/plugins.md): plug-in windows open on the monitor
+  // showing Patchy; full-screen plug-in interfaces size themselves to this.
+  auto* plugin_screen_combo = new QComboBox(plugins_group);
+  plugin_screen_combo->setObjectName(QStringLiteral("preferencesPluginScreenSizeCombo"));
+  for (const auto& [screen_width, screen_height] : kLegacyPluginScreenSizes) {
+    plugin_screen_combo->addItem(screen_width == 0 ? tr("Whole monitor")
+                                                   : QStringLiteral("%1 x %2").arg(screen_width).arg(screen_height),
+                                 QSize(screen_width, screen_height));
+  }
+  const auto entry_plugin_screen = stored_legacy_plugin_screen_size();
+  plugin_screen_combo->setCurrentIndex(
+      plugin_screen_combo->findData(QSize(entry_plugin_screen.first, entry_plugin_screen.second)));
+  plugin_screen_combo->setToolTip(
+      tr("Plug-in windows open on the monitor showing Patchy. Plug-ins with full-screen interfaces size "
+         "themselves to this screen size, so a smaller size keeps them usable on large monitors."));
+  plugins_form->addRow(tr("Screen size for plug-in windows:"), plugin_screen_combo);
+  plugins_layout->addWidget(plugins_group);
+  plugins_layout->addStretch(1);
+  tabs->addTab(plugins_page, tr("Plug-ins"));
+#endif
+
+  content->addWidget(tabs, 1);
+
+  auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok, &dialog);
+  buttons->setObjectName(QStringLiteral("preferencesButtonBox"));
+  connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+  content->addWidget(buttons);
+
+  // Applied after every child widget exists: Qt does not reliably pick up
+  // sub-control rules (QSpinBox::up-button) for widgets created on hidden
+  // tab pages after the stylesheet was set. The Hotkeys panel is the one
+  // exception, built on demand above: it has no spin box and none of the IDs
+  // below, and creating it after this sheet is what keeps its rows from being
+  // repolished.
   append_themed_style(dialog, QStringLiteral(R"(
     QDialog#patchyPreferencesDialog QTabWidget::pane {
       border: 1px solid @dialog_tab_border;
@@ -1256,29 +1476,17 @@ void MainWindow::show_preferences() {
   // final word (see docs/ui-conventions.md).
   append_themed_style(dialog, dialog_spinbox_button_style());
 
-  auto [hotkeys_page, hotkeys_layout] = make_tab_page(tabs);
-  hotkeys_layout->addStretch(1);
-  const int hotkeys_tab_index = tabs->addTab(hotkeys_page, tr("Hotkeys"));
-
-  // Building ~150 hotkey rows is the single most expensive part of opening this
-  // dialog. Defer it until the user actually switches to the tab, since most
-  // Preferences opens never visit it.
-  HotkeyEditorPanel* hotkey_editor = nullptr;
-  connect(tabs, &QTabWidget::currentChanged, &dialog,
-          [this, tabs, hotkeys_page, hotkeys_layout, hotkeys_tab_index, &hotkey_editor](int index) {
-            if (index != hotkeys_tab_index || hotkey_editor != nullptr) {
-              return;
-            }
-            hotkey_editor = new HotkeyEditorPanel(hotkey_registry_, menuBar(), hotkeys_page);
-            hotkeys_layout->insertWidget(0, hotkey_editor);
-          });
-
-  content->addWidget(tabs, 1);
-
-  auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok, &dialog);
-  buttons->setObjectName(QStringLiteral("preferencesButtonBox"));
-  connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
-  content->addWidget(buttons);
+  // Wide enough for every tab: the explicit minimum size above keeps the
+  // layout from raising the dialog's minimum itself, so take the layout's
+  // minimum width (the full tab row, styled) by hand.
+  root->activate();
+  const int needed_width = root->totalMinimumSize().width();
+  if (needed_width > dialog.minimumWidth()) {
+    dialog.setMinimumWidth(needed_width);
+  }
+  if (dialog.width() < needed_width) {
+    dialog.resize(needed_width, dialog.height());
+  }
 
   if (exec_dialog(dialog) == QDialog::Accepted) {
     if (const auto code = language_combo->currentData().toString(); !code.isEmpty()) {
@@ -1304,6 +1512,20 @@ void MainWindow::show_preferences() {
     set_stored_recovery_enabled(recovery_check->isChecked());
     set_stored_recovery_interval_minutes(recovery_combo->currentData().toInt());
     apply_recovery_preferences();
+#endif
+#ifdef Q_OS_WIN
+    {
+      QStringList plugin_folders;
+      for (int row = 0; row < plugin_folders_list->count(); ++row) {
+        plugin_folders << QDir::fromNativeSeparators(plugin_folders_list->item(row)->text());
+      }
+      if (plugin_folders != entry_plugin_folders) {
+        set_stored_legacy_plugin_folders(plugin_folders);
+        start_legacy_plugin_scan(true);
+      }
+      const auto chosen_screen = plugin_screen_combo->currentData().toSize();
+      set_stored_legacy_plugin_screen_size({chosen_screen.width(), chosen_screen.height()});
+    }
 #endif
     settings.setValue(QStringLiteral("imports/showPsdWarningsAndInfo"), psd_import_warnings_check->isChecked());
     settings.setValue(QStringLiteral("imports/showRawDevelopDialog"), raw_develop_check->isChecked());

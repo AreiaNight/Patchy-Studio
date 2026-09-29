@@ -88,3 +88,10 @@ A PS 5 type record names each face three ways: PostScript name, GDI family and s
 (neither DirectWrite nor the registry knows the name), the record's own family and style strings
 are used instead, with bold and italic parsed from the style string, because those are the names
 Windows lists the face under and the heuristic's humanized guess is not.
+
+Open gap (September 29, 2026): with `local-test-fixtures/fonts/FUTURABC.TTF` registered,
+`ui_title02_tracked_legacy_text_caret_matches_glyphs_if_available` (Title02.psd,
+`FuturaBT-BoldCondensed` / `Futura BdCn BT`) renders at the imported width on Windows and Linux
+but not on macOS, where the preview ink is the same 23 percent wider than the source as with no
+Futura at all: the registered face is not matched for that tySh record there and the render
+falls back. The test skips only when the font file is absent, so the mac run reports the gap.

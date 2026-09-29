@@ -1927,7 +1927,13 @@ void ui_canvas_aid_preferences_and_guide_dialogs_work() {
     CHECK(dialog != nullptr);
     auto* tabs = dialog->findChild<QTabWidget*>(QStringLiteral("preferencesTabWidget"));
     CHECK(tabs != nullptr);
+    // Windows appends a Plug-ins tab for the legacy 8BF host (docs/plugins.md).
+#ifdef Q_OS_WIN
+    CHECK(tabs->count() == 6);
+    CHECK(tabs->tabText(5) == QStringLiteral("Plug-ins"));
+#else
     CHECK(tabs->count() == 5);
+#endif
     CHECK(tabs->tabText(1) == QStringLiteral("Pen"));
     CHECK(tabs->tabText(2) == QStringLiteral("Grid and Guides"));
     CHECK(tabs->tabText(3) == QStringLiteral("Snapping"));

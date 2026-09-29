@@ -2300,6 +2300,169 @@ void ui_custom_theme_qss_resolves_every_token() {
   CHECK(resolved == QStringLiteral("a: %1;").arg(custom.palette.accent.name(QColor::HexRgb)));
 }
 
+// "format" is the one key that can refuse a file outright: a newer number means
+// keys this build cannot interpret, and a silent partial load would be worse
+// than an error. An absent key is format 1, so files written before the key
+// existed still load.
+void ui_theme_file_newer_format_is_a_hard_error() {
+  QJsonObject object;
+  object.insert(QStringLiteral("format"), 2);
+  object.insert(QStringLiteral("base"), QStringLiteral("dark"));
+  const auto newer = patchy::ui::load_theme_from_json(QJsonDocument(object).toJson());
+  CHECK(!newer.theme.has_value());
+  CHECK(newer.error.contains(QStringLiteral("2")));
+
+  object.insert(QStringLiteral("format"), QStringLiteral("1"));
+  const auto text = patchy::ui::load_theme_from_json(QJsonDocument(object).toJson());
+  CHECK(!text.theme.has_value());
+
+  object.remove(QStringLiteral("format"));
+  const auto absent = patchy::ui::load_theme_from_json(QJsonDocument(object).toJson());
+  CHECK(absent.theme.has_value());
+
+  const auto exported = patchy::ui::serialize_theme_to_json(patchy::ui::dark_palette(), patchy::ui::ColorScheme::Dark,
+                                                            QStringLiteral("Format"));
+  CHECK(QJsonDocument::fromJson(exported).object().value(QStringLiteral("format")).toInt() ==
+        patchy::ui::kThemeFileFormat);
+}
+
+void write_theme_file(const QString& path, const QColor& window_bg, const QString& name) {
+  auto palette = patchy::ui::dark_palette();
+  palette.window_bg = window_bg;
+  QFile file(path);
+  CHECK(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+  file.write(patchy::ui::serialize_theme_to_json(palette, patchy::ui::ColorScheme::Dark, name));
+  file.close();
+}
+
+// The authoring loop: edit the file in a text editor, click Reload Themes. The
+// combo keeps the same entry selected and the fresh colors apply even though
+// the selection never moved.
+void ui_preferences_reload_reapplies_an_edited_theme_file() {
+  SettingsValueRestorer restore_scheme(QStringLiteral("preferences/colorScheme"));
+  SettingsValueRestorer restore_custom_id(QStringLiteral("preferences/customThemeId"));
+  ColorSchemeRestorer restore_active;
+  ColorSchemeRestorer::apply(patchy::ui::ColorSchemePreference::Dark);
+  ThemesDirEnvGuard themes_dir;
+  const auto path = QDir(themes_dir.path()).filePath(QStringLiteral("editable.patchytheme"));
+  write_theme_file(path, QColor(10, 20, 30), QStringLiteral("Editable"));
+
+  patchy::ui::MainWindow window;
+  show_window(window);
+
+  bool saw_dialog = false;
+  QTimer::singleShot(0, [&] {
+    auto* dialog = find_top_level_dialog(QStringLiteral("patchyPreferencesDialog"));
+    CHECK(dialog != nullptr);
+    if (dialog == nullptr) {
+      return;
+    }
+    auto* combo = dialog->findChild<QComboBox*>(QStringLiteral("preferencesColorSchemeCombo"));
+    auto* reload = dialog->findChild<QPushButton*>(QStringLiteral("preferencesReloadThemesButton"));
+    auto* remove = dialog->findChild<QPushButton*>(QStringLiteral("preferencesDeleteThemeButton"));
+    CHECK(combo != nullptr && reload != nullptr && remove != nullptr);
+    if (combo == nullptr || reload == nullptr || remove == nullptr) {
+      dialog->reject();
+      return;
+    }
+    CHECK(!remove->isEnabled());
+    const auto index = combo->findData(QStringLiteral("custom:editable.patchytheme"));
+    CHECK(index >= 0);
+    CHECK(combo->itemText(index) == QStringLiteral("Editable"));
+    combo->setCurrentIndex(index);
+    QApplication::processEvents();
+    CHECK(patchy::ui::theme().window_bg == QColor(10, 20, 30));
+    CHECK(remove->isEnabled());
+
+    write_theme_file(path, QColor(40, 50, 60), QStringLiteral("Editable"));
+    reload->click();
+    QApplication::processEvents();
+    CHECK(combo->currentData().toString() == QStringLiteral("custom:editable.patchytheme"));
+    CHECK(patchy::ui::theme().window_bg == QColor(40, 50, 60));
+    CHECK(remove->isEnabled());
+    saw_dialog = true;
+    dialog->reject();
+  });
+  require_action(window, "filePreferencesAction")->trigger();
+  QApplication::processEvents();
+  CHECK(saw_dialog);
+
+  // Rejecting restores the entry scheme, which was the built-in Dark.
+  CHECK(!patchy::ui::has_active_custom_palette());
+  CHECK(patchy::ui::active_color_scheme() == patchy::ui::ColorScheme::Dark);
+}
+
+// Delete removes the file and its entry, and the dialog falls back to the
+// first built-in entry so the live preview and the revert guard stay in step.
+void ui_preferences_delete_removes_theme_file_and_entry() {
+  SettingsValueRestorer restore_scheme(QStringLiteral("preferences/colorScheme"));
+  SettingsValueRestorer restore_custom_id(QStringLiteral("preferences/customThemeId"));
+  ColorSchemeRestorer restore_active;
+  ColorSchemeRestorer::apply(patchy::ui::ColorSchemePreference::Dark);
+  ThemesDirEnvGuard themes_dir;
+  const auto path = QDir(themes_dir.path()).filePath(QStringLiteral("doomed.patchytheme"));
+  write_theme_file(path, QColor(70, 80, 90), QStringLiteral("Doomed"));
+
+  patchy::ui::MainWindow window;
+  show_window(window);
+
+  bool saw_dialog = false;
+  bool saw_confirm = false;
+  QTimer::singleShot(0, [&] {
+    auto* dialog = find_top_level_dialog(QStringLiteral("patchyPreferencesDialog"));
+    CHECK(dialog != nullptr);
+    if (dialog == nullptr) {
+      return;
+    }
+    auto* combo = dialog->findChild<QComboBox*>(QStringLiteral("preferencesColorSchemeCombo"));
+    auto* remove = dialog->findChild<QPushButton*>(QStringLiteral("preferencesDeleteThemeButton"));
+    CHECK(combo != nullptr && remove != nullptr);
+    if (combo == nullptr || remove == nullptr) {
+      dialog->reject();
+      return;
+    }
+    const auto index = combo->findData(QStringLiteral("custom:doomed.patchytheme"));
+    CHECK(index >= 0);
+    combo->setCurrentIndex(index);
+    QApplication::processEvents();
+    CHECK(patchy::ui::theme().window_bg == QColor(70, 80, 90));
+
+    QTimer::singleShot(0, [&] {
+      auto* confirm = qobject_cast<QMessageBox*>(find_top_level_dialog(QStringLiteral("preferencesDeleteThemeConfirm")));
+      CHECK(confirm != nullptr);
+      if (confirm == nullptr) {
+        return;
+      }
+      saw_confirm = true;
+      for (auto* button : confirm->buttons()) {
+        if (confirm->buttonRole(button) == QMessageBox::AcceptRole) {
+          button->click();
+          return;
+        }
+      }
+      CHECK(false);
+    });
+    remove->click();
+    QApplication::processEvents();
+
+    CHECK(!QFileInfo::exists(path));
+    CHECK(combo->findData(QStringLiteral("custom:doomed.patchytheme")) < 0);
+    // No custom entry left, so the separator went too: only the three built-ins remain.
+    CHECK(combo->count() == 3);
+    CHECK(combo->currentIndex() == 0);
+    CHECK(!remove->isEnabled());
+    CHECK(!patchy::ui::has_active_custom_palette());
+    saw_dialog = true;
+    dialog->accept();
+  });
+  require_action(window, "filePreferencesAction")->trigger();
+  QApplication::processEvents();
+  CHECK(saw_dialog);
+  CHECK(saw_confirm);
+  CHECK(!patchy::ui::has_active_custom_palette());
+  CHECK(!patchy::ui::ThemeManager::instance().active_custom_theme_id().has_value());
+}
+
 // The regression guard for "live, no restart": an already-built window has to
 // restyle in place, and flipping back has to land exactly where it started.
 void ui_color_scheme_switch_updates_existing_window() {
@@ -4553,6 +4716,9 @@ std::vector<patchy::test::TestCase> app_shell_tests() {
       {"ui_custom_theme_missing_file_falls_back_to_builtin_preference",
        ui_custom_theme_missing_file_falls_back_to_builtin_preference},
       {"ui_custom_theme_qss_resolves_every_token", ui_custom_theme_qss_resolves_every_token},
+      {"ui_theme_file_newer_format_is_a_hard_error", ui_theme_file_newer_format_is_a_hard_error},
+      {"ui_preferences_reload_reapplies_an_edited_theme_file", ui_preferences_reload_reapplies_an_edited_theme_file},
+      {"ui_preferences_delete_removes_theme_file_and_entry", ui_preferences_delete_removes_theme_file_and_entry},
       {"ui_color_scheme_switch_updates_existing_window", ui_color_scheme_switch_updates_existing_window},
       {"ui_themed_icons_recolor_between_schemes", ui_themed_icons_recolor_between_schemes},
       {"ui_main_window_persists_window_geometry", ui_main_window_persists_window_geometry},

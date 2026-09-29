@@ -1591,6 +1591,73 @@ void ui_hotkey_override_applies_at_startup() {
   }
 }
 
+// The Hotkeys page is not the last Preferences tab everywhere (Windows appends
+// Plug-ins after it), and its editor panel is built on the first visit, so
+// select the tab by its title and let the panel appear.
+void select_hotkeys_tab(QTabWidget& tabs, QDialog& dialog) {
+  for (int index = 0; index < tabs.count(); ++index) {
+    if (tabs.tabText(index) == QStringLiteral("Hotkeys")) {
+      tabs.setCurrentIndex(index);
+      QApplication::processEvents();
+      CHECK(dialog.findChild<QWidget*>(QStringLiteral("hotkeyEditorPanel")) != nullptr);
+      return;
+    }
+  }
+  CHECK(false);
+}
+
+// Opening Preferences must not build the hotkey rows (the most expensive part
+// of the dialog, and most opens never visit that tab); the first visit builds
+// them once, and accepting the dialog without a visit still succeeds.
+void ui_preferences_builds_hotkey_editor_on_first_visit() {
+  HotkeySettingsGroupRestorer restore_hotkeys;
+  clear_hotkey_overrides();
+  patchy::ui::MainWindow window;
+  show_window(window);
+
+  bool saw_dialog = false;
+  QTimer::singleShot(0, [&] {
+    auto* dialog = find_top_level_dialog(QStringLiteral("patchyPreferencesDialog"));
+    CHECK(dialog != nullptr);
+    if (dialog == nullptr) {
+      return;
+    }
+    auto* tabs = dialog->findChild<QTabWidget*>(QStringLiteral("preferencesTabWidget"));
+    CHECK(tabs != nullptr);
+    CHECK(dialog->findChild<QWidget*>(QStringLiteral("hotkeyEditorPanel")) == nullptr);
+    select_hotkeys_tab(*tabs, *dialog);
+    auto* panel = dialog->findChild<QWidget*>(QStringLiteral("hotkeyEditorPanel"));
+    CHECK(panel != nullptr);
+    CHECK(dialog->findChild<QPushButton*>(QStringLiteral("hotkeyChip.file.new.0")) != nullptr);
+    // Leaving and returning reuses the same panel.
+    tabs->setCurrentIndex(0);
+    QApplication::processEvents();
+    select_hotkeys_tab(*tabs, *dialog);
+    CHECK(dialog->findChild<QWidget*>(QStringLiteral("hotkeyEditorPanel")) == panel);
+    saw_dialog = true;
+    dialog->accept();
+  });
+  require_action(window, "filePreferencesAction")->trigger();
+  QApplication::processEvents();
+  CHECK(saw_dialog);
+
+  // A second open that never visits the tab accepts cleanly with no panel.
+  saw_dialog = false;
+  QTimer::singleShot(0, [&] {
+    auto* dialog = find_top_level_dialog(QStringLiteral("patchyPreferencesDialog"));
+    CHECK(dialog != nullptr);
+    if (dialog == nullptr) {
+      return;
+    }
+    CHECK(dialog->findChild<QWidget*>(QStringLiteral("hotkeyEditorPanel")) == nullptr);
+    saw_dialog = true;
+    dialog->accept();
+  });
+  require_action(window, "filePreferencesAction")->trigger();
+  QApplication::processEvents();
+  CHECK(saw_dialog);
+}
+
 void ui_hotkey_editor_assigns_and_persists_custom_shortcut() {
   HotkeySettingsGroupRestorer restore_hotkeys;
   clear_hotkey_overrides();
@@ -1603,7 +1670,7 @@ void ui_hotkey_editor_assigns_and_persists_custom_shortcut() {
     CHECK(dialog != nullptr);
     auto* tabs = dialog->findChild<QTabWidget*>(QStringLiteral("preferencesTabWidget"));
     CHECK(tabs != nullptr);
-    tabs->setCurrentIndex(tabs->count() - 1);
+    select_hotkeys_tab(*tabs, *dialog);
     QApplication::processEvents();
     CHECK(dialog->findChild<QWidget*>(QStringLiteral("hotkeyEditorPanel")) != nullptr);
     save_widget_artifact("hotkey_editor_tab", *dialog);
@@ -1672,7 +1739,7 @@ void ui_hotkey_editor_steals_conflicting_shortcut() {
     CHECK(dialog != nullptr);
     auto* tabs = dialog->findChild<QTabWidget*>(QStringLiteral("preferencesTabWidget"));
     CHECK(tabs != nullptr);
-    tabs->setCurrentIndex(tabs->count() - 1);
+    select_hotkeys_tab(*tabs, *dialog);
     QApplication::processEvents();
 
     // The Line tool ships unbound, so it renders an assign chip.
@@ -1746,7 +1813,7 @@ void ui_hotkey_editor_reset_all_clears_overrides() {
     CHECK(dialog != nullptr);
     auto* tabs = dialog->findChild<QTabWidget*>(QStringLiteral("preferencesTabWidget"));
     CHECK(tabs != nullptr);
-    tabs->setCurrentIndex(tabs->count() - 1);
+    select_hotkeys_tab(*tabs, *dialog);
     QApplication::processEvents();
     auto* reset_all = dialog->findChild<QPushButton*>(QStringLiteral("hotkeyResetAllButton"));
     CHECK(reset_all != nullptr);
@@ -1848,6 +1915,7 @@ std::vector<patchy::test::TestCase> pickers_notices_hotkeys_tests() {
       {"ui_hotkey_resolution_rules", ui_hotkey_resolution_rules},
       {"ui_hotkey_defaults_have_no_conflicts", ui_hotkey_defaults_have_no_conflicts},
       {"ui_hotkey_override_applies_at_startup", ui_hotkey_override_applies_at_startup},
+      {"ui_preferences_builds_hotkey_editor_on_first_visit", ui_preferences_builds_hotkey_editor_on_first_visit},
       {"ui_hotkey_editor_assigns_and_persists_custom_shortcut",
        ui_hotkey_editor_assigns_and_persists_custom_shortcut},
       {"ui_hotkey_editor_steals_conflicting_shortcut", ui_hotkey_editor_steals_conflicting_shortcut},

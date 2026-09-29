@@ -7,9 +7,10 @@ Read this before changing the `.patchytheme` format, the custom-palette runtime 
 A `.patchytheme` file is JSON:
 
 ```json
-{ "name": "Solarized", "base": "dark", "roles": { "window_bg": "#002b36", "accent": "#268bd2" } }
+{ "format": 1, "name": "Solarized", "base": "dark", "roles": { "window_bg": "#002b36", "accent": "#268bd2" } }
 ```
 
+- `format` is optional and defaults to 1 (`kThemeFileFormat` in `src/ui/theme_file.hpp`). Any other value is a hard load error: a newer build wrote keys this one cannot read. Bump it only for a change an older build would misread; new roles never need it. Export always writes it.
 - `base` is `"dark"` or `"light"` (the same tokens `ThemeManager` already persists); anything else is a hard load error.
 - `roles` is optional. Each key is a `ThemePalette` role name from `theme_palette_roles()` (`src/ui/theme_palette.cpp`); each value is `#RRGGBB` or `#RRGGBBAA`. Parsing requires exactly that shape (`parse_theme_color` in `src/ui/theme_file.cpp`) and never calls `QColor::fromString`, which also accepts SVG names and `#RGB`.
 - A role omitted from `roles` keeps the `base` scheme's built-in value.
@@ -33,11 +34,11 @@ Anything that caches a `theme()`-derived value across calls must key that cache 
 
 `active_custom_theme_id()` is empty when a built-in scheme is active, otherwise the theme file's name within `user_themes_directory()`. It persists as `preferences/customThemeId`, a key additive to and independent of `preferences/colorScheme`: the built-in preference stays the fallback if the custom theme is ever cleared or its backing file goes missing. `load_saved_preference()` applies the built-in preference first, then tries to load and apply the saved custom theme; a missing or invalid file leaves the built-in preference in place rather than failing startup. While a custom theme is active, an OS light/dark flip under Follow System is ignored rather than silently reverting to a built-in palette.
 
-`user_themes_directory()` (`src/ui/theme_file.cpp`) mirrors `user_fonts_directory()`: `AppDataLocation/themes/`, empty on wasm (Import/Export are hidden there too). `PATCHY_THEMES_DIR` overrides it for test isolation, the same pattern other per-user directories use.
+`user_themes_directory()` (`src/ui/theme_file.cpp`) mirrors `user_fonts_directory()`: `AppDataLocation/themes/` (`%APPDATA%\RTsoft\Patchy\themes` on Windows), empty on wasm (the theme buttons are hidden there too). `PATCHY_THEMES_DIR` overrides it for test isolation, the same pattern other per-user directories use. Only `*.patchytheme` files are scanned. `themes/example-high-contrast.patchytheme` in the repository is the sample users start from; keep it loading (the README points at it).
 
 ## Preferences UI
 
-The color-scheme combo lists the three built-in entries, then a separator and one entry per file already in `user_themes_directory()`, each carrying a `"custom:" + file name` data token. Import copies a chosen file into `user_themes_directory()` and adds its entry; Export writes `serialize_theme_to_json(theme(), active_color_scheme(), name)` to a chosen path. Both buttons are `#ifndef Q_OS_WASM`. The combo's live-preview handler and the dialog's revert-on-cancel guard both branch on the `"custom:"` prefix, calling `set_custom_theme`/`clear_custom_theme` instead of `set_preference` for a custom entry.
+The color-scheme combo lists the three built-in entries, then a separator and one entry per file in `user_themes_directory()`, each carrying a `"custom:" + file name` data token. `rescan_custom_themes` (a lambda in `show_preferences`) drops every custom entry and the separator and re-reads the folder; it runs at open, after Delete, and from Reload Themes. `apply_combo_selection` applies whatever the combo shows as a live preview and is shared by the combo's change handler, Reload, and Delete. Import copies a chosen file into `user_themes_directory()` and adds its entry; Export writes `serialize_theme_to_json(theme(), active_color_scheme(), name)` to a chosen path; Reload Themes rescans and re-applies the selected entry even when the selection did not move (the authoring loop: edit the JSON, click Reload); Delete Theme... (enabled only on a custom entry, `preferencesDeleteThemeConfirm` confirms) removes the file, rescans, and selects the first built-in entry; Open Themes Folder creates the folder and opens it in the file manager. All five buttons are `#ifndef Q_OS_WASM`. Reload and Delete block the combo's signals around the rescan, because removing the current item moves the selection. The dialog's revert-on-cancel guard branches on the `"custom:"` prefix, calling `set_custom_theme`/`clear_custom_theme` instead of `set_preference` for a custom entry.
 
 ## Known limitation
 

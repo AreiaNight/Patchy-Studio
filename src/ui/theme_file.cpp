@@ -95,6 +95,17 @@ ThemeLoadResult load_theme_from_json(const QByteArray& json) {
   }
 
   const auto object = document.object();
+  // "format" is optional (an absent one is format 1, the shape this build
+  // writes); any other value means a newer build wrote keys this one cannot
+  // interpret, which is a hard error rather than a silent partial load.
+  const auto format_value = object.value(QStringLiteral("format"));
+  if (!format_value.isUndefined() && (!format_value.isDouble() || format_value.toInt(-1) != kThemeFileFormat)) {
+    result.error = QCoreApplication::translate("ThemeFile",
+                                               "Theme file format %1 is not supported by this build (expected %2).")
+                       .arg(format_value.toVariant().toString())
+                       .arg(kThemeFileFormat);
+    return result;
+  }
   const auto base = parse_base_token(object.value(QStringLiteral("base")).toString());
   if (!base) {
     result.error =
@@ -147,6 +158,7 @@ QByteArray serialize_theme_to_json(const ThemePalette& palette, ColorScheme base
   }
 
   QJsonObject object;
+  object.insert(QStringLiteral("format"), kThemeFileFormat);
   object.insert(QStringLiteral("name"), name);
   object.insert(QStringLiteral("base"), base_token(base));
   object.insert(QStringLiteral("roles"), roles_object);
