@@ -1,6 +1,7 @@
 #include "ui/user_fonts.hpp"
 
 #include "formats/font_zip.hpp"
+#include "ui/font_face_name_index.hpp"
 
 #include <QCryptographicHash>
 #include <QDir>
@@ -100,7 +101,9 @@ RegisterOutcome register_font_bytes(const QString& name, const QByteArray& bytes
       return outcome;
     }
   }
-  const auto font_id = QFontDatabase::addApplicationFont(path);
+  // Registered under the Windows names on macOS (ui/font_face_name_index.hpp): CoreText would
+  // otherwise file a Bitstream "Futura BdCn BT" under Apple's "Futura", sharing one Qt style slot.
+  const auto font_id = add_application_font_by_windows_names(path);
   if (font_id < 0) {
     QFile::remove(path);
     return outcome;
@@ -211,7 +214,7 @@ void restore_user_fonts_at_startup() {
     if (session_hashes().contains(hash)) {
       continue;
     }
-    if (QFontDatabase::addApplicationFont(entry.absoluteFilePath()) >= 0) {
+    if (add_application_font_by_windows_names(entry.absoluteFilePath()) >= 0) {
       session_hashes().insert(hash);
     }
   }

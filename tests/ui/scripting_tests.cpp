@@ -26,10 +26,12 @@
 #include "ui/ai_setup_dialog.hpp"
 #include "ui/localization.hpp"
 #include "psd/psd_text_runs.hpp"
+#include "ui/font_face_name_index.hpp"
 #include "ui/main_window.hpp"
 #include "ui/script_editor_dialog.hpp"
 #include <QFileInfo>
 #include <QFontComboBox>
+#include <QRawFont>
 #include "ui/script_engine.hpp"
 #include "ui/script_folders.hpp"
 #include "ui/sound_effects.hpp"
@@ -1109,6 +1111,243 @@ void ui_script_text_full_face_name_resolves_like_its_family() {
 #else
   std::cout << "[SKIP] DirectWrite-only (full face name resolution)\n";
 #endif
+}
+
+// The name-table decoder behind font_face_for_name_table_name: Windows English records win over
+// the Macintosh ones CoreText reports (FUTURABC.TTF is "Futura" + "Bold" to CoreText and
+// "Futura BdCn BT" + "Bold" to every Windows database), a Macintosh-only table still yields its
+// names, and a truncated table yields nothing.
+void ui_text_face_name_table_parser_prefers_windows_records() {
+  struct Record {
+    quint16 platform;
+    quint16 encoding;
+    quint16 language;
+    quint16 name_id;
+    QString text;
+  };
+  const auto build_table = [](const std::vector<Record>& records) {
+    QByteArray strings;
+    QByteArray table;
+    const auto put_u16 = [](QByteArray& out, quint16 value) {
+      out.append(static_cast<char>(value >> 8));
+      out.append(static_cast<char>(value & 0xff));
+    };
+    put_u16(table, 0);
+    put_u16(table, static_cast<quint16>(records.size()));
+    put_u16(table, static_cast<quint16>(6 + 12 * records.size()));
+    for (const auto& record : records) {
+      QByteArray encoded;
+      if (record.platform == 1) {
+        encoded = record.text.toLatin1();
+      } else {
+        for (const auto ch : record.text) {
+          put_u16(encoded, ch.unicode());
+        }
+      }
+      put_u16(table, record.platform);
+      put_u16(table, record.encoding);
+      put_u16(table, record.language);
+      put_u16(table, record.name_id);
+      put_u16(table, static_cast<quint16>(encoded.size()));
+      put_u16(table, static_cast<quint16>(strings.size()));
+      strings.append(encoded);
+    }
+    return table + strings;
+  };
+  const std::vector<Record> macintosh{
+      {1, 0, 0, 1, QStringLiteral("Futura")},
+      {1, 0, 0, 2, QStringLiteral("Bold")},
+      {1, 0, 0, 4, QStringLiteral("Futura Bold Condensed BT")},
+      {1, 0, 0, 6, QStringLiteral("FuturaBT-BoldCondensed")},
+  };
+  std::vector<Record> both = macintosh;
+  both.push_back({3, 1, 0x0409, 1, QStringLiteral("Futura BdCn BT")});
+  both.push_back({3, 1, 0x0409, 2, QStringLiteral("Bold")});
+  both.push_back({3, 1, 0x0409, 4, QStringLiteral("Futura Bold Condensed BT")});
+  both.push_back({3, 1, 0x0409, 6, QStringLiteral("FuturaBT-BoldCondensed")});
+  both.push_back({3, 1, 0x0407, 1, QStringLiteral("Futura BdCn BT (de)")});  // German Windows record loses to English
+
+  const auto parsed = patchy::ui::parse_opentype_face_names(build_table(both));
+  CHECK(parsed.has_value());
+  if (parsed.has_value()) {
+    CHECK(parsed->family == QStringLiteral("Futura BdCn BT"));
+    CHECK(parsed->subfamily == QStringLiteral("Bold"));
+    CHECK(parsed->full_name == QStringLiteral("Futura Bold Condensed BT"));
+    CHECK(parsed->postscript_name == QStringLiteral("FuturaBT-BoldCondensed"));
+    CHECK(parsed->typographic_family.isEmpty());
+  }
+  const auto mac_only = patchy::ui::parse_opentype_face_names(build_table(macintosh));
+  CHECK(mac_only.has_value());
+  if (mac_only.has_value()) {
+    CHECK(mac_only->family == QStringLiteral("Futura"));
+    CHECK(mac_only->postscript_name == QStringLiteral("FuturaBT-BoldCondensed"));
+  }
+  const auto full = build_table(both);
+  CHECK(!patchy::ui::parse_opentype_face_names(full.left(5)).has_value());
+  CHECK(!patchy::ui::parse_opentype_face_names(full.left(6 + 12 * 3)).has_value());  // records past the end
+  CHECK(!patchy::ui::parse_opentype_face_names(QByteArray()).has_value());
+  CHECK(patchy::ui::compact_text_family_key(QStringLiteral("FuturaBT-BoldCondensed")) ==
+        patchy::ui::compact_text_family_key(QStringLiteral("Futura BT Bold Condensed")));
+}
+
+// A registered face is reachable by every name its own name table carries, not only by the
+// family the platform database lists it under: the PostScript name and the full name, which no
+// database lists as a family, both resolve to the face's family, and a text layer created with
+// the PostScript name renders exactly like one created with the family (no substitution, no
+// missing-font notice). Platform-agnostic: it reads the names out of the suite's own UiDefault
+// face, so it exercises the index on Windows (where DirectWrite answers first), macOS and Linux.
+void ui_text_name_table_names_resolve_to_the_registered_face() {
+  patchy::test::register_test_fonts(patchy::test::TestFontRole::UiDefault);
+  QString path;
+  for (const auto& candidate : patchy::test::test_font_candidates(patchy::test::TestFontRole::UiDefault)) {
+    if (QFileInfo::exists(candidate)) {
+      path = candidate;
+      break;
+    }
+  }
+  if (path.isEmpty()) {
+    std::cout << "[SKIP] no UiDefault font file on this machine (name-table resolution)\n";
+    return;
+  }
+  // Registering a file the role already registered adds nothing new; fonts are never removed.
+  const int id = QFontDatabase::addApplicationFont(path);
+  CHECK(id >= 0);
+  const auto families = QFontDatabase::applicationFontFamilies(id);
+  CHECK(!families.isEmpty());
+  if (families.isEmpty()) {
+    return;
+  }
+  const auto family = families.front();
+  const auto styles = QFontDatabase::styles(family);
+  const auto raw = QRawFont::fromFont(QFontDatabase::font(family, styles.isEmpty() ? QString() : styles.front(), 12));
+  CHECK(raw.isValid());
+  const auto names = patchy::ui::parse_opentype_face_names(raw.fontTable("name"));
+  CHECK(names.has_value());
+  if (!names.has_value()) {
+    return;
+  }
+  std::cout << "[name-table] family '" << family.toStdString() << "' postscript '" << names->postscript_name.toStdString()
+            << "' full '" << names->full_name.toStdString() << "' windows-family '" << names->family.toStdString() << "'\n";
+  CHECK(!names->postscript_name.isEmpty());
+  for (const auto& name : {names->postscript_name, names->full_name, names->family}) {
+    if (name.isEmpty()) {
+      continue;
+    }
+    const auto match = patchy::ui::font_face_for_name_table_name(name);
+    CHECK(match.has_value());
+    if (match.has_value()) {
+      CHECK(match->family.compare(family, Qt::CaseInsensitive) == 0);
+    }
+  }
+  CHECK(!patchy::ui::font_face_for_name_table_name(QStringLiteral("NoSuchFace-BoldCondensedXYZ")).has_value());
+
+  patchy::ui::MainWindow window;
+  show_window(window);
+  const auto script = QStringLiteral(R"JS(
+    var doc = app.activeDocument;
+    var byFamily = doc.addTextLayer('Diorama', {font: 'FAMILY_NAME', size: 40, x: 10, y: 40});
+    var byPostScript = doc.addTextLayer('Diorama', {font: 'POSTSCRIPT_NAME', size: 40, x: 10, y: 140});
+    var same = function () {
+      return byPostScript.bounds.width === byFamily.bounds.width && byPostScript.bounds.height === byFamily.bounds.height;
+    };
+    console.log('postscript-name-matches=' + same());
+    byPostScript.text = byPostScript.text;
+    console.log('reedit-keeps-face=' + same());
+    console.log('stored=' + byPostScript.textFont);
+  )JS")
+                          .replace(QStringLiteral("FAMILY_NAME"), family)
+                          .replace(QStringLiteral("POSTSCRIPT_NAME"), names->postscript_name);
+  CHECK(run_script(window, script));
+  CHECK(backlog_contains(window, QStringLiteral("postscript-name-matches=true")));
+  CHECK(backlog_contains(window, QStringLiteral("reedit-keeps-face=true")));
+  // The stored name is the request, unless the database already lists the family under the
+  // same compact key ("LiberationSans" is "Liberation Sans"), which canonicalizes to the family.
+  CHECK(backlog_contains(window, QStringLiteral("stored=") + names->postscript_name) ||
+        backlog_contains(window, QStringLiteral("stored=") + family));
+  CHECK(!backlog_contains(window, QStringLiteral("font not available")));
+}
+
+// windows_named_font_data: a font whose Macintosh family differs from its Windows family loses
+// its Macintosh name records (CoreText then lists the Windows names) and keeps every other
+// table byte for byte; a font whose names agree, a collection and junk are left alone. The
+// disagreeing case is the local Futura fixture (Macintosh "Futura", Windows "Futura BdCn BT");
+// the suite's UiDefault files cover the agreeing case on every platform.
+void ui_text_windows_named_font_data_drops_macintosh_records_if_available() {
+  const auto read_all = [](const QString& path) {
+    QFile file(path);
+    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+  };
+  const auto family_by_platform = [](const QByteArray& name_table, quint16 platform) {
+    for (const auto& record : patchy::ui::opentype_name_records(name_table)) {
+      if (record.platform == platform && record.name_id == 1) {
+        return record.text;
+      }
+    }
+    return QString();
+  };
+  CHECK(!patchy::ui::windows_named_font_data(QByteArray()).has_value());
+  CHECK(!patchy::ui::windows_named_font_data(QByteArrayLiteral("ttcf\0\0\0\1\0\0\0\2")).has_value());
+  CHECK(!patchy::ui::windows_named_font_data(QByteArray(64, 'x')).has_value());
+
+  QStringList probed;
+  for (const auto& candidate : patchy::test::test_font_candidates(patchy::test::TestFontRole::UiDefault)) {
+    const auto bytes = read_all(candidate);
+    const auto names = patchy::ui::opentype_table(bytes, "name");
+    if (names.isEmpty()) {
+      continue;
+    }
+    probed.append(candidate);
+    const auto macintosh = family_by_platform(names, 1);
+    const auto windows = family_by_platform(names, 3);
+    const bool differ = !macintosh.isEmpty() && !windows.isEmpty() &&
+                        patchy::ui::compact_text_family_key(macintosh) != patchy::ui::compact_text_family_key(windows);
+    CHECK(patchy::ui::windows_named_font_data(bytes).has_value() == differ);
+    if (probed.size() >= 2) {
+      break;
+    }
+  }
+  std::cout << "[windows-names] agreeing fonts probed: " << probed.size() << '\n';
+
+  const auto futura = QStringLiteral(PATCHY_SOURCE_DIR) + QStringLiteral("/local-test-fixtures/fonts/FUTURABC.TTF");
+  const auto original = read_all(futura);
+  if (original.isEmpty()) {
+    std::cout << "[SKIP] Futura fixture font missing (Macintosh name records): " << futura.toStdString() << '\n';
+    return;
+  }
+  const auto original_names = patchy::ui::opentype_table(original, "name");
+  CHECK(family_by_platform(original_names, 1) == QStringLiteral("Futura"));
+  CHECK(family_by_platform(original_names, 3) == QStringLiteral("Futura BdCn BT"));
+  const auto renamed = patchy::ui::windows_named_font_data(original);
+  CHECK(renamed.has_value());
+  if (!renamed.has_value()) {
+    return;
+  }
+  CHECK(renamed->size() == original.size());
+  const auto renamed_names = patchy::ui::opentype_table(*renamed, "name");
+  CHECK(!renamed_names.isEmpty() && renamed_names.size() < original_names.size());
+  CHECK(family_by_platform(renamed_names, 1).isEmpty());
+  CHECK(family_by_platform(renamed_names, 3) == QStringLiteral("Futura BdCn BT"));
+  const auto parsed = patchy::ui::parse_opentype_face_names(renamed_names);
+  CHECK(parsed.has_value());
+  if (parsed.has_value()) {
+    CHECK(parsed->family == QStringLiteral("Futura BdCn BT"));
+    CHECK(parsed->subfamily == QStringLiteral("Bold"));
+    CHECK(parsed->postscript_name == QStringLiteral("FuturaBT-BoldCondensed"));
+    CHECK(parsed->full_name == QStringLiteral("Futura Bold Condensed BT"));
+  }
+  int macintosh_records = 0;
+  int windows_records = 0;
+  for (const auto& record : patchy::ui::opentype_name_records(renamed_names)) {
+    macintosh_records += record.platform == 1 ? 1 : 0;
+    windows_records += record.platform == 3 ? 1 : 0;
+  }
+  CHECK(macintosh_records == 0);
+  CHECK(windows_records > 0);
+  for (const char* tag : {"glyf", "loca", "cmap", "hmtx", "OS/2", "post"}) {
+    CHECK(patchy::ui::opentype_table(*renamed, tag) == patchy::ui::opentype_table(original, tag));
+  }
+  // Already Windows-named: a second pass changes nothing.
+  CHECK(!patchy::ui::windows_named_font_data(*renamed).has_value());
 }
 
 // Rich runs: one layer typed from an array of runs keeps every run's own face, size and color,
@@ -3547,6 +3786,10 @@ std::vector<patchy::test::TestCase> scripting_tests() {
       {"ui_script_text_face_ignores_the_options_bar_style", ui_script_text_face_ignores_the_options_bar_style},
       {"ui_script_text_size_survives_low_zoom_reedit", ui_script_text_size_survives_low_zoom_reedit},
       {"ui_script_text_full_face_name_resolves_like_its_family", ui_script_text_full_face_name_resolves_like_its_family},
+      {"ui_text_face_name_table_parser_prefers_windows_records", ui_text_face_name_table_parser_prefers_windows_records},
+      {"ui_text_name_table_names_resolve_to_the_registered_face", ui_text_name_table_names_resolve_to_the_registered_face},
+      {"ui_text_windows_named_font_data_drops_macintosh_records_if_available",
+       ui_text_windows_named_font_data_drops_macintosh_records_if_available},
       {"ui_script_text_runs_create_and_read_back", ui_script_text_runs_create_and_read_back},
       {"ui_script_text_box_wraps_and_aligns", ui_script_text_box_wraps_and_aligns},
       {"ui_script_set_text_runs_edits_existing_layer", ui_script_set_text_runs_edits_existing_layer},

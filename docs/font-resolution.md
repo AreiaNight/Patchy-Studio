@@ -38,6 +38,44 @@ The text engine's font lookup and the PSD reader's naming rules. The session mac
   prefix split. Tests: `ui_script_text_full_face_name_resolves_like_its_family`,
   `psd_text_heavy_legacy_face_keeps_the_gdi_family_if_available` (skip unless Futura Extra
   Black BT is installed and copied to `local-test-fixtures/fonts/FUTURAXK.TTF`).
+- **A name nothing above answers is looked for inside the registered faces' own name tables**
+  (`font_face_for_name_table_name`, `src/ui/font_face_name_index.{hpp,cpp}`, the last step of
+  `platform_installed_family_style_match`). Platform databases name a face by different
+  records of the same font: CoreText reads the Macintosh records, so Bitstream's FUTURABC.TTF
+  is family "Futura" + style "Bold" on macOS, while DirectWrite, GDI and FreeType read the
+  Windows records and list "Futura BdCn BT" + "Bold", which is also what Photoshop stores. The
+  index opens each database face once (`QRawFont::fontTable("name")`, faces whose font
+  resolves to another family are skipped) and maps its PostScript name (id 6), full name (id 4),
+  Windows family (id 1) and typographic family (id 16), compared as compact keys, to the
+  database family + style whose QFont loads it. A PostScript or full name names one face; a
+  family name picks the plainest subfamily (Regular before Bold before Bold Italic), and the
+  caller's bold/italic flags cannot then reach a sibling face (known gap). Families whose
+  listed name shares a prefix with the request are opened first; off Windows a miss then opens
+  every family once (Windows skips that: DirectWrite has already searched the system
+  collection and Qt's Windows database lists application fonts by GDI name). Cached until
+  `fontDatabaseChanged`. The PSD reader's resolver (`font_database_resolved_photoshop_font`)
+  passes `consult_name_tables = false`, so imported metadata keeps the same family string on
+  every platform and only rendering, the missing-font check and the style picker learn the
+  platform's name for the face. Tests: `ui_text_face_name_table_parser_prefers_windows_records`,
+  `ui_text_name_table_names_resolve_to_the_registered_face`, and with the local fixtures
+  `ui_title02_tracked_legacy_text_caret_matches_glyphs_if_available` on macOS.
+- **Fonts Patchy registers itself are registered under their Windows names on macOS**
+  (`add_application_font_by_windows_names`, same module; used by the user-fonts store and the
+  fixture-registering tests). Qt keeps ONE style per family + style name: the last face
+  registered as "Futura" + "Bold" takes the slot. CoreText lists the Bitstream face under
+  Apple's family, so a user-font FUTURABC.TTF held the slot only until CoreText's lazy alias
+  population (the first request for any missing family in the process) re-registered every
+  system face and Apple's Futura Bold took it back; the index then truthfully found no face
+  carrying "Futura BdCn BT" and the layer fell to the substitute (the September 29, 2026 mac
+  "text" suite run, while the test alone passed). `windows_named_font_data` copies the font
+  with its Macintosh `name` records removed when they name a different family than the Windows
+  records (glyphs and every other table byte-identical, directory checksum and `head`
+  adjustment refreshed), and the copy registers from memory, so CoreText derives
+  "Futura BdCn BT" + "Bold" and the face never shares a slot. Collections (`ttcf`) and fonts
+  whose names agree register from the file unchanged, on every platform. A system-installed
+  (Font Book) copy is outside Patchy's control and still relies on the index; in CoreText's
+  enumeration order the Bitstream face happens to win the slot. Test:
+  `ui_text_windows_named_font_data_drops_macintosh_records_if_available`.
 - **Every run carries its exact size through an inline session** (`kTextExactSizeFormatProperty`,
   editor units, set by the runs applier, the new-session typing format, the size spin and the
   script path). The editor font is whole editor pixels; recovering the size as round(px / zoom)
@@ -89,9 +127,11 @@ A PS 5 type record names each face three ways: PostScript name, GDI family and s
 are used instead, with bold and italic parsed from the style string, because those are the names
 Windows lists the face under and the heuristic's humanized guess is not.
 
-Open gap (September 29, 2026): with `local-test-fixtures/fonts/FUTURABC.TTF` registered,
+Those GDI names are Windows names. With `local-test-fixtures/fonts/FUTURABC.TTF` registered,
 `ui_title02_tracked_legacy_text_caret_matches_glyphs_if_available` (Title02.psd,
-`FuturaBT-BoldCondensed` / `Futura BdCn BT`) renders at the imported width on Windows and Linux
-but not on macOS, where the preview ink is the same 23 percent wider than the source as with no
-Futura at all: the registered face is not matched for that tySh record there and the render
-falls back. The test skips only when the font file is absent, so the mac run reports the gap.
+`FuturaBT-BoldCondensed` / `Futura BdCn BT`) rendered at the imported width on Windows and Linux
+but 23 percent wider on macOS (September 29, 2026): CoreText lists the file as "Futura" + "Bold",
+Qt warned that the family "Futura BdCn BT" was missing, and the session substituted a
+regular-width face. Tracking and size scaling were never involved. The name-table index above
+resolves the record's family (and its PostScript name) to the face Qt really holds, so the layer
+renders with the condensed face on every platform; the reader still stores the GDI names.

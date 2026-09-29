@@ -2,6 +2,7 @@
 #include "ui/main_window_shared.hpp"
 #include "ui/background_workers.hpp"
 #include "ui/document_recovery.hpp"
+#include "ui/font_face_name_index.hpp"
 
 #include "core/blend_math.hpp"
 #include "core/layer_metadata.hpp"
@@ -427,16 +428,7 @@ bool text_family_uses_photoshop_latin_fallback(const QString& family) {
   return family.simplified().compare(QStringLiteral("Noto Naskh Arabic"), Qt::CaseInsensitive) == 0;
 }
 
-QString compact_text_family_key(const QString& value) {
-  QString compact;
-  compact.reserve(value.size());
-  for (const auto ch : value.toCaseFolded()) {
-    if (ch.isLetterOrNumber()) {
-      compact.append(ch);
-    }
-  }
-  return compact;
-}
+// compact_text_family_key lives in ui/font_face_name_index.hpp (shared with the name-table index).
 
 std::optional<QString> available_text_family_match(const QString& family) {
   const auto requested = family.trimmed();
@@ -535,16 +527,18 @@ std::optional<AvailableTextFamilyStyle> font_database_family_style_split(const Q
 // database, and a face it does not list falls back to the flag face the name implies. Cached
 // per name: the lookup scans the system collection, and the options bar asks on every caret
 // move. The database can grow after a miss (the headless registry rescue, a user font drop),
-// so fontDatabaseChanged clears the cache. Nothing off Windows answers, which keeps the
-// offscreen suites hermetic.
-std::optional<AvailableTextFamilyStyle> platform_installed_family_style_match(const QString& requested) {
+// so fontDatabaseChanged clears the cache. Off Windows the platform lookup answers nothing;
+// the name-table index below reads only the faces Qt's database holds, so the offscreen
+// suites stay hermetic.
+std::optional<AvailableTextFamilyStyle> platform_installed_family_style_match(const QString& requested,
+                                                                              bool consult_name_tables) {
   static QHash<QString, std::optional<AvailableTextFamilyStyle>> cache;
   static bool invalidation_connected = false;
   if (!invalidation_connected && qGuiApp != nullptr) {
     invalidation_connected = true;
     QObject::connect(qGuiApp, &QGuiApplication::fontDatabaseChanged, qGuiApp, [] { cache.clear(); });
   }
-  const auto cache_key = requested.toCaseFolded();
+  const auto cache_key = requested.toCaseFolded() + (consult_name_tables ? QStringLiteral("|names") : QString());
   if (const auto it = cache.constFind(cache_key); it != cache.constEnd()) {
     return *it;
   }
@@ -578,6 +572,15 @@ std::optional<AvailableTextFamilyStyle> platform_installed_family_style_match(co
       match = AvailableTextFamilyStyle{*resolved_family, available_style};
     }
   }
+  if (!match.has_value() && consult_name_tables) {
+    // The registered faces' own name tables: the PostScript name, full name or Windows (GDI)
+    // family a PSD stores can name a face whose database family is something else entirely
+    // (CoreText lists Bitstream's FUTURABC.TTF as "Futura" + "Bold"; the file and Photoshop
+    // call it "Futura BdCn BT"). See ui/font_face_name_index.hpp.
+    if (const auto indexed = font_face_for_name_table_name(requested); indexed.has_value()) {
+      match = AvailableTextFamilyStyle{indexed->family, indexed->style};
+    }
+  }
   cache.insert(cache_key, match);
   return match;
 }
@@ -586,8 +589,12 @@ std::optional<AvailableTextFamilyStyle> platform_installed_family_style_match(co
 // database's family + face split first ("Arial Black" -> "Arial"/"Black"); a name the database
 // cannot split is asked of the platform (full names, PostScript names, DirectWrite families).
 // The returned style can be empty when the platform vouches for the family but the database
-// lists no such face; callers then render the family's flag face.
-std::optional<AvailableTextFamilyStyle> available_text_family_style_match(const QString& family) {
+// lists no such face; callers then render the family's flag face. `consult_name_tables` adds
+// the registered faces' own name tables as the last resort (font_face_for_name_table_name);
+// the PSD reader's resolver turns it off so imported metadata keeps the same family string on
+// every platform and only rendering learns the platform's name for the face.
+std::optional<AvailableTextFamilyStyle> available_text_family_style_match(const QString& family,
+                                                                          bool consult_name_tables = true) {
   const auto requested = family.trimmed();
   if (requested.isEmpty()) {
     return std::nullopt;
@@ -595,7 +602,7 @@ std::optional<AvailableTextFamilyStyle> available_text_family_style_match(const 
   if (const auto split = font_database_family_style_split(requested); split.has_value()) {
     return split;
   }
-  return platform_installed_family_style_match(requested);
+  return platform_installed_family_style_match(requested, consult_name_tables);
 }
 
 // Bold/italic as the style NAME describes them, so the flags every downstream reader still uses
@@ -773,7 +780,9 @@ std::optional<psd::ResolvedPhotoshopFont> font_database_resolved_photoshop_font(
     return psd::ResolvedPhotoshopFont{family->toStdString(), std::string(), heuristic.bold,
                                       heuristic.italic};
   }
-  const auto split = available_text_family_style_match(humanized);
+  // Database names only: a face the name-table index alone can find keeps the humanized
+  // name in the metadata (identical on every platform) and resolves at render time.
+  const auto split = available_text_family_style_match(humanized, /*consult_name_tables*/ false);
   if (!split.has_value()) {
     return std::nullopt;
   }

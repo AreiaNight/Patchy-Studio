@@ -1056,6 +1056,8 @@ ${PATCHY_LUPDATE_MANIFEST_SOURCES}
       src/ui/document_recovery.cpp
       src/ui/main_window_shared.hpp
       src/ui/main_window_shared.cpp
+      src/ui/font_face_name_index.hpp
+      src/ui/font_face_name_index.cpp
       src/ui/main_window_smart_objects.cpp
       src/ui/main_window_stress_test.cpp
       src/ui/main_window_theme.cpp

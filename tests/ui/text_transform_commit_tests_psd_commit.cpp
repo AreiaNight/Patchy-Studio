@@ -1,5 +1,6 @@
 #include "ui/canvas_widget.hpp"
 #include "ui/main_window_shared.hpp"
+#include "ui/font_face_name_index.hpp"
 #include "ui/qt_paths.hpp"
 #include "core/adjustment_layer.hpp"
 #include "core/contour_presets.hpp"
@@ -160,6 +161,7 @@
 #include <QTest>
 #include <QTextBlock>
 #include <QTextCursor>
+#include <QRawFont>
 #include <QTextEdit>
 #include <QTextDocument>
 #include <QTextFragment>
@@ -3619,10 +3621,37 @@ void ui_title02_tracked_legacy_text_caret_matches_glyphs_if_available() {
   }
   patchy::test::register_test_fonts(patchy::test::TestFontRole::UiDefault);
   const auto futura = QStringLiteral(PATCHY_SOURCE_DIR) + QStringLiteral("/local-test-fixtures/fonts/FUTURABC.TTF");
-  const bool futura_registered = QFile::exists(futura) && QFontDatabase::addApplicationFont(futura) >= 0;
+  // Registered the way user fonts are: on macOS under the Windows names, so the face is
+  // "Futura BdCn BT" + "Bold" everywhere instead of sharing Apple's "Futura" + "Bold" slot.
+  const int futura_id = QFile::exists(futura) ? patchy::ui::add_application_font_by_windows_names(futura) : -1;
+  const bool futura_registered = futura_id >= 0;
   if (!futura_registered) {
     std::cout << "[SKIP] Futura fixture font missing: " << futura.toStdString() << '\n';
     return;
+  }
+  // What the platform database made of the fixture: CoreText files FUTURABC.TTF under its
+  // Macintosh names ("Futura" + "Bold"), the Windows engines under "Futura BdCn BT" + "Bold".
+  // Every face the listed family holds is dumped with its PostScript name so a wrong face
+  // (Apple's Futura Bold sharing the style slot) is visible in the log.
+  for (const auto& family : QFontDatabase::applicationFontFamilies(futura_id)) {
+    std::cout << "[title02] fixture family '" << family.toStdString() << "'";
+    for (const auto& style : QFontDatabase::styles(family)) {
+      const auto raw = QRawFont::fromFont(QFontDatabase::font(family, style, 12));
+      const auto names = patchy::ui::parse_opentype_face_names(raw.fontTable("name"));
+      std::cout << " | style '" << style.toStdString() << "' -> '" << raw.familyName().toStdString() << "'/'"
+                << raw.styleName().toStdString() << "' ps '"
+                << (names.has_value() ? names->postscript_name.toStdString() : std::string("?")) << "' win-family '"
+                << (names.has_value() ? names->family.toStdString() : std::string("?")) << "' weight "
+                << QFontDatabase::weight(family, style);
+    }
+    std::cout << '\n';
+  }
+  for (const auto& name : {QStringLiteral("Futura BdCn BT"), QStringLiteral("FuturaBT-BoldCondensed")}) {
+    const auto match = patchy::ui::font_face_for_name_table_name(name);
+    std::cout << "[title02] name-table '" << name.toStdString() << "' -> "
+              << (match.has_value() ? ("'" + match->family.toStdString() + "'/'" + match->style.toStdString() + "'")
+                                    : std::string("none"))
+              << '\n';
   }
   auto document = patchy::psd::DocumentIo::read_file(path);
   patchy::LayerId layer_id = 0;
@@ -3666,6 +3695,9 @@ void ui_title02_tracked_legacy_text_caret_matches_glyphs_if_available() {
     return;
   }
   const QRect source_ink = source_visible->translated(source_bounds.x, source_bounds.y);
+  const auto missing_families = patchy::ui::missing_text_families_for_layer(*source);
+  std::cout << "[title02] layer font '" << source->metadata().at(patchy::kLayerMetadataTextFont) << "' missing ["
+            << missing_families.join(QStringLiteral(", ")).toStdString() << "]\n";
 
   live_document.set_active_layer(layer_id);
   require_action_by_text(window, QStringLiteral("Type"))->trigger();
@@ -3689,6 +3721,11 @@ void ui_title02_tracked_legacy_text_caret_matches_glyphs_if_available() {
   const auto editor_origin_x = editor->property("patchy.documentTextX").toInt();
   auto* overlay = canvas->findChild<QWidget*>(QStringLiteral("transformedTextEditOverlay"));
   const auto text = editor->toPlainText();
+  // The family the session renders with, and the face Qt really hands it: CoreText lists the
+  // fixture under "Futura" + "Bold" while the record (and every Windows database) says
+  // "Futura BdCn BT", so the resolution has to bridge the two (docs/font-resolution.md).
+  const auto session_family = editor->property("patchy.documentTextFamily").toString();
+  const auto rendered_face = QRawFont::fromFont(editor->document()->begin().begin().fragment().charFormat().font());
 
   const auto preview_ink = [&]() -> QRect {
     if (auto* preview = preview_layer_for_editor(live_document, *editor); preview != nullptr) {
@@ -3788,7 +3825,8 @@ void ui_title02_tracked_legacy_text_caret_matches_glyphs_if_available() {
             << source_raster << " source_ink " << source_ink.left() << ".." << source_ink.right() << " preview_ink "
             << ink_before.left() << ".." << ink_before.right() << " caret@10 " << caret_mid << " clicked "
             << clicked_position << " after_insert_ink " << ink_after.left() << ".." << ink_after.right()
-            << " caret@11 " << caret_after << '\n';
+            << " caret@11 " << caret_after << " family '" << session_family.toStdString() << "' face '"
+            << rendered_face.familyName().toStdString() << "' / '" << rendered_face.styleName().toStdString() << "'\n";
   CHECK(text == QStringLiteral("WWW.COCKPITMASTER.COM"));
   CHECK(!ink_before.isEmpty());
   if (ink_before.isEmpty()) {

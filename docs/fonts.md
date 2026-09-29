@@ -112,7 +112,12 @@ window registers them for immediate use and persists them:
   (64 MB/file, 256 MB and 256 entries per archive) as the zip-bomb defense.
 - Persistence stores: desktop copies each font into
   `<AppDataLocation>/user-fonts` (see "Per-user app-data folder" below) and registers that copy (persist first, then
-  register, so the live font's backing file can never vanish); wasm registers
+  register, so the live font's backing file can never vanish) through
+  `add_application_font_by_windows_names` (`src/ui/font_face_name_index.hpp`): on macOS a
+  font whose Macintosh family name differs from its Windows one registers from an in-memory
+  copy without the Macintosh name records, so it is listed under the Windows names Photoshop
+  and every other platform use ("Futura BdCn BT", not Apple's "Futura"; the stored file is
+  untouched). Why: [font-resolution.md](font-resolution.md). Wasm registers
   a MEMFS copy and fire-and-forgets an IndexedDB put (DB `PatchyUserFonts`,
   store `fonts` keyed by file name, so a same-named font overwrites across
   sessions). Bytes that fail `addApplicationFont` are never persisted.
