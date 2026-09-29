@@ -135,6 +135,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTemporaryDir>
+#include <QTcpServer>
+#include <QTcpSocket>
 #include <QLocale>
 #include <QSizeGrip>
 #include <QMetaObject>
@@ -1737,6 +1739,118 @@ void update_manifest_parser_handles_supported_cases() {
   })";
   CHECK(!patchy::ui::parse_update_manifest(relative_url_manifest, QStringLiteral("windows"), QStringLiteral("0.1.0"))
              .has_value());
+}
+
+namespace {
+
+// Scoped PATCHY_UPDATE_MANIFEST_URL override for the request tests below.
+class UpdateManifestUrlOverride {
+ public:
+  explicit UpdateManifestUrlOverride(const QString& url) : previous_(qgetenv("PATCHY_UPDATE_MANIFEST_URL")) {
+    qputenv("PATCHY_UPDATE_MANIFEST_URL", url.toUtf8());
+  }
+  ~UpdateManifestUrlOverride() {
+    if (previous_.isEmpty()) {
+      qunsetenv("PATCHY_UPDATE_MANIFEST_URL");
+    } else {
+      qputenv("PATCHY_UPDATE_MANIFEST_URL", previous_);
+    }
+  }
+  UpdateManifestUrlOverride(const UpdateManifestUrlOverride&) = delete;
+  UpdateManifestUrlOverride& operator=(const UpdateManifestUrlOverride&) = delete;
+
+ private:
+  QByteArray previous_;
+};
+
+// A one-shot HTTP server on the loopback interface that answers every request
+// with the given manifest body.
+class ManifestServer {
+ public:
+  explicit ManifestServer(QByteArray body) : body_(std::move(body)) {
+    CHECK(server_.listen(QHostAddress::LocalHost));
+    QObject::connect(&server_, &QTcpServer::newConnection, &server_, [this] {
+      while (auto* socket = server_.nextPendingConnection()) {
+        QObject::connect(socket, &QTcpSocket::readyRead, socket, [this, socket] {
+          if (!socket->readAll().contains("\r\n\r\n")) {
+            return;
+          }
+          ++requests_;
+          socket->write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: " +
+                        QByteArray::number(body_.size()) + "\r\n\r\n" + body_);
+          socket->disconnectFromHost();
+        });
+        QObject::connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
+      }
+    });
+  }
+  [[nodiscard]] QString manifest_url() const {
+    return QStringLiteral("http://127.0.0.1:%1/latest_version.json").arg(server_.serverPort());
+  }
+  [[nodiscard]] int requests() const { return requests_; }
+
+ private:
+  QTcpServer server_;
+  QByteArray body_;
+  int requests_{0};
+};
+
+}  // namespace
+
+void ui_update_manifest_url_honors_environment_override() {
+  {
+    const UpdateManifestUrlOverride override(QStringLiteral("http://127.0.0.1:1/custom.json"));
+    CHECK(patchy::ui::update_manifest_url() == QUrl(QStringLiteral("http://127.0.0.1:1/custom.json")));
+  }
+  CHECK(patchy::ui::update_manifest_url().host() == QStringLiteral("raw.githubusercontent.com"));
+}
+
+// The request resolves its host on a detached thread and only then talks to the
+// server (GitHub issue 48): the whole path, resolver included, must deliver the
+// manifest to the owner's thread.
+void ui_update_check_fetches_manifest_after_resolving_host() {
+  ManifestServer server(R"({"platforms": {"windows": {"version": "9.9", "download_url": "https://rtsoft.com/w.exe"},
+                                          "macos": {"version": "9.9", "download_url": "https://rtsoft.com/m.dmg"},
+                                          "linux": {"version": "9.9", "download_url": "https://rtsoft.com/l.flatpak"}}})");
+  const UpdateManifestUrlOverride override(server.manifest_url());
+  QObject owner;
+  std::optional<patchy::ui::UpdateCheckResult> result;
+  patchy::ui::request_update_check(&owner, QStringLiteral("0.1.0"),
+                                   [&result](patchy::ui::UpdateCheckResult value) { result = std::move(value); });
+  CHECK(process_events_until([&] { return result.has_value(); }, 15000));
+  CHECK(result.has_value());
+  if (result.has_value()) {
+    CHECK(result->status == patchy::ui::UpdateCheckStatus::UpdateAvailable);
+    CHECK(result->latest_version == QStringLiteral("9.9"));
+  }
+  CHECK(server.requests() == 1);
+}
+
+// An unresolvable host fails the check without a request, and an owner destroyed
+// while the resolver is still out never hears back (no dangling post at quit).
+void ui_update_check_reports_unresolvable_host_and_drops_destroyed_owner() {
+  const UpdateManifestUrlOverride override(QStringLiteral("https://patchy-no-such-host.invalid/latest_version.json"));
+  {
+    QObject owner;
+    std::optional<patchy::ui::UpdateCheckResult> result;
+    patchy::ui::request_update_check(&owner, QStringLiteral("0.1.0"),
+                                     [&result](patchy::ui::UpdateCheckResult value) { result = std::move(value); });
+    CHECK(process_events_until([&] { return result.has_value(); }, 15000));
+    if (result.has_value()) {
+      CHECK(result->status == patchy::ui::UpdateCheckStatus::NetworkError);
+      CHECK(result->http_status == 0);
+    }
+  }
+  {
+    bool called = false;
+    {
+      QObject owner;
+      patchy::ui::request_update_check(&owner, QStringLiteral("0.1.0"),
+                                       [&called](patchy::ui::UpdateCheckResult) { called = true; });
+    }
+    process_events_for(500);
+    CHECK(!called);
+  }
 }
 
 void ui_update_available_dialog_warns_to_close_patchy_before_installing() {
@@ -4842,6 +4956,10 @@ std::vector<patchy::test::TestCase> app_shell_tests() {
       {"ui_open_dialog_hides_name_filter_details", ui_open_dialog_hides_name_filter_details},
       {"ui_open_dialog_opens_every_selected_file", ui_open_dialog_opens_every_selected_file},
       {"update_manifest_parser_handles_supported_cases", update_manifest_parser_handles_supported_cases},
+      {"ui_update_manifest_url_honors_environment_override", ui_update_manifest_url_honors_environment_override},
+      {"ui_update_check_fetches_manifest_after_resolving_host", ui_update_check_fetches_manifest_after_resolving_host},
+      {"ui_update_check_reports_unresolvable_host_and_drops_destroyed_owner",
+       ui_update_check_reports_unresolvable_host_and_drops_destroyed_owner},
       {"ui_update_available_dialog_warns_to_close_patchy_before_installing",
        ui_update_available_dialog_warns_to_close_patchy_before_installing},
       {"ui_update_preference_defaults_startup_check_setting_to_enabled",

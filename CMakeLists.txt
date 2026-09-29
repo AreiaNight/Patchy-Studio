@@ -1317,7 +1317,8 @@ ${PATCHY_LUPDATE_MANIFEST_SOURCES}
       target_sources(patchy_ui PRIVATE src/ui/scanner_import_win.cpp src/ui/legacy_plugin_runner_win.cpp)
       add_dependencies(patchy_ui patchy-8bf-host64 patchy_8bf_host32)
       # winmm: PlaySound for the script sound effects (sound_effects.cpp).
-      target_link_libraries(patchy_ui PUBLIC wiaguid winmm)
+      # ws2_32: getaddrinfo for the update check's own host resolve (update_checker.cpp).
+      target_link_libraries(patchy_ui PUBLIC wiaguid winmm ws2_32)
     endif()
     patchy_configure_target(patchy_ui)
 
