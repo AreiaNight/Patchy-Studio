@@ -6,6 +6,7 @@
 
 #include "ui/main_window.hpp"
 #include "ui/main_window_shared.hpp"
+#include "ui/network_mounts.hpp"
 #include "ui/qt_paths.hpp"
 
 #include "core/blend_math.hpp"
@@ -283,9 +284,12 @@ constexpr int kRecentFilesMenuPageSize = 50;
 constexpr qint64 kRecentHistoryCheckIntervalMs = 30000;
 
 // Network entries are never stat'ed: an asleep or unreachable host blocks a
-// stat for the SMB timeout. They stay listed; clicking one that is gone
-// reports it missing and drops it, like any other missing entry.
-bool is_network_recent_path(const QString& path) {
+// stat for the SMB timeout, and main() waits for the check worker at quit.
+// They stay listed; clicking one that is gone reports it missing and drops it,
+// like any other missing entry. `mounts` is the live mount table (macOS and
+// Linux mount network shares under ordinary directories, so only the table
+// tells them apart); Windows answers from the drive type instead.
+bool is_network_recent_path(const QString& path, const std::vector<MountEntry>& mounts) {
   if (path.startsWith(QStringLiteral("\\\\")) || path.startsWith(QStringLiteral("//"))) {
     return true;
   }
@@ -295,7 +299,7 @@ bool is_network_recent_path(const QString& path) {
     return GetDriveTypeW(root) == DRIVE_REMOTE;
   }
 #endif
-  return false;
+  return path_is_on_network_mount(path, mounts);
 }
 
 QString elided_open_progress_title_file_name(const QWidget& widget, const QString& file_name) {
@@ -4119,15 +4123,17 @@ void MainWindow::schedule_recent_history_check(bool force) {
   auto* app = QApplication::instance();
   QPointer<MainWindow> window(this);
   run_tracked_background_worker([app, window, files = recent_files_stored_, folders = recent_folders_stored_] {
+    // Cached kernel data only; nothing here contacts a server.
+    const auto mounts = read_system_mounts();
     QSet<QString> missing_files;
     QSet<QString> missing_folders;
     for (const auto& path : files) {
-      if (!path.trimmed().isEmpty() && !is_network_recent_path(path) && !QFileInfo::exists(path)) {
+      if (!path.trimmed().isEmpty() && !is_network_recent_path(path, mounts) && !QFileInfo::exists(path)) {
         missing_files.insert(path);
       }
     }
     for (const auto& dir : folders) {
-      if (!dir.trimmed().isEmpty() && !is_network_recent_path(dir) && !QFileInfo(dir).isDir()) {
+      if (!dir.trimmed().isEmpty() && !is_network_recent_path(dir, mounts) && !QFileInfo(dir).isDir()) {
         missing_folders.insert(dir);
       }
     }

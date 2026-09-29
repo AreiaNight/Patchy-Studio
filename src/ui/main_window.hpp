@@ -184,6 +184,10 @@ public:
   // only, so tests constructing MainWindow never fire network requests; the result lands on
   // the start panel's status line and, for an available update, show_update_available.
   void begin_startup_update_check();
+  // Forced-exit path only (main.cpp, a worker still blocked after the bounded quit
+  // wait): stops recovery writes and deletes the recovery folder now, since the
+  // destructor that normally drops it will not run. See docs/document-recovery.md.
+  void discard_recovery_folder_for_forced_exit();
   [[nodiscard]] const HotkeyRegistry& hotkey_registry() const noexcept { return hotkey_registry_; }
   [[nodiscard]] BrushTipLibrary& brush_tip_library();
   [[nodiscard]] BrushAutomationLibrary& brush_automation_library();

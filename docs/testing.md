@@ -188,6 +188,7 @@ Useful diagnostic variables:
 - `PATCHY_RENDER_THREADS=<n>` caps every parallel fan-out at n workers in place of the hardware thread count (perf harness emulation of a low-core machine; the transform proxy gate scales with it).
 - `PATCHY_PROCESSING_OVERLAY_MIN_PIXELS` overrides the processing-overlay threshold.
 - `PATCHY_NO_SOUND=1` suppresses script audio; offscreen suites rely on it.
+- `PATCHY_UPDATE_MANIFEST_URL=<url>` replaces the startup update check's manifest URL (a loopback server in the update-check tests). Pointing it at an unresolvable host such as `https://x.local/m.json` holds a resolver call open for seconds, which is how the issue 48 quit freeze was reproduced on macOS: quit within that window and time the exit (see the AGENTS.md rule on pending host lookups).
 - `PATCHY_SETTINGS_DIR=<dir>` redirects the app's ini settings store (automation isolation).
 - `PATCHY_RECOVERY_DIR=<dir>` redirects the automatic document recovery store (the UI suite sets it to `test-artifacts/recovery`); `PATCHY_RECOVERY_INTERVAL_MS=<ms>` overrides the recovery timer interval. See [document-recovery.md](document-recovery.md).
 - `PATCHY_HEADLESS=1` marks a `--headless` app run (main.cpp sets it). Never set it for the suites: it re-enables the registry font rescue and makes layouts machine-dependent.

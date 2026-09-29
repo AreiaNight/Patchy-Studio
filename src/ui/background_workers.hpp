@@ -2,6 +2,7 @@
 
 #include <QtGlobal>
 
+#include <chrono>
 #include <functional>
 #include <future>
 #include <type_traits>
@@ -39,6 +40,17 @@ void run_tracked_background_worker(std::function<void()> work);
 // QApplication::exec returns and before the QApplication is destroyed (the
 // UI test runner does the same at teardown).
 void wait_for_tracked_background_workers();
+
+// The same wait with a deadline. False means a worker is still running: it is
+// blocked inside the OS (a stat on a dead share, a resolver), which nothing in
+// the process can interrupt, and it still holds the QCoreApplication pointer.
+// The app then ends the process without destructors (see main.cpp) rather than
+// destroying the QApplication under the worker or freezing until the OS gives
+// up, which was the issue 48 quit hang.
+[[nodiscard]] bool wait_for_tracked_background_workers(std::chrono::milliseconds timeout);
+
+// Workers started and not yet finished (diagnostics and tests).
+[[nodiscard]] int tracked_background_worker_count();
 
 // std::async(std::launch::async, fn) with a single-threaded-wasm fallback:
 // there the work runs inline and the returned future is already ready

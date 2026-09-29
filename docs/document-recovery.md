@@ -82,7 +82,11 @@ Both files are written through `write_file_bytes_atomically`.
 - An accepted `closeEvent` stops the timer. `~MainWindow` stops it and calls
   `RecoveryInstanceFolder::discard_on_release`: the folder is deleted by whichever owner
   releases the shared pointer last, the window or a still-running write. A crash never
-  reaches the destructor, which is the whole point.
+  reaches the destructor, which is the whole point. One quit path skips the destructor
+  on purpose: when a tracked worker is still blocked in the OS 10 s after the event loop
+  returned, `main.cpp` calls `discard_recovery_folder_for_forced_exit` (timer stopped,
+  entries deleted; on Windows the open lock file survives as a lock-only folder that the
+  next start sweeps) and ends the process without destructors.
 - Startup (`src/app/main.cpp`, interactive path only, not stress/export/run-script/
   screenshot/headless): `recover_orphaned_documents()` before the command-line files open.
   Orphans are folders under the root whose lock is missing or names a dead process

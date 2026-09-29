@@ -42,6 +42,7 @@
 #include <QTimer>
 
 #include <array>
+#include <chrono>
 #include <clocale>
 #include <cstdio>
 #include <deque>
@@ -714,6 +715,24 @@ int main(int argc, char* argv[]) {
   }
 
   window.show();
+  // Every exit path ends here once the event loop has returned. Detached
+  // preview/render/recovery workers capture the QCoreApplication pointer, so the
+  // window and application must outlive them; a worker still running after the
+  // bounded wait is blocked inside the OS (a stat on a dead share, a resolver),
+  // which nothing can interrupt, and waiting for it is the issue 48 quit freeze.
+  // The process then ends without destructors: settings were flushed by
+  // closeEvent, and the recovery folder is dropped here by hand.
+  const auto finish_after_event_loop = [&window](int result) {
+    if (patchy::ui::wait_for_tracked_background_workers(std::chrono::seconds(10))) {
+      return result;
+    }
+    qWarning("Patchy: %d background worker(s) still blocked 10 s after quit; ending the process without destructors.",
+             patchy::ui::tracked_background_worker_count());
+#ifndef Q_OS_WASM
+    window.discard_recovery_folder_for_forced_exit();
+#endif
+    patchy::ui::end_process_without_destructors(result);
+  };
   if (stress_mode) {
     // No update check and no file opens: run the scripted scenario as soon
     // as the event loop starts, then exit with the report's status code.
@@ -721,9 +740,7 @@ int main(int argc, char* argv[]) {
     stress_options.preset = *stress_preset;
     stress_options.report_dir = parser.value(stress_report_dir_option);
     window.start_cli_stress_test(stress_options);
-    const int stress_result = app.exec();
-    patchy::ui::wait_for_tracked_background_workers();
-    return stress_result;
+    return finish_after_event_loop(app.exec());
   }
   if (export_mode) {
     // Unattended convert/export: no update check, prompts suppressed, open the
@@ -731,9 +748,7 @@ int main(int argc, char* argv[]) {
     window.set_cli_automation_mode(true);
     window.open_command_line_files(files);
     window.run_cli_export(export_path, export_append_text);
-    const int export_result = app.exec();
-    patchy::ui::wait_for_tracked_background_workers();
-    return export_result;
+    return finish_after_event_loop(app.exec());
   }
   if (run_script_mode) {
     // No instance was running (a forwarded request already returned above):
@@ -741,9 +756,7 @@ int main(int argc, char* argv[]) {
     window.set_cli_automation_mode(true);
     window.open_command_line_files(files);
     window.run_cli_script(run_script_path, script_output_path, script_args);
-    const int script_result = app.exec();
-    patchy::ui::wait_for_tracked_background_workers();
-    return script_result;
+    return finish_after_event_loop(app.exec());
   }
   // No startup splash: the start panel carries the branding, and the update-check status
   // lands on its footer (an available update still raises the update dialog).
@@ -800,8 +813,5 @@ int main(int argc, char* argv[]) {
   // The window (declared after `app`) is destroyed before the application object; drop
   // the handler so a late event cannot reach a dead window.
   app.file_open_handler = nullptr;
-  // Detached preview/render workers capture the QCoreApplication pointer;
-  // wait for them before the window and application objects are destroyed.
-  patchy::ui::wait_for_tracked_background_workers();
-  return exec_result;
+  return finish_after_event_loop(exec_result);
 }

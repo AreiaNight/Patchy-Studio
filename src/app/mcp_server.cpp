@@ -7,7 +7,9 @@
 #include "ui/mcp_line_buffer.hpp"
 #include "ui/mcp_session.hpp"
 #include "ui/script_engine.hpp"
+#include "ui/cli_exit.hpp"
 #include <QApplication>
+#include <chrono>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QLocalSocket>
@@ -229,6 +231,13 @@ int run_mcp_server(QApplication& app) {
   ui::MainWindow window;
   ui::configure_owned_mcp_workspace(window, args == QStringList{QStringLiteral("--visible")});
   window.show();
+  // Same quit policy as the app's main.cpp: a worker still blocked in the OS after the
+  // bounded wait must not see the window and application destroyed under it.
+  const auto finish_after_event_loop = [&window](int result) {
+    if (ui::wait_for_tracked_background_workers(std::chrono::seconds(10))) { return result; }
+    window.discard_recovery_folder_for_forced_exit();
+    ui::end_process_without_destructors(result);
+  };
   if (args == QStringList{QStringLiteral("--check")}) {
     auto& host = window.script_engine_host();
     host.set_connector_mode(true);
@@ -249,8 +258,7 @@ int run_mcp_server(QApplication& app) {
         {"skillDirectory", kit_directory()}, {"preview", metadata}}).toJson(QJsonDocument::Compact);
     (void)std::fwrite(report.constData(), 1, static_cast<std::size_t>(report.size()), stdout);
     (void)std::fputc('\n', stdout);
-    ui::wait_for_tracked_background_workers();
-    return ok ? 0 : 2;
+    return finish_after_event_loop(ok ? 0 : 2);
   }
 
   ui::McpSession session(window, false, write_mcp_stdout);
@@ -270,7 +278,6 @@ int run_mcp_server(QApplication& app) {
     result = app.exec();
   }
   session.shutdown();
-  ui::wait_for_tracked_background_workers();
-  return result;
+  return finish_after_event_loop(result);
 }
 }  // namespace patchy

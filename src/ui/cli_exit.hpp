@@ -19,4 +19,13 @@ namespace patchy::ui {
 // which unattended CLI runs accept on every platform.
 void exit_cli_application(int code);
 
+// Ends the process right now with `code`: stdio flushed, no destructors, no
+// atexit handlers (emscripten_force_exit on wasm). For the quit path only, when
+// a tracked background worker is still blocked inside the OS after the bounded
+// wait in main.cpp: destroying the QApplication under it would hand the worker
+// dangling pointers, and waiting longer is the freeze this replaces. Everything
+// the user could lose is already on disk by then (closeEvent flushed the
+// settings; the caller drops the recovery folder first).
+[[noreturn]] void end_process_without_destructors(int code);
+
 }  // namespace patchy::ui

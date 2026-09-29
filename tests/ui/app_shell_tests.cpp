@@ -67,6 +67,8 @@
 #include "ui/app_settings.hpp"
 #include "ui/build_info.hpp"
 
+#include "ui/background_workers.hpp"
+#include "ui/network_mounts.hpp"
 #include "ui/update_checker.hpp"
 #include "ui/visual_filter_gallery_dialog.hpp"
 #include "ui/zoomable_image_preview.hpp"
@@ -135,6 +137,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTemporaryDir>
+#include <QTcpServer>
+#include <QTcpSocket>
 #include <QLocale>
 #include <QSizeGrip>
 #include <QMetaObject>
@@ -193,6 +197,8 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
+#include <thread>
 #include <array>
 #include <cstdint>
 #include <cmath>
@@ -1432,6 +1438,72 @@ void ui_open_remembers_last_directory_and_lists_recent_folders() {
 // timeout. The unroutable TEST-NET host would hold a stat far past the wait
 // below, so the missing local entry dropping in time proves the share was not
 // stat'ed, and the share entry stays listed.
+// The mount classifier behind is_network_recent_path on macOS and Linux: a
+// synthetic table, so the result does not depend on the machine's mounts.
+void ui_network_mount_classification_uses_deepest_mount_point() {
+  using patchy::ui::MountEntry;
+  const std::vector<MountEntry> mounts{
+      {QStringLiteral("/"), QStringLiteral("apfs"), true},
+      {QStringLiteral("/Volumes/share"), QStringLiteral("smbfs"), false},
+      {QStringLiteral("/Volumes/share2"), QStringLiteral("apfs"), true},
+      {QStringLiteral("/Volumes/share/nested-local"), QStringLiteral("apfs"), true},
+      {QStringLiteral("/mnt/nas/"), QStringLiteral("nfs4"), true},  // Linux: the type decides
+      {QStringLiteral("/run/user/1000/gvfs"), QStringLiteral("fuse.gvfsd-fuse"), true},
+      {QStringLiteral("/net"), QStringLiteral("autofs"), true},
+      {QStringLiteral("/media/usb"), QStringLiteral("fuse.ntfs-3g"), true},
+  };
+  const auto network = [&](const char* path) {
+    return patchy::ui::path_is_on_network_mount(QString::fromUtf8(path), mounts);
+  };
+  CHECK(!network("/Users/seth/Pictures/a.psd"));
+  CHECK(network("/Volumes/share/a.psd"));
+  CHECK(network("/Volumes/share"));
+  CHECK(!network("/Volumes/share2/a.psd"));   // sibling with a common prefix
+  CHECK(!network("/Volumes/sharex/a.psd"));   // no component boundary match
+  CHECK(!network("/Volumes/share/nested-local/a.psd"));  // deeper local mount wins
+  CHECK(network("/mnt/nas/photos/a.psd"));    // trailing slash on the mount point
+  CHECK(network("/run/user/1000/gvfs/smb-share:server=nas/a.psd"));
+  CHECK(network("/net/box/a.psd"));           // automount trigger
+  CHECK(!network("/media/usb/a.psd"));        // local FUSE stays local
+  CHECK(!network(""));
+  CHECK(!patchy::ui::path_is_on_network_mount(QStringLiteral("/anything"), {}));
+
+  const auto* entry = patchy::ui::mount_for_path(QStringLiteral("/Volumes/share/x/y"), mounts);
+  CHECK(entry != nullptr && entry->file_system == QStringLiteral("smbfs"));
+  CHECK(patchy::ui::is_network_file_system_type(QStringLiteral("cifs")));
+  CHECK(patchy::ui::is_network_file_system_type(QStringLiteral("fuse.sshfs")));
+  CHECK(!patchy::ui::is_network_file_system_type(QStringLiteral("ext4")));
+  CHECK(!patchy::ui::is_network_file_system_type(QStringLiteral("fuse.portal")));
+
+  // /proc/self/mounts escapes spaces in mount points as \040.
+  const auto parsed = patchy::ui::parse_proc_mounts(
+      "proc /proc proc rw,nosuid 0 0\n"
+      "/dev/sda1 / ext4 rw,relatime 0 0\n"
+      "nas:/export /mnt/my\\040nas nfs4 rw,vers=4.2 0 0\n"
+      "gvfsd-fuse /run/user/1000/gvfs fuse.gvfsd-fuse rw,nosuid,nodev,user_id=1000 0 0\n"
+      "broken line\n");
+  CHECK(parsed.size() == 4);
+  if (parsed.size() == 4) {
+    CHECK(parsed[1].mount_point == QStringLiteral("/"));
+    CHECK(parsed[1].local);
+    CHECK(parsed[2].mount_point == QStringLiteral("/mnt/my nas"));
+    CHECK(parsed[2].file_system == QStringLiteral("nfs4"));
+    CHECK(!parsed[2].local);
+    CHECK(!parsed[3].local);
+  }
+  CHECK(patchy::ui::path_is_on_network_mount(QStringLiteral("/mnt/my nas/a.psd"), parsed));
+  CHECK(!patchy::ui::path_is_on_network_mount(QStringLiteral("/home/x/a.psd"), parsed));
+
+  // The live table never blocks and, off Windows, always knows the root.
+  const auto live = patchy::ui::read_system_mounts();
+#if defined(Q_OS_MACOS) || defined(Q_OS_LINUX)
+  CHECK(!live.empty());
+  CHECK(patchy::ui::mount_for_path(QStringLiteral("/"), live) != nullptr);
+#else
+  CHECK(live.empty());
+#endif
+}
+
 void ui_recent_history_checks_in_background_and_skips_network_paths() {
   ensure_artifact_dir();
   const auto live_file = QFileInfo(QStringLiteral("test-artifacts/recent-bg-live.png")).absoluteFilePath();
@@ -1737,6 +1809,148 @@ void update_manifest_parser_handles_supported_cases() {
   })";
   CHECK(!patchy::ui::parse_update_manifest(relative_url_manifest, QStringLiteral("windows"), QStringLiteral("0.1.0"))
              .has_value());
+}
+
+namespace {
+
+// Scoped PATCHY_UPDATE_MANIFEST_URL override for the request tests below.
+class UpdateManifestUrlOverride {
+ public:
+  explicit UpdateManifestUrlOverride(const QString& url) : previous_(qgetenv("PATCHY_UPDATE_MANIFEST_URL")) {
+    qputenv("PATCHY_UPDATE_MANIFEST_URL", url.toUtf8());
+  }
+  ~UpdateManifestUrlOverride() {
+    if (previous_.isEmpty()) {
+      qunsetenv("PATCHY_UPDATE_MANIFEST_URL");
+    } else {
+      qputenv("PATCHY_UPDATE_MANIFEST_URL", previous_);
+    }
+  }
+  UpdateManifestUrlOverride(const UpdateManifestUrlOverride&) = delete;
+  UpdateManifestUrlOverride& operator=(const UpdateManifestUrlOverride&) = delete;
+
+ private:
+  QByteArray previous_;
+};
+
+// A one-shot HTTP server on the loopback interface that answers every request
+// with the given manifest body.
+class ManifestServer {
+ public:
+  explicit ManifestServer(QByteArray body) : body_(std::move(body)) {
+    CHECK(server_.listen(QHostAddress::LocalHost));
+    QObject::connect(&server_, &QTcpServer::newConnection, &server_, [this] {
+      while (auto* socket = server_.nextPendingConnection()) {
+        QObject::connect(socket, &QTcpSocket::readyRead, socket, [this, socket] {
+          if (!socket->readAll().contains("\r\n\r\n")) {
+            return;
+          }
+          ++requests_;
+          socket->write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: " +
+                        QByteArray::number(body_.size()) + "\r\n\r\n" + body_);
+          socket->disconnectFromHost();
+        });
+        QObject::connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
+      }
+    });
+  }
+  [[nodiscard]] QString manifest_url() const {
+    return QStringLiteral("http://127.0.0.1:%1/latest_version.json").arg(server_.serverPort());
+  }
+  [[nodiscard]] int requests() const { return requests_; }
+
+ private:
+  QTcpServer server_;
+  QByteArray body_;
+  int requests_{0};
+};
+
+}  // namespace
+
+// main() waits a bounded time for tracked workers at quit and force-exits when
+// one is still blocked in the OS: the timed wait must report a running worker,
+// then succeed once it finishes, and the count must balance.
+void ui_background_worker_wait_is_bounded() {
+  std::atomic<bool> release{false};
+  std::atomic<bool> finished{false};
+  const int before = patchy::ui::tracked_background_worker_count();
+  patchy::ui::run_tracked_background_worker([&release, &finished] {
+    while (!release.load()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    finished = true;
+  });
+  if (patchy::ui::kBackgroundWorkRunsInline) {
+    // Ran inline (single-threaded wasm): the worker could not have blocked.
+    CHECK(patchy::ui::wait_for_tracked_background_workers(std::chrono::milliseconds(0)));
+    return;
+  }
+  CHECK(patchy::ui::tracked_background_worker_count() == before + 1);
+  QElapsedTimer timer;
+  timer.start();
+  CHECK(!patchy::ui::wait_for_tracked_background_workers(std::chrono::milliseconds(150)));
+  CHECK(timer.elapsed() >= 100);
+  CHECK(!finished.load());
+  release = true;
+  CHECK(patchy::ui::wait_for_tracked_background_workers(std::chrono::seconds(10)));
+  CHECK(finished.load());
+  CHECK(patchy::ui::tracked_background_worker_count() == before);
+}
+
+void ui_update_manifest_url_honors_environment_override() {
+  {
+    const UpdateManifestUrlOverride override(QStringLiteral("http://127.0.0.1:1/custom.json"));
+    CHECK(patchy::ui::update_manifest_url() == QUrl(QStringLiteral("http://127.0.0.1:1/custom.json")));
+  }
+  CHECK(patchy::ui::update_manifest_url().host() == QStringLiteral("raw.githubusercontent.com"));
+}
+
+// The request resolves its host on a detached thread and only then talks to the
+// server (GitHub issue 48): the whole path, resolver included, must deliver the
+// manifest to the owner's thread.
+void ui_update_check_fetches_manifest_after_resolving_host() {
+  ManifestServer server(R"({"platforms": {"windows": {"version": "9.9", "download_url": "https://rtsoft.com/w.exe"},
+                                          "macos": {"version": "9.9", "download_url": "https://rtsoft.com/m.dmg"},
+                                          "linux": {"version": "9.9", "download_url": "https://rtsoft.com/l.flatpak"}}})");
+  const UpdateManifestUrlOverride override(server.manifest_url());
+  QObject owner;
+  std::optional<patchy::ui::UpdateCheckResult> result;
+  patchy::ui::request_update_check(&owner, QStringLiteral("0.1.0"),
+                                   [&result](patchy::ui::UpdateCheckResult value) { result = std::move(value); });
+  CHECK(process_events_until([&] { return result.has_value(); }, 15000));
+  CHECK(result.has_value());
+  if (result.has_value()) {
+    CHECK(result->status == patchy::ui::UpdateCheckStatus::UpdateAvailable);
+    CHECK(result->latest_version == QStringLiteral("9.9"));
+  }
+  CHECK(server.requests() == 1);
+}
+
+// An unresolvable host fails the check without a request, and an owner destroyed
+// while the resolver is still out never hears back (no dangling post at quit).
+void ui_update_check_reports_unresolvable_host_and_drops_destroyed_owner() {
+  const UpdateManifestUrlOverride override(QStringLiteral("https://patchy-no-such-host.invalid/latest_version.json"));
+  {
+    QObject owner;
+    std::optional<patchy::ui::UpdateCheckResult> result;
+    patchy::ui::request_update_check(&owner, QStringLiteral("0.1.0"),
+                                     [&result](patchy::ui::UpdateCheckResult value) { result = std::move(value); });
+    CHECK(process_events_until([&] { return result.has_value(); }, 15000));
+    if (result.has_value()) {
+      CHECK(result->status == patchy::ui::UpdateCheckStatus::NetworkError);
+      CHECK(result->http_status == 0);
+    }
+  }
+  {
+    bool called = false;
+    {
+      QObject owner;
+      patchy::ui::request_update_check(&owner, QStringLiteral("0.1.0"),
+                                       [&called](patchy::ui::UpdateCheckResult) { called = true; });
+    }
+    process_events_for(500);
+    CHECK(!called);
+  }
 }
 
 void ui_update_available_dialog_warns_to_close_patchy_before_installing() {
@@ -4837,11 +5051,18 @@ std::vector<patchy::test::TestCase> app_shell_tests() {
        ui_save_as_remembers_last_save_directory_between_windows},
       {"ui_open_remembers_last_directory_and_lists_recent_folders",
        ui_open_remembers_last_directory_and_lists_recent_folders},
+      {"ui_network_mount_classification_uses_deepest_mount_point",
+       ui_network_mount_classification_uses_deepest_mount_point},
       {"ui_recent_history_checks_in_background_and_skips_network_paths",
        ui_recent_history_checks_in_background_and_skips_network_paths},
       {"ui_open_dialog_hides_name_filter_details", ui_open_dialog_hides_name_filter_details},
       {"ui_open_dialog_opens_every_selected_file", ui_open_dialog_opens_every_selected_file},
       {"update_manifest_parser_handles_supported_cases", update_manifest_parser_handles_supported_cases},
+      {"ui_background_worker_wait_is_bounded", ui_background_worker_wait_is_bounded},
+      {"ui_update_manifest_url_honors_environment_override", ui_update_manifest_url_honors_environment_override},
+      {"ui_update_check_fetches_manifest_after_resolving_host", ui_update_check_fetches_manifest_after_resolving_host},
+      {"ui_update_check_reports_unresolvable_host_and_drops_destroyed_owner",
+       ui_update_check_reports_unresolvable_host_and_drops_destroyed_owner},
       {"ui_update_available_dialog_warns_to_close_patchy_before_installing",
        ui_update_available_dialog_warns_to_close_patchy_before_installing},
       {"ui_update_preference_defaults_startup_check_setting_to_enabled",
