@@ -839,9 +839,17 @@ void MainWindow::build_tool_palette(ActionBuildContext& ctx) {
         register_document_action(action);
         return action;
       };
-  const auto configure_tool_flyout = [](QToolBar* palette, QMenu* menu, QToolButton* button,
-                                        QAction* default_action,
-                                        std::initializer_list<QAction*> actions) {
+  // Every flyout also owns a "Cycle <Group> Tools" command on Shift+<the group's
+  // letter>, Photoshop's Shift+key convention (GitHub issue 45): it selects the
+  // member after the active tool when the active tool is in the group, otherwise
+  // the member after the one the button shows, wrapping. Qt fires neither of two
+  // actions that share a sequence, so the members carry no Shift default of their
+  // own; a user override that puts Shift+<letter> back on a member wins through
+  // the registry's resolution and suppresses the cycle default.
+  const auto configure_tool_flyout = [this](QToolBar* palette, QMenu* menu, QToolButton* button,
+                                            QAction* default_action, std::initializer_list<QAction*> actions,
+                                            const char* cycle_source, const char* cycle_object_name,
+                                            const char* cycle_id, QKeySequence cycle_shortcut) {
     button->setProperty("toolFlyout", true);
     button->setToolButtonStyle(Qt::ToolButtonIconOnly);
     button->setPopupMode(QToolButton::DelayedPopup);
@@ -863,6 +871,29 @@ void MainWindow::build_tool_palette(ActionBuildContext& ctx) {
         button->setToolTip(action->toolTip());
       });
     }
+    const QList<QAction*> members(actions);
+    auto* cycle = new QAction(tr(cycle_source), this);
+    bind_action_text(cycle, cycle_source);
+    cycle->setObjectName(QString::fromLatin1(cycle_object_name));
+    cycle->setMenuRole(QAction::NoRole);
+    register_hotkey(cycle, QString::fromLatin1(cycle_id), cycle_shortcut, QStringLiteral("tools"));
+    addAction(cycle);
+    register_document_action(cycle);
+    // Listed after the members so the flyout shows the key that walks it.
+    menu->addSeparator();
+    menu->addAction(cycle);
+    QObject::connect(cycle, &QAction::triggered, button, [button, members] {
+      int current = -1;
+      for (int i = 0; i < members.size(); ++i) {
+        if (members[i]->isChecked()) {
+          current = i;
+        }
+      }
+      if (current < 0) {
+        current = static_cast<int>(members.indexOf(button->defaultAction()));
+      }
+      members[(current + 1) % members.size()]->trigger();
+    });
   };
 
   move_tool_action_ = add_tool_action(tool_palette, tool_group, tr("Move"), CanvasTool::Move, QKeySequence(Qt::Key_V));
@@ -872,32 +903,38 @@ void MainWindow::build_tool_palette(ActionBuildContext& ctx) {
   auto* rect_marquee_action =
       create_flyout_tool_action(marquee_menu, tr("Marquee"), CanvasTool::Marquee, QKeySequence(Qt::Key_M));
   auto* elliptical_marquee_action = create_flyout_tool_action(
-      marquee_menu, tr("Elliptical Marquee"), CanvasTool::EllipticalMarquee, QKeySequence(Qt::SHIFT | Qt::Key_M));
+      marquee_menu, tr("Elliptical Marquee"), CanvasTool::EllipticalMarquee, QKeySequence());
   auto* marquee_tool_button = new QToolButton(tool_palette);
   marquee_tool_button->setObjectName(QStringLiteral("marqueeToolButton"));
   configure_tool_flyout(tool_palette, marquee_menu, marquee_tool_button, rect_marquee_action,
-                        {rect_marquee_action, elliptical_marquee_action});
+                        {rect_marquee_action, elliptical_marquee_action},
+                        QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Cycle Marquee Tools"),
+                        "toolCycleMarqueeAction", "tools.cycle.marquee", QKeySequence(Qt::SHIFT | Qt::Key_M));
   auto* lasso_menu = new QMenu(tr("Lasso Tools"), tool_palette);
   lasso_menu->setObjectName(QStringLiteral("lassoToolMenu"));
   bind_widget_text(lasso_menu, QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Lasso Tools"));
   auto* lasso_action = create_flyout_tool_action(lasso_menu, tr("Lasso"), CanvasTool::Lasso, QKeySequence(Qt::Key_L));
   auto* magnetic_lasso_action = create_flyout_tool_action(lasso_menu, tr("Magnetic Lasso"), CanvasTool::MagneticLasso,
-                                                          QKeySequence(Qt::SHIFT | Qt::Key_L));
+                                                          QKeySequence());
   auto* lasso_tool_button = new QToolButton(tool_palette);
   lasso_tool_button->setObjectName(QStringLiteral("lassoToolButton"));
   configure_tool_flyout(tool_palette, lasso_menu, lasso_tool_button, lasso_action,
-                        {lasso_action, magnetic_lasso_action});
+                        {lasso_action, magnetic_lasso_action},
+                        QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Cycle Lasso Tools"),
+                        "toolCycleLassoAction", "tools.cycle.lasso", QKeySequence(Qt::SHIFT | Qt::Key_L));
   auto* wand_menu = new QMenu(tr("Wand Tools"), tool_palette);
   wand_menu->setObjectName(QStringLiteral("wandToolMenu"));
   bind_widget_text(wand_menu, QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Wand Tools"));
   auto* magic_wand_action =
       create_flyout_tool_action(wand_menu, tr("Magic Wand"), CanvasTool::MagicWand, QKeySequence(Qt::Key_W));
   auto* quick_select_action =
-      create_flyout_tool_action(wand_menu, tr("Quick Select"), CanvasTool::QuickSelect, QKeySequence(Qt::SHIFT | Qt::Key_W));
+      create_flyout_tool_action(wand_menu, tr("Quick Select"), CanvasTool::QuickSelect, QKeySequence());
   auto* wand_tool_button = new QToolButton(tool_palette);
   wand_tool_button->setObjectName(QStringLiteral("wandToolButton"));
   configure_tool_flyout(tool_palette, wand_menu, wand_tool_button, magic_wand_action,
-                        {magic_wand_action, quick_select_action});
+                        {magic_wand_action, quick_select_action},
+                        QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Cycle Wand Tools"),
+                        "toolCycleWandAction", "tools.cycle.wand", QKeySequence(Qt::SHIFT | Qt::Key_W));
   add_tool_action(tool_palette, tool_group, tr("Crop"), CanvasTool::Crop, QKeySequence(Qt::Key_C));
   tool_palette->addSeparator();
 
@@ -909,11 +946,13 @@ void MainWindow::build_tool_palette(ActionBuildContext& ctx) {
   auto* gradient_action =
       create_flyout_tool_action(gradient_menu, tr("Gradient"), CanvasTool::Gradient, QKeySequence(Qt::Key_G));
   auto* fill_action =
-      create_flyout_tool_action(gradient_menu, tr("Fill"), CanvasTool::Fill, QKeySequence(Qt::SHIFT | Qt::Key_G));
+      create_flyout_tool_action(gradient_menu, tr("Fill"), CanvasTool::Fill, QKeySequence());
   auto* gradient_tool_button = new QToolButton(tool_palette);
   gradient_tool_button->setObjectName(QStringLiteral("gradientToolButton"));
   configure_tool_flyout(tool_palette, gradient_menu, gradient_tool_button, gradient_action,
-                        {gradient_action, fill_action});
+                        {gradient_action, fill_action},
+                        QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Cycle Fill Tools"),
+                        "toolCycleFillAction", "tools.cycle.gradient", QKeySequence(Qt::SHIFT | Qt::Key_G));
   tool_palette->addSeparator();
 
   auto* stamp_menu = new QMenu(tr("Stamp Tools"), tool_palette);
@@ -921,24 +960,28 @@ void MainWindow::build_tool_palette(ActionBuildContext& ctx) {
   bind_widget_text(stamp_menu, QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Stamp Tools"));
   auto* clone_action = create_flyout_tool_action(stamp_menu, tr("Clone"), CanvasTool::Clone, QKeySequence(Qt::Key_S));
   auto* pattern_stamp_action = create_flyout_tool_action(stamp_menu, tr("Pattern Stamp"), CanvasTool::PatternStamp,
-                                                         QKeySequence(Qt::SHIFT | Qt::Key_S));
+                                                         QKeySequence());
   auto* stamp_tool_button = new QToolButton(tool_palette);
   stamp_tool_button->setObjectName(QStringLiteral("stampToolButton"));
   configure_tool_flyout(tool_palette, stamp_menu, stamp_tool_button, clone_action,
-                        {clone_action, pattern_stamp_action});
+                        {clone_action, pattern_stamp_action},
+                        QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Cycle Stamp Tools"),
+                        "toolCycleStampAction", "tools.cycle.stamp", QKeySequence(Qt::SHIFT | Qt::Key_S));
   auto* healing_menu = new QMenu(tr("Healing Tools"), tool_palette);
   healing_menu->setObjectName(QStringLiteral("healingToolMenu"));
   bind_widget_text(healing_menu, QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Healing Tools"));
   auto* healing_action = create_flyout_tool_action(healing_menu, tr("Healing Brush"), CanvasTool::Healing,
                                                    QKeySequence(Qt::Key_J));
   auto* spot_healing_action = create_flyout_tool_action(healing_menu, tr("Spot Healing"), CanvasTool::SpotHealing,
-                                                        QKeySequence(Qt::SHIFT | Qt::Key_J));
+                                                        QKeySequence());
   auto* patch_action =
       create_flyout_tool_action(healing_menu, tr("Patch"), CanvasTool::PatchTool, QKeySequence());
   auto* healing_tool_button = new QToolButton(tool_palette);
   healing_tool_button->setObjectName(QStringLiteral("healingToolButton"));
   configure_tool_flyout(tool_palette, healing_menu, healing_tool_button, healing_action,
-                        {healing_action, spot_healing_action, patch_action});
+                        {healing_action, spot_healing_action, patch_action},
+                        QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Cycle Healing Tools"),
+                        "toolCycleHealingAction", "tools.cycle.healing", QKeySequence(Qt::SHIFT | Qt::Key_J));
 
   auto* detail_menu = new QMenu(tr("Detail Tools"), tool_palette);
   detail_menu->setObjectName(QStringLiteral("detailToolMenu"));
@@ -947,28 +990,30 @@ void MainWindow::build_tool_palette(ActionBuildContext& ctx) {
       create_flyout_tool_action(detail_menu, tr("Smudge"), CanvasTool::Smudge, QKeySequence(Qt::Key_R));
   auto* mixer_brush_action = create_flyout_tool_action(
       detail_menu, tr("Mixer Brush"), CanvasTool::MixerBrush, QKeySequence());
-  auto* blur_action = create_flyout_tool_action(detail_menu, tr("Blur"), CanvasTool::BlurBrush,
-                                                 QKeySequence(Qt::SHIFT | Qt::Key_R));
+  auto* blur_action = create_flyout_tool_action(detail_menu, tr("Blur"), CanvasTool::BlurBrush, QKeySequence());
   auto* sharpen_action =
       create_flyout_tool_action(detail_menu, tr("Sharpen"), CanvasTool::SharpenBrush, QKeySequence());
   auto* detail_button = new QToolButton(tool_palette);
   detail_button->setObjectName(QStringLiteral("detailToolButton"));
   configure_tool_flyout(tool_palette, detail_menu, detail_button, smudge_action,
-                        {smudge_action, mixer_brush_action, blur_action, sharpen_action});
+                        {smudge_action, mixer_brush_action, blur_action, sharpen_action},
+                        QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Cycle Detail Tools"),
+                        "toolCycleDetailAction", "tools.cycle.detail", QKeySequence(Qt::SHIFT | Qt::Key_R));
 
   auto* tone_menu = new QMenu(tr("Toning Tools"), tool_palette);
   tone_menu->setObjectName(QStringLiteral("toneToolMenu"));
   bind_widget_text(tone_menu, QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Toning Tools"));
   auto* dodge_action =
       create_flyout_tool_action(tone_menu, tr("Dodge"), CanvasTool::Dodge, QKeySequence(Qt::Key_O));
-  auto* burn_action = create_flyout_tool_action(tone_menu, tr("Burn"), CanvasTool::Burn,
-                                                 QKeySequence(Qt::SHIFT | Qt::Key_O));
+  auto* burn_action = create_flyout_tool_action(tone_menu, tr("Burn"), CanvasTool::Burn, QKeySequence());
   auto* sponge_action =
       create_flyout_tool_action(tone_menu, tr("Sponge"), CanvasTool::Sponge, QKeySequence());
   auto* tone_button = new QToolButton(tool_palette);
   tone_button->setObjectName(QStringLiteral("toneToolButton"));
   configure_tool_flyout(tool_palette, tone_menu, tone_button, dodge_action,
-                        {dodge_action, burn_action, sponge_action});
+                        {dodge_action, burn_action, sponge_action},
+                        QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Cycle Toning Tools"),
+                        "toolCycleToningAction", "tools.cycle.tone", QKeySequence(Qt::SHIFT | Qt::Key_O));
   tool_palette->addSeparator();
 
   // The Pen Tools flyout: the Pen (default, and what P re-selects) plus the
@@ -987,7 +1032,9 @@ void MainWindow::build_tool_palette(ActionBuildContext& ctx) {
   auto* pen_button = new QToolButton(tool_palette);
   pen_button->setObjectName(QStringLiteral("penToolButton"));
   configure_tool_flyout(tool_palette, pen_menu, pen_button, pen_action,
-                        {pen_action, add_anchor_action, delete_anchor_action, convert_point_action});
+                        {pen_action, add_anchor_action, delete_anchor_action, convert_point_action},
+                        QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Cycle Pen Tools"),
+                        "toolCyclePenAction", "tools.cycle.pen", QKeySequence(Qt::SHIFT | Qt::Key_P));
   // The Path Tools flyout sits directly after the Pen: drawing and adjusting
   // paths alternate constantly, so the two slots stay adjacent.
   auto* path_select_menu = new QMenu(tr("Path Tools"), tool_palette);
@@ -996,12 +1043,13 @@ void MainWindow::build_tool_palette(ActionBuildContext& ctx) {
   auto* path_select_action = create_flyout_tool_action(path_select_menu, tr("Path Select"),
                                                        CanvasTool::PathSelect, QKeySequence(Qt::Key_A));
   auto* direct_select_action =
-      create_flyout_tool_action(path_select_menu, tr("Direct Select"), CanvasTool::DirectSelect,
-                                QKeySequence(Qt::SHIFT | Qt::Key_A));
+      create_flyout_tool_action(path_select_menu, tr("Direct Select"), CanvasTool::DirectSelect, QKeySequence());
   auto* path_select_button = new QToolButton(tool_palette);
   path_select_button->setObjectName(QStringLiteral("pathSelectToolButton"));
   configure_tool_flyout(tool_palette, path_select_menu, path_select_button, path_select_action,
-                        {path_select_action, direct_select_action});
+                        {path_select_action, direct_select_action},
+                        QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Cycle Path Tools"),
+                        "toolCyclePathAction", "tools.cycle.path_select", QKeySequence(Qt::SHIFT | Qt::Key_A));
   auto* shape_menu = new QMenu(tr("Shape Tools"), tool_palette);
   shape_menu->setObjectName(QStringLiteral("shapeToolMenu"));
   bind_widget_text(shape_menu, QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Shape Tools"));
@@ -1009,7 +1057,7 @@ void MainWindow::build_tool_palette(ActionBuildContext& ctx) {
       create_flyout_tool_action(shape_menu, tr("Line"), CanvasTool::Line, QKeySequence());  // Ctrl+Shift+U belongs to Desaturate
   auto* rect_tool_action = create_flyout_tool_action(shape_menu, tr("Rect"), CanvasTool::Rectangle, QKeySequence(Qt::Key_U));
   auto* ellipse_tool_action =
-      create_flyout_tool_action(shape_menu, tr("Ellipse"), CanvasTool::Ellipse, QKeySequence(Qt::SHIFT | Qt::Key_U));
+      create_flyout_tool_action(shape_menu, tr("Ellipse"), CanvasTool::Ellipse, QKeySequence());
   auto* polygon_tool_action =
       create_flyout_tool_action(shape_menu, tr("Polygon"), CanvasTool::Polygon, QKeySequence());
   auto* custom_shape_tool_action = create_flyout_tool_action(
@@ -1018,7 +1066,9 @@ void MainWindow::build_tool_palette(ActionBuildContext& ctx) {
   shape_tool_button->setObjectName(QStringLiteral("shapeToolButton"));
   configure_tool_flyout(tool_palette, shape_menu, shape_tool_button, rect_tool_action,
                         {line_tool_action, rect_tool_action, ellipse_tool_action,
-                         polygon_tool_action, custom_shape_tool_action});
+                         polygon_tool_action, custom_shape_tool_action},
+                        QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Cycle Shape Tools"),
+                        "toolCycleShapeAction", "tools.cycle.shape", QKeySequence(Qt::SHIFT | Qt::Key_U));
   type_tool_action_ = add_tool_action(tool_palette, tool_group, tr("Type"), CanvasTool::Text, QKeySequence(Qt::Key_T));
   tool_palette->addSeparator();
 

@@ -17960,6 +17960,50 @@ Clipped to the layer below</source>
         <translation>ストロークや編集ごとに短く待機して表示し、個別に元に戻せるようにします。処理中でも切り替えられます。履歴の保持上限は適用されます。</translation>
     </message>
     <message>
+    <message>
+        <source>Cycle Marquee Tools</source>
+        <translation>選択ツールを切り替え</translation>
+    </message>
+    <message>
+        <source>Cycle Lasso Tools</source>
+        <translation>投げ縄ツールを切り替え</translation>
+    </message>
+    <message>
+        <source>Cycle Wand Tools</source>
+        <translation>自動選択ツールを切り替え</translation>
+    </message>
+    <message>
+        <source>Cycle Fill Tools</source>
+        <translation>塗りつぶしツールを切り替え</translation>
+    </message>
+    <message>
+        <source>Cycle Stamp Tools</source>
+        <translation>スタンプツールを切り替え</translation>
+    </message>
+    <message>
+        <source>Cycle Healing Tools</source>
+        <translation>修復ツールを切り替え</translation>
+    </message>
+    <message>
+        <source>Cycle Detail Tools</source>
+        <translation>ディテールツールを切り替え</translation>
+    </message>
+    <message>
+        <source>Cycle Toning Tools</source>
+        <translation>色調補正ツールを切り替え</translation>
+    </message>
+    <message>
+        <source>Cycle Pen Tools</source>
+        <translation>ペンツールを切り替え</translation>
+    </message>
+    <message>
+        <source>Cycle Path Tools</source>
+        <translation>パスツールを切り替え</translation>
+    </message>
+    <message>
+        <source>Cycle Shape Tools</source>
+        <translation>図形ツールを切り替え</translation>
+    </message>
         <source>Running script: %1</source>
         <translation>スクリプト実行中: %1</translation>
     </message>

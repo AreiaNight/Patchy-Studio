@@ -18012,6 +18012,50 @@ Y: %2
         <translation>IA en pausa: %1</translation>
     </message>
     <message>
+    <message>
+        <source>Cycle Marquee Tools</source>
+        <translation>Alternar herramientas de marco</translation>
+    </message>
+    <message>
+        <source>Cycle Lasso Tools</source>
+        <translation>Alternar herramientas de lazo</translation>
+    </message>
+    <message>
+        <source>Cycle Wand Tools</source>
+        <translation>Alternar herramientas de varita</translation>
+    </message>
+    <message>
+        <source>Cycle Fill Tools</source>
+        <translation>Alternar herramientas de relleno</translation>
+    </message>
+    <message>
+        <source>Cycle Stamp Tools</source>
+        <translation>Alternar herramientas de tampón</translation>
+    </message>
+    <message>
+        <source>Cycle Healing Tools</source>
+        <translation>Alternar herramientas de corrección</translation>
+    </message>
+    <message>
+        <source>Cycle Detail Tools</source>
+        <translation>Alternar herramientas de detalle</translation>
+    </message>
+    <message>
+        <source>Cycle Toning Tools</source>
+        <translation>Alternar herramientas de tono</translation>
+    </message>
+    <message>
+        <source>Cycle Pen Tools</source>
+        <translation>Alternar herramientas de pluma</translation>
+    </message>
+    <message>
+        <source>Cycle Path Tools</source>
+        <translation>Alternar herramientas de trazado</translation>
+    </message>
+    <message>
+        <source>Cycle Shape Tools</source>
+        <translation>Alternar herramientas de forma</translation>
+    </message>
         <source>Script pausing: %1</source>
         <translation>Pausando script: %1</translation>
     </message>

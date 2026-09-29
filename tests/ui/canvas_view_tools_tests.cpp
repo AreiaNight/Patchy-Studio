@@ -1020,7 +1020,7 @@ void ui_stamp_and_gradient_flyouts_swap_tools() {
   auto* stamp_button = window.findChild<QToolButton*>(QStringLiteral("stampToolButton"));
   CHECK(stamp_button != nullptr);
   CHECK(stamp_button->menu() != nullptr);
-  CHECK(stamp_button->menu()->actions().size() == 2);
+  CHECK(stamp_button->menu()->actions().size() == 4);  // two tools, separator, Cycle
   CHECK(stamp_button->defaultAction() == require_action(window, "toolCloneAction"));
   require_action(window, "toolPatternStampAction")->trigger();
   QApplication::processEvents();
@@ -1030,7 +1030,7 @@ void ui_stamp_and_gradient_flyouts_swap_tools() {
   auto* gradient_button = window.findChild<QToolButton*>(QStringLiteral("gradientToolButton"));
   CHECK(gradient_button != nullptr);
   CHECK(gradient_button->menu() != nullptr);
-  CHECK(gradient_button->menu()->actions().size() == 2);
+  CHECK(gradient_button->menu()->actions().size() == 4);
   CHECK(gradient_button->defaultAction() == require_action(window, "toolGradientAction"));
   require_action(window, "toolFillAction")->trigger();
   QApplication::processEvents();
@@ -1040,7 +1040,7 @@ void ui_stamp_and_gradient_flyouts_swap_tools() {
   auto* healing_button = window.findChild<QToolButton*>(QStringLiteral("healingToolButton"));
   CHECK(healing_button != nullptr);
   CHECK(healing_button->menu() != nullptr);
-  CHECK(healing_button->menu()->actions().size() == 3);
+  CHECK(healing_button->menu()->actions().size() == 5);
   CHECK(healing_button->defaultAction() == require_action(window, "toolHealingBrushAction"));
   require_action(window, "toolSpotHealingAction")->trigger();
   QApplication::processEvents();
@@ -1054,7 +1054,7 @@ void ui_stamp_and_gradient_flyouts_swap_tools() {
   auto* pen_button = window.findChild<QToolButton*>(QStringLiteral("penToolButton"));
   CHECK(pen_button != nullptr);
   CHECK(pen_button->menu() != nullptr);
-  CHECK(pen_button->menu()->actions().size() == 4);
+  CHECK(pen_button->menu()->actions().size() == 6);
   CHECK(pen_button->defaultAction() == require_action(window, "toolPenAction"));
   require_action(window, "toolConvertPointAction")->trigger();
   QApplication::processEvents();
@@ -1158,6 +1158,80 @@ void ui_shape_flyout_and_zoom_tool_work() {
   send_double_click(*zoom_button, zoom_button->rect().center());
   CHECK(std::abs(canvas->zoom() - 1.0) < 0.001);
   save_widget_artifact("ui_shape_flyout_zoom_tool", window);
+// Shift+<letter> walks a flyout in menu order from the active tool, wrapping,
+// and from the button's shown tool when the active tool is elsewhere (GitHub
+// issue 45, Photoshop's Shift+key convention). The plain letter still selects
+// the group's primary tool.
+void ui_tool_cycle_hotkeys_walk_each_flyout() {
+  patchy::ui::MainWindow window;
+  show_window(window);
+  auto* canvas = require_canvas(window);
+  require_action_by_text(window, QStringLiteral("Brush"))->trigger();
+  QApplication::processEvents();
+  CHECK(canvas->tool() == patchy::ui::CanvasTool::Brush);
+
+  auto* healing_button = window.findChild<QToolButton*>(QStringLiteral("healingToolButton"));
+  CHECK(healing_button != nullptr);
+  auto* cycle_healing = require_action(window, "toolCycleHealingAction");
+  CHECK(healing_button->menu()->actions().contains(cycle_healing));
+  CHECK(!cycle_healing->isCheckable());
+  CHECK(cycle_healing->isEnabled());
+
+  // From an unrelated tool the first press steps past the shown member.
+  QTest::keyClick(canvas, Qt::Key_J, Qt::ShiftModifier);
+  QApplication::processEvents();
+  CHECK(canvas->tool() == patchy::ui::CanvasTool::SpotHealing);
+  CHECK(healing_button->defaultAction() == require_action(window, "toolSpotHealingAction"));
+  QTest::keyClick(canvas, Qt::Key_J, Qt::ShiftModifier);
+  QApplication::processEvents();
+  CHECK(canvas->tool() == patchy::ui::CanvasTool::PatchTool);
+  CHECK(healing_button->defaultAction() == require_action(window, "toolPatchAction"));
+  QTest::keyClick(canvas, Qt::Key_J, Qt::ShiftModifier);
+  QApplication::processEvents();
+  CHECK(canvas->tool() == patchy::ui::CanvasTool::Healing);
+  CHECK(healing_button->defaultAction() == require_action(window, "toolHealingBrushAction"));
+  require_action(window, "toolPatchAction")->trigger();
+  QApplication::processEvents();
+  QTest::keyClick(canvas, Qt::Key_J);
+  QApplication::processEvents();
+  CHECK(canvas->tool() == patchy::ui::CanvasTool::Healing);
+
+  // A two-member group toggles; the cycle command drives the flyout button too.
+  auto* gradient_button = window.findChild<QToolButton*>(QStringLiteral("gradientToolButton"));
+  CHECK(gradient_button != nullptr);
+  CHECK(gradient_button->defaultAction() == require_action(window, "toolGradientAction"));
+  QTest::keyClick(canvas, Qt::Key_G, Qt::ShiftModifier);
+  QApplication::processEvents();
+  CHECK(canvas->tool() == patchy::ui::CanvasTool::Fill);
+  CHECK(gradient_button->defaultAction() == require_action(window, "toolFillAction"));
+  QTest::keyClick(canvas, Qt::Key_G, Qt::ShiftModifier);
+  QApplication::processEvents();
+  CHECK(canvas->tool() == patchy::ui::CanvasTool::Gradient);
+  require_action(window, "toolCycleFillAction")->trigger();
+  QApplication::processEvents();
+  CHECK(canvas->tool() == patchy::ui::CanvasTool::Fill);
+
+  // Every flyout owns one, in the tools category, listed after a separator.
+  const auto& registry = window.hotkey_registry();
+  const std::pair<const char*, const char*> cycles[] = {
+      {"toolCycleMarqueeAction", "tools.cycle.marquee"}, {"toolCycleLassoAction", "tools.cycle.lasso"},
+      {"toolCycleWandAction", "tools.cycle.wand"},       {"toolCycleFillAction", "tools.cycle.gradient"},
+      {"toolCycleStampAction", "tools.cycle.stamp"},     {"toolCycleHealingAction", "tools.cycle.healing"},
+      {"toolCycleDetailAction", "tools.cycle.detail"},   {"toolCycleToningAction", "tools.cycle.tone"},
+      {"toolCyclePenAction", "tools.cycle.pen"},         {"toolCyclePathAction", "tools.cycle.path_select"},
+      {"toolCycleShapeAction", "tools.cycle.shape"},
+  };
+  for (const auto& [object_name, id] : cycles) {
+    auto* action = require_action(window, object_name);
+    CHECK(!action->shortcut().isEmpty());
+    CHECK(action->menuRole() == QAction::NoRole);
+    const auto* command = registry.find_command(QString::fromLatin1(id));
+    CHECK(command != nullptr);
+    CHECK(command->action == action);
+    CHECK(command->category == QStringLiteral("tools"));
+  }
+}
+
 }
 
 void ui_tool_palette_icons_render_sheet() {
@@ -3117,3 +3191,4 @@ std::vector<patchy::test::TestCase> canvas_view_tools_tests() {
       {"ui_menu_disabled_items_render_grayed", ui_menu_disabled_items_render_grayed},
   };
 }
+      {"ui_tool_cycle_hotkeys_walk_each_flyout", ui_tool_cycle_hotkeys_walk_each_flyout},

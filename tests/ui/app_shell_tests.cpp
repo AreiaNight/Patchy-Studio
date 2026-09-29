@@ -383,12 +383,12 @@ void ui_main_window_renders_color_controls() {
   auto* marquee_button = window.findChild<QToolButton*>(QStringLiteral("marqueeToolButton"));
   CHECK(marquee_button != nullptr);
   CHECK(marquee_button->menu() != nullptr);
-  CHECK(marquee_button->menu()->actions().size() == 2);
+  CHECK(marquee_button->menu()->actions().size() == 4);  // Marquee, Elliptical, separator, Cycle
   CHECK(marquee_button->defaultAction() == require_action_by_text(window, QStringLiteral("Marquee")));
   auto* shape_button = window.findChild<QToolButton*>(QStringLiteral("shapeToolButton"));
   CHECK(shape_button != nullptr);
   CHECK(shape_button->menu() != nullptr);
-  CHECK(shape_button->menu()->actions().size() == 5);  // Line/Rect/Ellipse/Polygon/Custom Shape
+  CHECK(shape_button->menu()->actions().size() == 7);  // Line/Rect/Ellipse/Polygon/Custom Shape + separator + Cycle
   CHECK(shape_button->defaultAction() == require_action_by_text(window, QStringLiteral("Rect")));
 
   save_widget_artifact("ui_main_window", window);

@@ -91,7 +91,7 @@ user entry.
 ## Path editing (Path Select / Direct Select)
 
 Path Select (A, black arrow) selects and drags whole shape groups. Direct
-Select (Shift+A, white arrow) works per anchor: click or marquee selects,
+Select (Shift+A from the Path Select tool, white arrow) works per anchor: click or marquee selects,
 drag moves anchors or handle knobs (smooth pairs mirror; a collapsed handle
 on its corner anchor is not grabbable), Shift adds, arrows nudge (1 px,
 Shift 10 px, coalesced per burst), Delete removes selected anchors (subpaths

@@ -17960,6 +17960,50 @@ Y: %2
         <translation>AI 已暂停：%1</translation>
     </message>
     <message>
+    <message>
+        <source>Cycle Marquee Tools</source>
+        <translation>循环切换选框工具</translation>
+    </message>
+    <message>
+        <source>Cycle Lasso Tools</source>
+        <translation>循环切换套索工具</translation>
+    </message>
+    <message>
+        <source>Cycle Wand Tools</source>
+        <translation>循环切换魔棒工具</translation>
+    </message>
+    <message>
+        <source>Cycle Fill Tools</source>
+        <translation>循环切换填充工具</translation>
+    </message>
+    <message>
+        <source>Cycle Stamp Tools</source>
+        <translation>循环切换图章工具</translation>
+    </message>
+    <message>
+        <source>Cycle Healing Tools</source>
+        <translation>循环切换修复工具</translation>
+    </message>
+    <message>
+        <source>Cycle Detail Tools</source>
+        <translation>循环切换细节工具</translation>
+    </message>
+    <message>
+        <source>Cycle Toning Tools</source>
+        <translation>循环切换色调工具</translation>
+    </message>
+    <message>
+        <source>Cycle Pen Tools</source>
+        <translation>循环切换钢笔工具</translation>
+    </message>
+    <message>
+        <source>Cycle Path Tools</source>
+        <translation>循环切换路径工具</translation>
+    </message>
+    <message>
+        <source>Cycle Shape Tools</source>
+        <translation>循环切换形状工具</translation>
+    </message>
         <source>Script pausing: %1</source>
         <translation>脚本正在暂停：%1</translation>
     </message>

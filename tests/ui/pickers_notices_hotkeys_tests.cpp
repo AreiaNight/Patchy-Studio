@@ -1164,32 +1164,41 @@ void ui_photoshop_shortcuts_are_registered() {
   CHECK(require_action_by_text(window, QStringLiteral("Swap Colors"))->shortcut() == QKeySequence(Qt::Key_X));
   CHECK(require_action_by_text(window, QStringLiteral("Move"))->shortcut() == QKeySequence(Qt::Key_V));
   CHECK(require_action_by_text(window, QStringLiteral("Marquee"))->shortcut() == QKeySequence(Qt::Key_M));
-  CHECK(require_action_by_text(window, QStringLiteral("Elliptical Marquee"))->shortcut() ==
-        QKeySequence(Qt::SHIFT | Qt::Key_M));
+  // Shift+<letter> walks a flyout (GitHub issue 45); the members past the first ship unbound.
+  CHECK(require_action_by_text(window, QStringLiteral("Elliptical Marquee"))->shortcut().isEmpty());
+  CHECK(require_action(window, "toolCycleMarqueeAction")->shortcut() == QKeySequence(Qt::SHIFT | Qt::Key_M));
+  CHECK(require_action(window, "toolCycleLassoAction")->shortcut() == QKeySequence(Qt::SHIFT | Qt::Key_L));
+  CHECK(require_action(window, "toolCycleWandAction")->shortcut() == QKeySequence(Qt::SHIFT | Qt::Key_W));
+  CHECK(require_action(window, "toolCyclePenAction")->shortcut() == QKeySequence(Qt::SHIFT | Qt::Key_P));
+  CHECK(require_action(window, "toolCyclePathAction")->shortcut() == QKeySequence(Qt::SHIFT | Qt::Key_A));
   CHECK(require_action_by_text(window, QStringLiteral("Lasso"))->shortcut() == QKeySequence(Qt::Key_L));
   CHECK(require_action_by_text(window, QStringLiteral("Magic Wand"))->shortcut() == QKeySequence(Qt::Key_W));
   CHECK(require_action_by_text(window, QStringLiteral("Brush"))->shortcut() == QKeySequence(Qt::Key_B));
   CHECK(require_action_by_text(window, QStringLiteral("Clone"))->shortcut() == QKeySequence(Qt::Key_S));
-  CHECK(require_action_by_text(window, QStringLiteral("Pattern Stamp"))->shortcut() ==
-        QKeySequence(Qt::SHIFT | Qt::Key_S));
+  CHECK(require_action_by_text(window, QStringLiteral("Pattern Stamp"))->shortcut().isEmpty());
+  CHECK(require_action(window, "toolCycleStampAction")->shortcut() == QKeySequence(Qt::SHIFT | Qt::Key_S));
   CHECK(require_action_by_text(window, QStringLiteral("Healing Brush"))->shortcut() ==
         QKeySequence(Qt::Key_J));
-  CHECK(require_action(window, "toolSpotHealingAction")->shortcut() == QKeySequence(Qt::SHIFT | Qt::Key_J));
+  CHECK(require_action(window, "toolSpotHealingAction")->shortcut().isEmpty());
+  CHECK(require_action(window, "toolCycleHealingAction")->shortcut() == QKeySequence(Qt::SHIFT | Qt::Key_J));
   CHECK(require_action(window, "toolPatchAction")->shortcut().isEmpty());
   CHECK(require_action_by_text(window, QStringLiteral("Smudge"))->shortcut() == QKeySequence(Qt::Key_R));
-  CHECK(require_action(window, "toolBlurAction")->shortcut() == QKeySequence(Qt::SHIFT | Qt::Key_R));
+  CHECK(require_action(window, "toolBlurAction")->shortcut().isEmpty());
+  CHECK(require_action(window, "toolCycleDetailAction")->shortcut() == QKeySequence(Qt::SHIFT | Qt::Key_R));
   CHECK(require_action(window, "toolSharpenAction")->shortcut().isEmpty());
   CHECK(require_action(window, "toolDodgeAction")->shortcut() == QKeySequence(Qt::Key_O));
-  CHECK(require_action(window, "toolBurnAction")->shortcut() == QKeySequence(Qt::SHIFT | Qt::Key_O));
+  CHECK(require_action(window, "toolBurnAction")->shortcut().isEmpty());
+  CHECK(require_action(window, "toolCycleToningAction")->shortcut() == QKeySequence(Qt::SHIFT | Qt::Key_O));
   CHECK(require_action(window, "toolSpongeAction")->shortcut().isEmpty());
   CHECK(require_action_by_text(window, QStringLiteral("Eraser"))->shortcut() == QKeySequence(Qt::Key_E));
   CHECK(require_action_by_text(window, QStringLiteral("Gradient"))->shortcut() == QKeySequence(Qt::Key_G));
-  CHECK(require_action_by_text(window, QStringLiteral("Fill"))->shortcut() == QKeySequence(Qt::SHIFT | Qt::Key_G));
+  CHECK(require_action_by_text(window, QStringLiteral("Fill"))->shortcut().isEmpty());
+  CHECK(require_action(window, "toolCycleFillAction")->shortcut() == QKeySequence(Qt::SHIFT | Qt::Key_G));
   CHECK(require_action_by_text(window, QStringLiteral("Rect"))->shortcut() == QKeySequence(Qt::Key_U));
   // Line ships unbound: its old Ctrl+Shift+U default collided with Desaturate, so neither fired.
   CHECK(require_action_by_text(window, QStringLiteral("Line"))->shortcut().isEmpty());
-  CHECK(require_action_by_text(window, QStringLiteral("Ellipse"))->shortcut() ==
-        QKeySequence(Qt::SHIFT | Qt::Key_U));
+  CHECK(require_action_by_text(window, QStringLiteral("Ellipse"))->shortcut().isEmpty());
+  CHECK(require_action(window, "toolCycleShapeAction")->shortcut() == QKeySequence(Qt::SHIFT | Qt::Key_U));
   CHECK(require_action_by_text(window, QStringLiteral("Pick"))->shortcut() == QKeySequence(Qt::Key_I));
   CHECK(require_action_by_text(window, QStringLiteral("Type"))->shortcut() == QKeySequence(Qt::Key_T));
   CHECK(require_action_by_text(window, QStringLiteral("Hand"))->shortcut() == QKeySequence(Qt::Key_H));
@@ -1209,13 +1218,13 @@ void ui_photoshop_shortcuts_are_registered() {
   tooltip_matches_shortcut(require_action_by_text(window, QStringLiteral("Move")));
   tooltip_matches_shortcut(require_action_by_text(window, QStringLiteral("Brush")));
   tooltip_matches_shortcut(require_action_by_text(window, QStringLiteral("Smudge")));
-  tooltip_matches_shortcut(require_action(window, "toolBlurAction"));
+  tooltip_matches_shortcut(require_action(window, "toolCycleDetailAction"));
   tooltip_matches_shortcut(require_action(window, "toolDodgeAction"));
-  tooltip_matches_shortcut(require_action(window, "toolBurnAction"));
+  tooltip_matches_shortcut(require_action(window, "toolCycleToningAction"));
   tooltip_matches_shortcut(require_action_by_text(window, QStringLiteral("Clone")));
-  tooltip_matches_shortcut(require_action_by_text(window, QStringLiteral("Pattern Stamp")));
+  tooltip_matches_shortcut(require_action(window, "toolCycleStampAction"));
   tooltip_matches_shortcut(require_action_by_text(window, QStringLiteral("Healing Brush")));
-  tooltip_matches_shortcut(require_action(window, "toolSpotHealingAction"));
+  tooltip_matches_shortcut(require_action(window, "toolCycleHealingAction"));
   tooltip_matches_shortcut(require_action_by_text(window, QStringLiteral("Type")));
   tooltip_matches_shortcut(require_action_by_text(window, QStringLiteral("Cut")));
   tooltip_matches_shortcut(require_action_by_text(window, QStringLiteral("Default Colors")));
@@ -1614,6 +1623,29 @@ void ui_hotkey_defaults_have_no_conflicts() {
   CHECK(resolved.suppressions.empty());
 }
 
+// A saved override that puts Shift+<letter> back on a flyout member keeps the
+// old direct binding: overrides win the sequence and the cycle default is
+// suppressed rather than left ambiguous.
+void ui_tool_cycle_yields_to_member_override() {
+  HotkeySettingsGroupRestorer restore_hotkeys;
+  clear_hotkey_overrides();
+  {
+    auto settings = patchy::ui::app_settings();
+    settings.setValue(QStringLiteral("hotkeys/tools.fill"), QStringLiteral("Shift+G"));
+    settings.sync();
+  }
+  patchy::ui::MainWindow window;
+  CHECK(require_action(window, "toolFillAction")->shortcut() == QKeySequence(Qt::SHIFT | Qt::Key_G));
+  CHECK(require_action(window, "toolCycleFillAction")->shortcut().isEmpty());
+  const auto resolved = window.hotkey_registry().resolution();
+  bool suppressed = false;
+  for (const auto& suppression : resolved.suppressions) {
+    suppressed = suppressed || (suppression.id == QStringLiteral("tools.cycle.gradient") &&
+                                suppression.winner_id == QStringLiteral("tools.fill"));
+  }
+  CHECK(suppressed);
+}
+
 void ui_hotkey_override_applies_at_startup() {
   HotkeySettingsGroupRestorer restore_hotkeys;
   clear_hotkey_overrides();
@@ -1966,6 +1998,7 @@ std::vector<patchy::test::TestCase> pickers_notices_hotkeys_tests() {
        ui_size_sliders_give_the_low_end_most_of_the_track},
       {"ui_hotkey_resolution_rules", ui_hotkey_resolution_rules},
       {"ui_hotkey_defaults_have_no_conflicts", ui_hotkey_defaults_have_no_conflicts},
+      {"ui_tool_cycle_yields_to_member_override", ui_tool_cycle_yields_to_member_override},
       {"ui_hotkey_override_applies_at_startup", ui_hotkey_override_applies_at_startup},
       {"ui_preferences_builds_hotkey_editor_on_first_visit", ui_preferences_builds_hotkey_editor_on_first_visit},
       {"ui_hotkey_editor_assigns_and_persists_custom_shortcut",

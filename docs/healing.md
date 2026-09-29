@@ -64,4 +64,4 @@ Writes follow the clone conventions: selection coverage from the drag mask, tran
 
 ## Palette placement
 
-The Healing flyout (`healingToolButton`) holds Healing Brush (J, the default action), Spot Healing (Shift+J), and Patch (unbound, like Sponge and Sharpen). Hotkey ids `tools.healing`, `tools.spot_healing`, `tools.patch` are persisted contracts. Icon silhouettes stay distinct at palette size: bandage (Healing), circle with burst ticks (Spot Healing), rotated stitched square (Patch).
+The Healing flyout (`healingToolButton`) holds Healing Brush (J, the default action), Spot Healing, and Patch; Shift+J cycles through them (the flyout cycle rule in [tools.md](tools.md)). Hotkey ids `tools.healing`, `tools.spot_healing`, `tools.patch` are persisted contracts. Icon silhouettes stay distinct at palette size: bandage (Healing), circle with burst ticks (Spot Healing), rotated stitched square (Patch).

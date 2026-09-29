@@ -199,7 +199,9 @@ void ui_path_tools_show_activation_hints_and_tooltips() {
   };
   auto* direct_select_action = require_action(window, "toolDirectSelectAction");
   auto* path_select_action = require_action(window, "toolPathSelectAction");
-  CHECK(binding(direct_select_action) == QStringLiteral("Shift+A"));
+  // Shift+A now walks the flyout (GitHub issue 45); Direct Select itself ships unbound.
+  CHECK(binding(direct_select_action).isEmpty());
+  CHECK(binding(require_action(window, "toolCyclePathAction")) == QStringLiteral("Shift+A"));
   CHECK(binding(path_select_action) == QStringLiteral("A"));
   const auto direct_select_tip = tooltip_prefix(direct_select_action, QStringLiteral("Direct Select"));
   const auto path_select_tip = tooltip_prefix(path_select_action, QStringLiteral("Path Select"));
@@ -552,7 +554,7 @@ void ui_anchor_tools_share_pen_flyout_and_edit_points() {
   auto* pen_button = window.findChild<QToolButton*>(QStringLiteral("penToolButton"));
   CHECK(pen_button != nullptr);
   CHECK(pen_button->menu() != nullptr);
-  CHECK(pen_button->menu()->actions().size() == 4);
+  CHECK(pen_button->menu()->actions().size() == 6);  // four tools, separator, Cycle Pen Tools
   CHECK(pen_button->defaultAction() == require_action(window, "toolPenAction"));
   CHECK(pen_button->property("toolFlyout").toBool());
 

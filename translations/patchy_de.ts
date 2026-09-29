@@ -18012,6 +18012,50 @@ Y: %2
         <translation>KI angehalten: %1</translation>
     </message>
     <message>
+    <message>
+        <source>Cycle Marquee Tools</source>
+        <translation>Auswahlrechteck-Werkzeuge durchschalten</translation>
+    </message>
+    <message>
+        <source>Cycle Lasso Tools</source>
+        <translation>Lasso-Werkzeuge durchschalten</translation>
+    </message>
+    <message>
+        <source>Cycle Wand Tools</source>
+        <translation>Zauberstab-Werkzeuge durchschalten</translation>
+    </message>
+    <message>
+        <source>Cycle Fill Tools</source>
+        <translation>Füllwerkzeuge durchschalten</translation>
+    </message>
+    <message>
+        <source>Cycle Stamp Tools</source>
+        <translation>Stempel-Werkzeuge durchschalten</translation>
+    </message>
+    <message>
+        <source>Cycle Healing Tools</source>
+        <translation>Reparatur-Werkzeuge durchschalten</translation>
+    </message>
+    <message>
+        <source>Cycle Detail Tools</source>
+        <translation>Detail-Werkzeuge durchschalten</translation>
+    </message>
+    <message>
+        <source>Cycle Toning Tools</source>
+        <translation>Tonwert-Werkzeuge durchschalten</translation>
+    </message>
+    <message>
+        <source>Cycle Pen Tools</source>
+        <translation>Zeichenstift-Werkzeuge durchschalten</translation>
+    </message>
+    <message>
+        <source>Cycle Path Tools</source>
+        <translation>Pfad-Werkzeuge durchschalten</translation>
+    </message>
+    <message>
+        <source>Cycle Shape Tools</source>
+        <translation>Form-Werkzeuge durchschalten</translation>
+    </message>
         <source>Script pausing: %1</source>
         <translation>Skript wird angehalten: %1</translation>
     </message>
