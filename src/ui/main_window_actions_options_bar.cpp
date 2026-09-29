@@ -3058,6 +3058,11 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   connect(text_apply_button_, &QPushButton::clicked, this, [this] { commit_active_text_editor(); });
   connect(text_cancel_button_, &QPushButton::clicked, this, [this] { cancel_active_text_editor(); });
 
+  // Every "Label:" before a numeric field is that field's scrub handle
+  // (GitHub issue 46; install_scrub_labels_in pairs them by layout order, nested
+  // groups such as Feather included, so a new label+field pair opts in by itself).
+  install_scrub_labels_in(options_content);
+
   // Export the cross-phase locals bind_action_translations() still needs.
   ctx.options_toolbar = toolbar;
   ctx.brush_smaller_action = brush_smaller_action;

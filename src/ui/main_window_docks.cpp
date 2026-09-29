@@ -1313,6 +1313,7 @@ void MainWindow::create_docks() {
   opacity_spin_->setPrefix(tr("Opacity: "));
   opacity_spin_->setSuffix(percent_suffix());
   configure_toolbar_spinbox(opacity_spin_, 52);
+  install_prefix_scrub(opacity_spin_);  // drag "Opacity:" to scrub (GitHub issue 46)
   blend_opacity_row->addWidget(opacity_spin_);
   connect(opacity_spin_, &QSpinBox::valueChanged, this, [this](int value) { set_active_layer_opacity(value); });
   connect(opacity_spin_, &QSpinBox::editingFinished, this, [this] { finish_pending_layer_opacity_edit(); });
@@ -1325,6 +1326,7 @@ void MainWindow::create_docks() {
   fill_opacity_spin_->setPrefix(tr("Fill: "));
   fill_opacity_spin_->setSuffix(percent_suffix());
   configure_toolbar_spinbox(fill_opacity_spin_, 52);
+  install_prefix_scrub(fill_opacity_spin_);
   blend_opacity_row->addWidget(fill_opacity_spin_);
   connect(fill_opacity_spin_, &QSpinBox::valueChanged, this,
           [this](int value) { set_active_layer_fill_opacity(value); });

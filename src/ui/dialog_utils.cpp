@@ -414,6 +414,149 @@ private:
   qint64 popup_dismissed_ms_{-1};
 };
 
+// One controller for both scrub handle kinds (dialog_utils.hpp): `handle` is either a
+// label beside the field or the field's own line edit, where only the prefix text
+// counts. Presses on the handle are consumed so no text selection starts; moves and
+// the release arrive through Qt's implicit grab on the pressed widget.
+template <typename SpinBox>
+class ScrubDragController final : public QObject {
+public:
+  ScrubDragController(QWidget* handle, SpinBox* spin, bool prefix_only)
+      : QObject(handle), handle_(handle), spin_(spin), prefix_only_(prefix_only) {
+    handle_->installEventFilter(this);
+    if (!prefix_only_) {
+      handle_->setCursor(Qt::SizeHorCursor);
+    }
+    spin_->setProperty(kScrubHandleInstalledProperty, true);
+  }
+
+protected:
+  bool eventFilter(QObject* watched, QEvent* event) override {
+    if (watched != handle_ || spin_.isNull()) {
+      return QObject::eventFilter(watched, event);
+    }
+    switch (event->type()) {
+      case QEvent::MouseButtonPress: {
+        const auto* mouse = static_cast<QMouseEvent*>(event);
+        if (mouse->button() != Qt::LeftButton || !spin_->isEnabled() || spin_->isReadOnly() ||
+            !over_handle(mouse->position().toPoint())) {
+          return false;
+        }
+        pressed_ = true;
+        scrubbing_ = false;
+        press_global_ = mouse->globalPosition().toPoint();
+        start_value_ = spin_->value();
+        return true;
+      }
+      case QEvent::MouseMove: {
+        const auto* mouse = static_cast<QMouseEvent*>(event);
+        if (!pressed_) {
+          if (prefix_only_) {
+            handle_->setCursor(over_handle(mouse->position().toPoint()) ? Qt::SizeHorCursor : Qt::IBeamCursor);
+          }
+          return false;
+        }
+        const int delta = mouse->globalPosition().toPoint().x() - press_global_.x();
+        if (!scrubbing_) {
+          if (std::abs(delta) < QApplication::startDragDistance()) {
+            return true;
+          }
+          scrubbing_ = true;
+          if (prefix_only_) {
+            handle_->setCursor(Qt::SizeHorCursor);
+          }
+        }
+        const double steps = static_cast<double>(delta) * ((mouse->modifiers() & Qt::ShiftModifier) != 0 ? 10.0 : 1.0);
+        spin_->setValue(static_cast<decltype(spin_->value())>(start_value_ + steps * spin_->singleStep()));
+        return true;
+      }
+      case QEvent::MouseButtonRelease: {
+        const auto* mouse = static_cast<QMouseEvent*>(event);
+        if (mouse->button() != Qt::LeftButton || !pressed_) {
+          return false;
+        }
+        pressed_ = false;
+        if (scrubbing_) {
+          scrubbing_ = false;
+          Q_EMIT spin_->editingFinished();
+          if (prefix_only_) {
+            handle_->setCursor(over_handle(mouse->position().toPoint()) ? Qt::SizeHorCursor : Qt::IBeamCursor);
+          }
+        } else if (prefix_only_) {
+          spin_->setFocus(Qt::MouseFocusReason);
+          spin_->selectAll();
+        }
+        return true;
+      }
+      case QEvent::Leave:
+        if (prefix_only_ && !pressed_) {
+          handle_->setCursor(Qt::IBeamCursor);
+        }
+        break;
+      default:
+        break;
+    }
+    return QObject::eventFilter(watched, event);
+  }
+
+private:
+  bool over_handle(QPoint position) const {
+    if (!prefix_only_) {
+      return true;
+    }
+    auto* editor = qobject_cast<QLineEdit*>(handle_.data());
+    const auto prefix = spin_->prefix();
+    if (editor == nullptr || prefix.isEmpty()) {
+      return false;
+    }
+    return editor->cursorPositionAt(position) < static_cast<int>(prefix.length());
+  }
+
+  QPointer<QWidget> handle_;
+  QPointer<SpinBox> spin_;
+  bool prefix_only_{false};
+  bool pressed_{false};
+  bool scrubbing_{false};
+  QPoint press_global_;
+  decltype(std::declval<SpinBox>().value()) start_value_{};
+};
+
+bool label_names_a_field(const QLabel* label) {
+  const auto text = label->text();
+  return std::any_of(text.cbegin(), text.cend(), [](QChar c) { return c.isLetter(); });
+}
+
+void install_scrub_labels_in_layout(QLayout* layout) {
+  if (layout == nullptr) {
+    return;
+  }
+  for (int i = 0; i < layout->count(); ++i) {
+    auto* item = layout->itemAt(i);
+    if (item == nullptr) {
+      continue;
+    }
+    if (item->layout() != nullptr) {
+      install_scrub_labels_in_layout(item->layout());
+      continue;
+    }
+    auto* widget = item->widget();
+    if (widget == nullptr) {
+      continue;
+    }
+    if (auto* label = qobject_cast<QLabel*>(widget); label != nullptr) {
+      auto* next = layout->itemAt(i + 1);
+      auto* spin = next != nullptr ? qobject_cast<QAbstractSpinBox*>(next->widget()) : nullptr;
+      if (spin != nullptr && label_names_a_field(label)) {
+        install_scrub_label(label, spin);
+      }
+      continue;
+    }
+    if (qobject_cast<QAbstractSpinBox*>(widget) == nullptr && widget->layout() != nullptr) {
+      install_scrub_labels_in_layout(widget->layout());
+    }
+  }
+}
+
 template <typename SpinBox>
 void install_numeric_popup(SpinBox* spin) {
   constexpr auto kInstalledProperty = "patchy.numericPopupInstalled";
@@ -1026,6 +1169,35 @@ QFont offset_font(QFont font, int size_delta, bool bold) {
     font.setPointSizeF(std::max(7.0, font.pointSizeF() + size_delta));
   }
   return font;
+}
+
+void install_scrub_label(QLabel* label, QAbstractSpinBox* spin) {
+  if (label == nullptr || spin == nullptr || spin->property(kScrubHandleInstalledProperty).toBool()) {
+    return;
+  }
+  if (auto* int_spin = qobject_cast<QSpinBox*>(spin); int_spin != nullptr) {
+    new ScrubDragController<QSpinBox>(label, int_spin, false);
+  } else if (auto* double_spin = qobject_cast<QDoubleSpinBox*>(spin); double_spin != nullptr) {
+    new ScrubDragController<QDoubleSpinBox>(label, double_spin, false);
+  }
+}
+
+void install_prefix_scrub(QSpinBox* spin) {
+  if (spin == nullptr || spin->property(kScrubHandleInstalledProperty).toBool()) {
+    return;
+  }
+  auto* editor = spin->findChild<QLineEdit*>();
+  if (editor == nullptr) {
+    return;
+  }
+  editor->setCursor(Qt::IBeamCursor);
+  new ScrubDragController<QSpinBox>(editor, spin, true);
+}
+
+void install_scrub_labels_in(QWidget* container) {
+  if (container != nullptr) {
+    install_scrub_labels_in_layout(container->layout());
+  }
 }
 
 void configure_toolbar_spinbox(QSpinBox* spin, int width) {

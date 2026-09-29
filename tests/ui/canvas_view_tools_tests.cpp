@@ -1158,6 +1158,80 @@ void ui_stamp_and_gradient_flyouts_swap_tools() {
   }
 }
 
+// Shift+<letter> walks a flyout in menu order from the active tool, wrapping,
+// and from the button's shown tool when the active tool is elsewhere (GitHub
+// issue 45, Photoshop's Shift+key convention). The plain letter still selects
+// the group's primary tool.
+void ui_tool_cycle_hotkeys_walk_each_flyout() {
+  patchy::ui::MainWindow window;
+  show_window(window);
+  auto* canvas = require_canvas(window);
+  require_action_by_text(window, QStringLiteral("Brush"))->trigger();
+  QApplication::processEvents();
+  CHECK(canvas->tool() == patchy::ui::CanvasTool::Brush);
+
+  auto* healing_button = window.findChild<QToolButton*>(QStringLiteral("healingToolButton"));
+  CHECK(healing_button != nullptr);
+  auto* cycle_healing = require_action(window, "toolCycleHealingAction");
+  CHECK(healing_button->menu()->actions().contains(cycle_healing));
+  CHECK(!cycle_healing->isCheckable());
+  CHECK(cycle_healing->isEnabled());
+
+  // From an unrelated tool the first press steps past the shown member.
+  QTest::keyClick(canvas, Qt::Key_J, Qt::ShiftModifier);
+  QApplication::processEvents();
+  CHECK(canvas->tool() == patchy::ui::CanvasTool::SpotHealing);
+  CHECK(healing_button->defaultAction() == require_action(window, "toolSpotHealingAction"));
+  QTest::keyClick(canvas, Qt::Key_J, Qt::ShiftModifier);
+  QApplication::processEvents();
+  CHECK(canvas->tool() == patchy::ui::CanvasTool::PatchTool);
+  CHECK(healing_button->defaultAction() == require_action(window, "toolPatchAction"));
+  QTest::keyClick(canvas, Qt::Key_J, Qt::ShiftModifier);
+  QApplication::processEvents();
+  CHECK(canvas->tool() == patchy::ui::CanvasTool::Healing);
+  CHECK(healing_button->defaultAction() == require_action(window, "toolHealingBrushAction"));
+  require_action(window, "toolPatchAction")->trigger();
+  QApplication::processEvents();
+  QTest::keyClick(canvas, Qt::Key_J);
+  QApplication::processEvents();
+  CHECK(canvas->tool() == patchy::ui::CanvasTool::Healing);
+
+  // A two-member group toggles; the cycle command drives the flyout button too.
+  auto* gradient_button = window.findChild<QToolButton*>(QStringLiteral("gradientToolButton"));
+  CHECK(gradient_button != nullptr);
+  CHECK(gradient_button->defaultAction() == require_action(window, "toolGradientAction"));
+  QTest::keyClick(canvas, Qt::Key_G, Qt::ShiftModifier);
+  QApplication::processEvents();
+  CHECK(canvas->tool() == patchy::ui::CanvasTool::Fill);
+  CHECK(gradient_button->defaultAction() == require_action(window, "toolFillAction"));
+  QTest::keyClick(canvas, Qt::Key_G, Qt::ShiftModifier);
+  QApplication::processEvents();
+  CHECK(canvas->tool() == patchy::ui::CanvasTool::Gradient);
+  require_action(window, "toolCycleFillAction")->trigger();
+  QApplication::processEvents();
+  CHECK(canvas->tool() == patchy::ui::CanvasTool::Fill);
+
+  // Every flyout owns one, in the tools category, listed after a separator.
+  const auto& registry = window.hotkey_registry();
+  const std::pair<const char*, const char*> cycles[] = {
+      {"toolCycleMarqueeAction", "tools.cycle.marquee"}, {"toolCycleLassoAction", "tools.cycle.lasso"},
+      {"toolCycleWandAction", "tools.cycle.wand"},       {"toolCycleFillAction", "tools.cycle.gradient"},
+      {"toolCycleStampAction", "tools.cycle.stamp"},     {"toolCycleHealingAction", "tools.cycle.healing"},
+      {"toolCycleDetailAction", "tools.cycle.detail"},   {"toolCycleToningAction", "tools.cycle.tone"},
+      {"toolCyclePenAction", "tools.cycle.pen"},         {"toolCyclePathAction", "tools.cycle.path_select"},
+      {"toolCycleShapeAction", "tools.cycle.shape"},
+  };
+  for (const auto& [object_name, id] : cycles) {
+    auto* action = require_action(window, object_name);
+    CHECK(!action->shortcut().isEmpty());
+    CHECK(action->menuRole() == QAction::NoRole);
+    const auto* command = registry.find_command(QString::fromLatin1(id));
+    CHECK(command != nullptr);
+    CHECK(command->action == action);
+    CHECK(command->category == QStringLiteral("tools"));
+  }
+}
+
 void ui_tool_flyout_double_click_opens_menu() {
   patchy::ui::MainWindow window;
   show_window(window);
@@ -1244,80 +1318,6 @@ void ui_shape_flyout_and_zoom_tool_work() {
   send_double_click(*zoom_button, zoom_button->rect().center());
   CHECK(std::abs(canvas->zoom() - 1.0) < 0.001);
   save_widget_artifact("ui_shape_flyout_zoom_tool", window);
-// Shift+<letter> walks a flyout in menu order from the active tool, wrapping,
-// and from the button's shown tool when the active tool is elsewhere (GitHub
-// issue 45, Photoshop's Shift+key convention). The plain letter still selects
-// the group's primary tool.
-void ui_tool_cycle_hotkeys_walk_each_flyout() {
-  patchy::ui::MainWindow window;
-  show_window(window);
-  auto* canvas = require_canvas(window);
-  require_action_by_text(window, QStringLiteral("Brush"))->trigger();
-  QApplication::processEvents();
-  CHECK(canvas->tool() == patchy::ui::CanvasTool::Brush);
-
-  auto* healing_button = window.findChild<QToolButton*>(QStringLiteral("healingToolButton"));
-  CHECK(healing_button != nullptr);
-  auto* cycle_healing = require_action(window, "toolCycleHealingAction");
-  CHECK(healing_button->menu()->actions().contains(cycle_healing));
-  CHECK(!cycle_healing->isCheckable());
-  CHECK(cycle_healing->isEnabled());
-
-  // From an unrelated tool the first press steps past the shown member.
-  QTest::keyClick(canvas, Qt::Key_J, Qt::ShiftModifier);
-  QApplication::processEvents();
-  CHECK(canvas->tool() == patchy::ui::CanvasTool::SpotHealing);
-  CHECK(healing_button->defaultAction() == require_action(window, "toolSpotHealingAction"));
-  QTest::keyClick(canvas, Qt::Key_J, Qt::ShiftModifier);
-  QApplication::processEvents();
-  CHECK(canvas->tool() == patchy::ui::CanvasTool::PatchTool);
-  CHECK(healing_button->defaultAction() == require_action(window, "toolPatchAction"));
-  QTest::keyClick(canvas, Qt::Key_J, Qt::ShiftModifier);
-  QApplication::processEvents();
-  CHECK(canvas->tool() == patchy::ui::CanvasTool::Healing);
-  CHECK(healing_button->defaultAction() == require_action(window, "toolHealingBrushAction"));
-  require_action(window, "toolPatchAction")->trigger();
-  QApplication::processEvents();
-  QTest::keyClick(canvas, Qt::Key_J);
-  QApplication::processEvents();
-  CHECK(canvas->tool() == patchy::ui::CanvasTool::Healing);
-
-  // A two-member group toggles; the cycle command drives the flyout button too.
-  auto* gradient_button = window.findChild<QToolButton*>(QStringLiteral("gradientToolButton"));
-  CHECK(gradient_button != nullptr);
-  CHECK(gradient_button->defaultAction() == require_action(window, "toolGradientAction"));
-  QTest::keyClick(canvas, Qt::Key_G, Qt::ShiftModifier);
-  QApplication::processEvents();
-  CHECK(canvas->tool() == patchy::ui::CanvasTool::Fill);
-  CHECK(gradient_button->defaultAction() == require_action(window, "toolFillAction"));
-  QTest::keyClick(canvas, Qt::Key_G, Qt::ShiftModifier);
-  QApplication::processEvents();
-  CHECK(canvas->tool() == patchy::ui::CanvasTool::Gradient);
-  require_action(window, "toolCycleFillAction")->trigger();
-  QApplication::processEvents();
-  CHECK(canvas->tool() == patchy::ui::CanvasTool::Fill);
-
-  // Every flyout owns one, in the tools category, listed after a separator.
-  const auto& registry = window.hotkey_registry();
-  const std::pair<const char*, const char*> cycles[] = {
-      {"toolCycleMarqueeAction", "tools.cycle.marquee"}, {"toolCycleLassoAction", "tools.cycle.lasso"},
-      {"toolCycleWandAction", "tools.cycle.wand"},       {"toolCycleFillAction", "tools.cycle.gradient"},
-      {"toolCycleStampAction", "tools.cycle.stamp"},     {"toolCycleHealingAction", "tools.cycle.healing"},
-      {"toolCycleDetailAction", "tools.cycle.detail"},   {"toolCycleToningAction", "tools.cycle.tone"},
-      {"toolCyclePenAction", "tools.cycle.pen"},         {"toolCyclePathAction", "tools.cycle.path_select"},
-      {"toolCycleShapeAction", "tools.cycle.shape"},
-  };
-  for (const auto& [object_name, id] : cycles) {
-    auto* action = require_action(window, object_name);
-    CHECK(!action->shortcut().isEmpty());
-    CHECK(action->menuRole() == QAction::NoRole);
-    const auto* command = registry.find_command(QString::fromLatin1(id));
-    CHECK(command != nullptr);
-    CHECK(command->action == action);
-    CHECK(command->category == QStringLiteral("tools"));
-  }
-}
-
 }
 
 void ui_tool_palette_icons_render_sheet() {
@@ -2444,6 +2444,157 @@ void ui_layer_opacity_control_defers_slow_rendering_and_undoes_once() {
   CHECK(std::abs(edited_layer->opacity() - 1.0F) <= 0.001F);
 }
 
+// Options-bar labels scrub their field (GitHub issue 46): a horizontal drag on
+// "Size:" moves brushSizeSpin one step per pixel, ten with Shift, clamped to the
+// range; a plain click changes nothing; the label wears the SizeHor cursor.
+void ui_options_bar_label_scrub_changes_spin_value() {
+  patchy::ui::MainWindow window;
+  show_window(window);
+  require_action_by_text(window, QStringLiteral("Brush"))->trigger();
+  QApplication::processEvents();
+  auto* size_spin = window.findChild<QSpinBox*>(QStringLiteral("brushSizeSpin"));
+  CHECK(size_spin != nullptr);
+  CHECK(size_spin->property(patchy::ui::kScrubHandleInstalledProperty).toBool());
+  QLabel* size_label = nullptr;
+  for (auto* label : window.findChildren<QLabel*>()) {
+    if (label->isVisible() && label->text() == QStringLiteral("Size:") &&
+        label->property("optionLabel").toBool()) {
+      size_label = label;
+    }
+  }
+  CHECK(size_label != nullptr);
+  CHECK(size_label->cursor().shape() == Qt::SizeHorCursor);
+
+  size_spin->setValue(40);
+  const auto origin = size_label->rect().center();
+  const int drag_start = QApplication::startDragDistance();
+  const auto scrub = [&](int dx, Qt::KeyboardModifiers modifiers) {
+    send_mouse(*size_label, QEvent::MouseButtonPress, origin, Qt::LeftButton, Qt::LeftButton, modifiers);
+    send_mouse(*size_label, QEvent::MouseMove, origin + QPoint(dx, 0), Qt::NoButton, Qt::LeftButton, modifiers);
+    send_mouse(*size_label, QEvent::MouseButtonRelease, origin + QPoint(dx, 0), Qt::LeftButton, Qt::NoButton,
+               modifiers);
+    QApplication::processEvents();
+  };
+  scrub(drag_start + 15, Qt::NoModifier);
+  CHECK(size_spin->value() == 40 + drag_start + 15);
+  scrub(-(drag_start + 15), Qt::NoModifier);
+  CHECK(size_spin->value() == 40);
+  scrub(drag_start + 2, Qt::ShiftModifier);
+  CHECK(size_spin->value() == 40 + 10 * (drag_start + 2));
+  scrub(-5000, Qt::NoModifier);
+  CHECK(size_spin->value() == size_spin->minimum());
+  size_spin->setValue(40);
+  // A press and release without a drag, and a move short of the drag distance.
+  scrub(0, Qt::NoModifier);
+  CHECK(size_spin->value() == 40);
+  scrub(std::max(0, drag_start - 2), Qt::NoModifier);
+  CHECK(size_spin->value() == 40);
+
+  // Every labeled numeric field in the bar has a handle, including the nested
+  // Feather group, the mixer percentages, the transform fields, and text size.
+  for (const char* name : {"brushOpacitySpin", "brushFlowSpin", "selectionFeatherSpin", "mixerWetSpin",
+                           "textSizeSpin"}) {
+    auto* spin = window.findChild<QAbstractSpinBox*>(QString::fromLatin1(name));
+    CHECK(spin != nullptr);
+    CHECK(spin->property(patchy::ui::kScrubHandleInstalledProperty).toBool());
+  }
+  int handles = 0;
+  for (auto* spin : window.findChildren<QAbstractSpinBox*>()) {
+    handles += spin->property(patchy::ui::kScrubHandleInstalledProperty).toBool() ? 1 : 0;
+  }
+  CHECK(handles >= 30);
+}
+
+// The Layers panel's "Opacity:" prefix scrubs the field (GitHub issue 46): the
+// drag is one undo entry, a plain click on the prefix focuses the field with the
+// number selected, and a drag on the number still selects text.
+void ui_layer_opacity_prefix_scrub_is_one_undo_entry() {
+  patchy::Document document(180, 120, patchy::PixelFormat::rgba8());
+  document.add_pixel_layer("Background", solid_pixels(180, 120, patchy::PixelFormat::rgba8(), QColor(Qt::white)));
+  patchy::Layer layer(document.allocate_layer_id(), "Scrub Target",
+                      solid_pixels(90, 70, patchy::PixelFormat::rgba8(), QColor(30, 150, 220, 255)));
+  const auto layer_id = layer.id();
+  layer.set_bounds(patchy::Rect{35, 25, 90, 70});
+  document.add_layer(std::move(layer));
+  document.set_active_layer(layer_id);
+
+  patchy::ui::MainWindow window;
+  window.add_document_session(std::move(document), QStringLiteral("Opacity Scrub"));
+  show_window(window);
+  auto* canvas = require_canvas(window);
+  canvas->set_zoom(1.0);
+  canvas->force_refresh();
+  QApplication::processEvents();
+
+  auto* opacity_spin = window.findChild<QSpinBox*>(QStringLiteral("layerOpacitySpin"));
+  CHECK(opacity_spin != nullptr);
+  CHECK(opacity_spin->value() == 100);
+  CHECK(opacity_spin->property(patchy::ui::kScrubHandleInstalledProperty).toBool());
+  auto* fill_spin = window.findChild<QSpinBox*>(QStringLiteral("layerFillOpacitySpin"));
+  CHECK(fill_spin != nullptr);
+  CHECK(fill_spin->property(patchy::ui::kScrubHandleInstalledProperty).toBool());
+  auto* editor = opacity_spin->findChild<QLineEdit*>();
+  CHECK(editor != nullptr);
+  const QPoint prefix_point(editor->textMargins().left() + 4, editor->height() / 2);
+  CHECK(editor->cursorPositionAt(prefix_point) < static_cast<int>(opacity_spin->prefix().length()));
+  const int drag_start = QApplication::startDragDistance();
+
+  send_mouse(*editor, QEvent::MouseButtonPress, prefix_point, Qt::LeftButton, Qt::LeftButton);
+  send_mouse(*editor, QEvent::MouseMove, prefix_point + QPoint(-(drag_start + 30), 0), Qt::NoButton,
+             Qt::LeftButton);
+  CHECK(opacity_spin->value() == 100 - (drag_start + 30));
+  send_mouse(*editor, QEvent::MouseMove, prefix_point + QPoint(-30, 0), Qt::NoButton, Qt::LeftButton);
+  CHECK(opacity_spin->value() == 70);
+  send_mouse(*editor, QEvent::MouseButtonRelease, prefix_point + QPoint(-30, 0), Qt::LeftButton, Qt::NoButton);
+  QApplication::processEvents();
+  CHECK(opacity_spin->value() == 70);
+  CHECK(!editor->hasSelectedText());
+
+  auto* edited_layer = patchy::ui::MainWindowTestAccess::document(window).find_layer(layer_id);
+  CHECK(edited_layer != nullptr);
+  QElapsedTimer wait_for_apply;
+  wait_for_apply.start();
+  while (std::abs(edited_layer->opacity() - 0.7F) > 0.001F && wait_for_apply.elapsed() < 900) {
+    QApplication::processEvents(QEventLoop::AllEvents, 20);
+  }
+  CHECK(std::abs(edited_layer->opacity() - 0.7F) <= 0.001F);
+  auto* undo = require_action_by_text(window, QStringLiteral("Undo"));
+  CHECK(undo->isEnabled());
+  undo->trigger();
+  QApplication::processEvents();
+  edited_layer = patchy::ui::MainWindowTestAccess::document(window).find_layer(layer_id);
+  CHECK(edited_layer != nullptr);
+  CHECK(std::abs(edited_layer->opacity() - 1.0F) <= 0.001F);
+  CHECK(!undo->isEnabled());
+  CHECK(opacity_spin->value() == 100);
+
+  // A plain click on the prefix: focus with the number selected, no value change.
+  send_mouse(*editor, QEvent::MouseButtonPress, prefix_point, Qt::LeftButton, Qt::LeftButton);
+  send_mouse(*editor, QEvent::MouseButtonRelease, prefix_point, Qt::LeftButton, Qt::NoButton);
+  QApplication::processEvents();
+  CHECK(opacity_spin->value() == 100);
+  CHECK(editor->hasSelectedText());
+
+  // A drag that starts on the number is ordinary text selection. Toolbar spin
+  // boxes right-align their text, so the number's x comes from the editor's own
+  // cursor geometry rather than from the left margin.
+  editor->deselect();
+  QPoint number_point(-1, editor->height() / 2);
+  for (int x = 0; x < editor->width() && number_point.x() < 0; ++x) {
+    if (editor->cursorPositionAt(QPoint(x, number_point.y())) == static_cast<int>(opacity_spin->prefix().length()) + 1) {
+      number_point.setX(x + 2);
+    }
+  }
+  CHECK(number_point.x() >= 0);
+  CHECK(editor->cursorPositionAt(number_point) >= static_cast<int>(opacity_spin->prefix().length()));
+  send_mouse(*editor, QEvent::MouseButtonPress, number_point, Qt::LeftButton, Qt::LeftButton);
+  send_mouse(*editor, QEvent::MouseMove, number_point + QPoint(drag_start + 20, 0), Qt::NoButton, Qt::LeftButton);
+  send_mouse(*editor, QEvent::MouseButtonRelease, number_point + QPoint(drag_start + 20, 0), Qt::LeftButton,
+             Qt::NoButton);
+  QApplication::processEvents();
+  CHECK(opacity_spin->value() == 100);
+}
+
 // Every blend-mode combo steps with Left/Right like Up/Down, closed and with
 // the list open, as the Opacity and Fill fields beside it do.
 void ui_blend_mode_combos_step_with_left_and_right_arrows() {
@@ -3232,6 +3383,7 @@ std::vector<patchy::test::TestCase> canvas_view_tools_tests() {
       {"ui_canvas_hand_pan_updates_scroll_bars", ui_canvas_hand_pan_updates_scroll_bars},
       {"ui_canvas_scroll_bar_scrolls_view", ui_canvas_scroll_bar_scrolls_view},
       {"ui_canvas_scroll_bars_follow_zoom_and_resize", ui_canvas_scroll_bars_follow_zoom_and_resize},
+      {"ui_canvas_backdrop_context_menu_sets_color", ui_canvas_backdrop_context_menu_sets_color},
       {"ui_canvas_fractional_zoom_paints_to_document_edge", ui_canvas_fractional_zoom_paints_to_document_edge},
       {"ui_canvas_fractional_zoom_keeps_zoomed_in_pixels_sharp",
        ui_canvas_fractional_zoom_keeps_zoomed_in_pixels_sharp},
@@ -3241,6 +3393,7 @@ std::vector<patchy::test::TestCase> canvas_view_tools_tests() {
        ui_zoomed_out_canvas_uses_downsampled_display_mip},
       {"ui_shape_flyout_and_zoom_tool_work", ui_shape_flyout_and_zoom_tool_work},
       {"ui_stamp_and_gradient_flyouts_swap_tools", ui_stamp_and_gradient_flyouts_swap_tools},
+      {"ui_tool_cycle_hotkeys_walk_each_flyout", ui_tool_cycle_hotkeys_walk_each_flyout},
       {"ui_tool_flyout_double_click_opens_menu", ui_tool_flyout_double_click_opens_menu},
       {"ui_tool_flyout_right_click_opens_menu", ui_tool_flyout_right_click_opens_menu},
       {"ui_tool_palette_icons_render_sheet", ui_tool_palette_icons_render_sheet},
@@ -3257,6 +3410,8 @@ std::vector<patchy::test::TestCase> canvas_view_tools_tests() {
        ui_options_bar_spinboxes_show_their_extremes_unclipped},
       {"ui_right_docks_collapse_layers_show_metadata_and_info_updates",
        ui_right_docks_collapse_layers_show_metadata_and_info_updates},
+      {"ui_options_bar_label_scrub_changes_spin_value", ui_options_bar_label_scrub_changes_spin_value},
+      {"ui_layer_opacity_prefix_scrub_is_one_undo_entry", ui_layer_opacity_prefix_scrub_is_one_undo_entry},
       {"ui_layer_opacity_control_defers_slow_rendering_and_undoes_once",
        ui_layer_opacity_control_defers_slow_rendering_and_undoes_once},
       {"ui_blend_mode_combos_step_with_left_and_right_arrows", ui_blend_mode_combos_step_with_left_and_right_arrows},
@@ -3277,5 +3432,3 @@ std::vector<patchy::test::TestCase> canvas_view_tools_tests() {
       {"ui_menu_disabled_items_render_grayed", ui_menu_disabled_items_render_grayed},
   };
 }
-      {"ui_tool_cycle_hotkeys_walk_each_flyout", ui_tool_cycle_hotkeys_walk_each_flyout},
-      {"ui_canvas_backdrop_context_menu_sets_color", ui_canvas_backdrop_context_menu_sets_color},

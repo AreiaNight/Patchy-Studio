@@ -56,6 +56,22 @@ inline constexpr char kToolbarSpinboxSliderMaxProperty[] = "patchy.popupSliderMa
 // Set this bool property on an integer toolbar spin box to give its popup slider the
 // SliderCurve::FineLowEnd response (curved_slider.hpp) for size-like ranges.
 inline constexpr char kToolbarSpinboxSliderCurvedProperty[] = "patchy.popupSliderCurved";
+// Scrubby labels (GitHub issue 46, the Photoshop/Figma gesture): a horizontal drag
+// on `label` changes `spin`'s value by one singleStep per pixel (ten with Shift),
+// the label shows the SizeHor cursor, and the drag ends with the spin box's
+// editingFinished so undo paths that coalesce an edit session record one edit. A
+// press without a drag changes nothing. `install_prefix_scrub` makes the prefix text
+// inside a prefixed spin box (Layers panel Opacity/Fill) the handle instead: a drag
+// there scrubs, a plain click focuses the field and selects the number, and the
+// number itself keeps ordinary text selection. `install_scrub_labels_in` walks a
+// container's layout, nested layouts and child containers included, and pairs every
+// QLabel with letters in its text with the spin box that directly follows it, which is
+// how the whole options bar opts in at once. A spin box that received a handle carries
+// the bool property kScrubHandleInstalledProperty.
+inline constexpr char kScrubHandleInstalledProperty[] = "patchy.scrubHandleInstalled";
+void install_scrub_label(QLabel* label, QAbstractSpinBox* spin);
+void install_prefix_scrub(QSpinBox* spin);
+void install_scrub_labels_in(QWidget* container);
 void configure_dialog_spinbox(QSpinBox* spin, int width = 92);
 void configure_dialog_spinbox(QDoubleSpinBox* spin, int width = 92);
 // Large-button spin box styling (24px - / + buttons with readable glyphs; decrement left,
