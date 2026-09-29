@@ -1833,16 +1833,24 @@ void CanvasWidget::combine_selection_from_mask(QRegion candidate, QRect candidat
     return;
   }
 
-  QImage combined(bounds.size(), QImage::Format_Grayscale8);
-  combined.fill(0);
+  // A noncontiguous wand can have hundreds of thousands of region spans.
+  // QRegion::contains scans those spans, so calling it for every output pixel
+  // stalls the UI. Rasterize the hard snapshot once into the destination and
+  // combine it in place; soft snapshots already provide constant-time coverage.
+  const bool hard_base = selection_mask_before_edit_alpha_.isNull();
+  QImage combined = hard_base ? hard_mask_from_region(selection_before_edit_, bounds)
+                              : QImage(bounds.size(), QImage::Format_Grayscale8);
+  if (!hard_base) {
+    combined.fill(0);
+  }
   for (int y = 0; y < bounds.height(); ++y) {
     auto* dst = combined.scanLine(y);
     const auto document_y = bounds.y() + y;
     for (int x = 0; x < bounds.width(); ++x) {
       const QPoint point(bounds.x() + x, document_y);
       const auto base_alpha =
-          selection_mask_before_edit_alpha_.isNull()
-              ? static_cast<std::uint8_t>(selection_before_edit_.contains(point) ? 255 : 0)
+          hard_base
+              ? dst[x]
               : alpha_at(selection_mask_before_edit_alpha_, selection_mask_before_edit_bounds_, point);
       const auto candidate_value = alpha_at(candidate_alpha, candidate_bounds, point);
 

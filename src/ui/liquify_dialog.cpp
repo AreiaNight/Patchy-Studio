@@ -5,6 +5,7 @@
 #include "ui/edit_conversions.hpp"
 #include "ui/image_document_io.hpp"
 #include "ui/modifier_names.hpp"
+#include "ui/qt_geometry.hpp"
 #include "ui/theme_qss.hpp"
 #include "ui/localization.hpp"
 
@@ -30,12 +31,46 @@
 #include <cmath>
 #include <optional>
 #include <utility>
+#include <vector>
 
 namespace patchy::ui {
 
 namespace {
 
 constexpr int kMaximumProxyEdge = 720;
+
+QImage proxy_selection_mask(const QRegion& selection, Rect bounds,
+                            QSize original_size, QSize proxy_size) {
+  if (selection.isEmpty()) {
+    return {};  // No selection means the whole image is editable.
+  }
+  QImage mask(proxy_size, QImage::Format_Grayscale8);
+  mask.fill(0);
+  // Preserve the preview's endpoint-aligned, floor-rounded sampling, including
+  // one-pixel axes. Map region spans to these samples once, never search the
+  // entire region for each pixel of every brush preview.
+  const auto sample_coordinates = [](int origin, int original, int proxy) {
+    std::vector<int> coordinates(static_cast<std::size_t>(proxy));
+    for (int i = 0; i < proxy; ++i) {
+      coordinates[static_cast<std::size_t>(i)] = origin + static_cast<int>(
+          static_cast<std::int64_t>(i) * std::max(0, original - 1) / std::max(1, proxy - 1));
+    }
+    return coordinates;
+  };
+  const auto xs = sample_coordinates(bounds.x, original_size.width(), proxy_size.width());
+  const auto ys = sample_coordinates(bounds.y, original_size.height(), proxy_size.height());
+  for (const auto& rect : selection.intersected(to_qrect(bounds))) {
+    const auto left = std::lower_bound(xs.begin(), xs.end(), rect.left()) - xs.begin();
+    const auto right = std::upper_bound(xs.begin(), xs.end(), rect.right()) - xs.begin();
+    const auto top = std::lower_bound(ys.begin(), ys.end(), rect.top()) - ys.begin();
+    const auto bottom = std::upper_bound(ys.begin(), ys.end(), rect.bottom()) - ys.begin();
+    for (auto y = top; y < bottom; ++y) {
+      auto* row = mask.scanLine(static_cast<int>(y));
+      std::fill(row + left, row + right, static_cast<uchar>(255));
+    }
+  }
+  return mask;
+}
 
 class LiquifyPreviewWidget final : public QWidget {
 public:
@@ -45,8 +80,10 @@ public:
                        QWidget* parent = nullptr)
       : QWidget(parent), source_(std::move(source)),
         original_image_(std::move(original_image)),
-        bounds_(original_bounds), selection_(std::move(selection)),
-        original_width_(original_width), original_height_(original_height),
+        selection_mask_(proxy_selection_mask(selection, original_bounds,
+                                             QSize(original_width, original_height),
+                                             QSize(source_.width(), source_.height()))),
+        original_width_(original_width),
         mesh_(source_.width(), source_.height()) {
     setObjectName(QStringLiteral("liquifyPreview"));
     setMouseTracking(true);
@@ -187,21 +224,10 @@ private:
       return;
     }
     preview_image_ = qimage_from_pixel_buffer(*rendered);
-    const bool selected_only = !selection_.isEmpty();
     for (int y = 0; y < preview_image_.height(); ++y) {
+      const auto* selected = selection_mask_.isNull() ? nullptr : selection_mask_.constScanLine(y);
       for (int x = 0; x < preview_image_.width(); ++x) {
-        const int document_x = bounds_.x + std::clamp(
-            static_cast<int>((static_cast<std::int64_t>(x) *
-                              std::max(0, original_width_ - 1)) /
-                             std::max(1, preview_image_.width() - 1)),
-            0, std::max(0, original_width_ - 1));
-        const int document_y = bounds_.y + std::clamp(
-            static_cast<int>((static_cast<std::int64_t>(y) *
-                              std::max(0, original_height_ - 1)) /
-                             std::max(1, preview_image_.height() - 1)),
-            0, std::max(0, original_height_ - 1));
-        if (selected_only &&
-            !selection_.contains(QPoint(document_x, document_y))) {
+        if (selected != nullptr && selected[x] == 0U) {
           preview_image_.setPixelColor(x, y, original_image_.pixelColor(x, y));
           continue;
         }
@@ -225,10 +251,8 @@ private:
 
   PixelBuffer source_;
   QImage original_image_;
-  Rect bounds_{};
-  QRegion selection_;
+  QImage selection_mask_;
   int original_width_{0};
-  int original_height_{0};
   LiquifyMesh mesh_;
   LiquifyTool tool_{LiquifyTool::ForwardWarp};
   QImage preview_image_;

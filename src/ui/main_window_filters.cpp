@@ -2754,13 +2754,16 @@ void MainWindow::liquify_dialog() {
 
   if (!selection.isEmpty()) {
     const auto bytes_per_pixel_value =
-        static_cast<int>(bytes_per_pixel(rendered->format()));
-    for (int y = 0; y < rendered->height(); ++y) {
-      for (int x = 0; x < rendered->width(); ++x) {
-        if (!selection.contains(QPoint(bounds.x + x, bounds.y + y))) {
-          std::copy_n(original_pixels.pixel(x, y), bytes_per_pixel_value,
-                      rendered->pixel(x, y));
-        }
+        static_cast<std::size_t>(bytes_per_pixel(rendered->format()));
+    // Restore unselected spans in one region walk. Per-pixel QRegion::contains
+    // makes a fragmented wand selection multiply the entire layer's work.
+    const auto outside = QRegion(to_qrect(bounds)).subtracted(selection);
+    for (const auto& rect : outside) {
+      const auto local = rect.translated(-bounds.x, -bounds.y);
+      for (int y = local.top(); y <= local.bottom(); ++y) {
+        std::copy_n(original_pixels.pixel(local.left(), y),
+                    static_cast<std::size_t>(local.width()) * bytes_per_pixel_value,
+                    rendered->pixel(local.left(), y));
       }
     }
   }

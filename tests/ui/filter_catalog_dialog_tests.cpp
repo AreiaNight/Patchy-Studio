@@ -51,6 +51,7 @@
 #include "ui/layer_list_widget.hpp"
 #include "ui/layer_style_dialog.hpp"
 #include "ui/liquify_dialog.hpp"
+#include "ui/edit_conversions.hpp"
 #include "ui/localization.hpp"
 #include "ui/main_window.hpp"
 #include "ui/print_dialog.hpp"
@@ -792,9 +793,120 @@ void ui_liquify_dialog_exposes_manual_tools_and_brush_controls() {
   CHECK(!result->is_identity());
 }
 
-void ui_liquify_action_applies_selection_as_one_undo_step() {
-  patchy::Document built(100, 80, patchy::PixelFormat::rgba8());
-  patchy::PixelBuffer pixels(80, 60, patchy::PixelFormat::rgba8());
+void ui_liquify_preview_selection_preserves_sample_mapping() {
+  for (const auto size : {QSize(83, 61), QSize(1001, 773), QSize(1024, 1), QSize(1, 1024)}) {
+    auto proxy_size = size;
+    if (std::max(size.width(), size.height()) > 720) {
+      proxy_size.scale(QSize(720, 720), Qt::KeepAspectRatio);
+      proxy_size = proxy_size.expandedTo(QSize(1, 1));
+    }
+    patchy::PixelBuffer source(size.width(), size.height(), patchy::PixelFormat::rgba8());
+    for (int y = 0; y < source.height(); ++y) {
+      for (int x = 0; x < source.width(); ++x) {
+        auto* pixel = source.pixel(x, y);
+        pixel[0] = static_cast<std::uint8_t>((x * 17 + y * 3) % 256);
+        pixel[1] = static_cast<std::uint8_t>((x * 5 + y * 19) % 256);
+        pixel[2] = 90;
+        pixel[3] = 255;
+      }
+    }
+    const patchy::Rect bounds{-13, 7, size.width(), size.height()};
+    const QRegion selection = QRegion(QRect(bounds.x - 5, bounds.y - 3,
+                                            5 + std::max(1, size.width() / 2),
+                                            3 + std::max(1, size.height() / 2)))
+                                  .united(QRect(bounds.x + size.width() - 1,
+                                                bounds.y + size.height() - 1, 3, 3));
+    QImage actual;
+    QSize widget_size;
+    std::exception_ptr driver_error;
+    QTimer::singleShot(0, [&] {
+      auto* dialog = find_top_level_dialog(QStringLiteral("liquifyDialog"));
+      try {
+        CHECK(dialog != nullptr);
+        auto* preview = dialog->findChild<QWidget*>(QStringLiteral("liquifyPreview"));
+        auto* bloat = dialog->findChild<QToolButton*>(QStringLiteral("liquifyBloatTool"));
+        CHECK(preview != nullptr && bloat != nullptr);
+        // Inspect proxy pixels at 1:1. QWidget's backing store and an ARGB32
+        // QImage take different rounding paths when resampling for display.
+        preview->setFixedSize(proxy_size + QSize(24, 24));
+        QTest::mouseClick(bloat, Qt::LeftButton);
+        QTest::mouseClick(preview, Qt::LeftButton, Qt::NoModifier,
+                          QPoint(12 + proxy_size.width() / 3, 12 + proxy_size.height() / 3));
+        QEvent leave(QEvent::Leave);
+        QApplication::sendEvent(preview, &leave);
+        widget_size = preview->size();
+        actual = preview->grab().toImage().convertToFormat(QImage::Format_ARGB32);
+        dialog->accept();
+      } catch (...) {
+        driver_error = std::current_exception();
+        if (dialog != nullptr) {
+          dialog->reject();
+        }
+      }
+    });
+    const auto mesh = patchy::ui::request_liquify(nullptr, source, bounds, selection);
+    if (driver_error) {
+      std::rethrow_exception(driver_error);
+    }
+    CHECK(mesh.has_value());
+    CHECK(!actual.isNull());
+    const auto original = patchy::ui::qimage_from_pixel_buffer(source).scaled(
+        proxy_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    const auto rendered = mesh->render(patchy::ui::pixels_from_image_rgba(original));
+    CHECK(rendered.has_value());
+    auto expected_preview = patchy::ui::qimage_from_pixel_buffer(*rendered);
+    // Independent scalar oracle for the historical document-coordinate samples.
+    for (int y = 0; y < proxy_size.height(); ++y) {
+      for (int x = 0; x < proxy_size.width(); ++x) {
+        const QPoint point(bounds.x + x * (size.width() - 1) / std::max(1, proxy_size.width() - 1),
+                           bounds.y + y * (size.height() - 1) / std::max(1, proxy_size.height() - 1));
+        if (!selection.contains(point)) {
+          expected_preview.setPixelColor(x, y, original.pixelColor(x, y));
+        }
+      }
+    }
+    QImage expected(actual.size(), actual.format());
+    expected.setDevicePixelRatio(actual.devicePixelRatio());
+    expected.fill(QColor(35, 35, 35));
+    const double scale = std::min((widget_size.width() - 24.0) / proxy_size.width(),
+                                  (widget_size.height() - 24.0) / proxy_size.height());
+    const QSizeF drawn_size(proxy_size.width() * scale, proxy_size.height() * scale);
+    const QRectF target(QPointF((widget_size.width() - drawn_size.width()) * 0.5,
+                                (widget_size.height() - drawn_size.height()) * 0.5), drawn_size);
+    QPainter painter(&expected);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform, target.width() < proxy_size.width());
+    painter.drawImage(target, expected_preview);
+    painter.setPen(QPen(QColor(105, 105, 105), 1));
+    painter.drawRect(target.adjusted(0, 0, -1, -1));
+    painter.end();
+    if (actual != expected) {
+      save_image_artifact("ui_liquify_selection_actual", actual);
+      save_image_artifact("ui_liquify_selection_expected", expected);
+      int differences = 0;
+      for (int y = 0; y < actual.height(); ++y) {
+        for (int x = 0; x < actual.width(); ++x) {
+          if (actual.pixel(x, y) != expected.pixel(x, y)) {
+            if (differences == 0) {
+              std::cout << "  Liquify " << size.width() << 'x' << size.height()
+                        << " first mismatch at " << x << ',' << y << ": "
+                        << actual.pixelColor(x, y).name().toStdString() << " vs "
+                        << expected.pixelColor(x, y).name().toStdString() << '\n';
+            }
+            ++differences;
+          }
+        }
+      }
+      std::cout << "  Liquify preview pixel differences: " << differences << '\n';
+      CHECK(differences == 0);
+    }
+  }
+}
+
+void check_liquify_action_applies_selection_as_one_undo_step(bool fragmented) {
+  const int width = fragmented ? 960 : 80;
+  const int height = fragmented ? 640 : 60;
+  patchy::Document built(width + 20, height + 20, patchy::PixelFormat::rgba8());
+  patchy::PixelBuffer pixels(width, height, patchy::PixelFormat::rgba8());
   for (int y = 0; y < pixels.height(); ++y) {
     for (int x = 0; x < pixels.width(); ++x) {
       auto* pixel = pixels.pixel(x, y);
@@ -808,7 +920,7 @@ void ui_liquify_action_applies_selection_as_one_undo_step() {
   patchy::Layer layer(built.allocate_layer_id(), "Liquify Subject",
                       std::move(pixels));
   const auto layer_id = layer.id();
-  const patchy::Rect bounds{10, 8, 80, 60};
+  const patchy::Rect bounds{10, 8, width, height};
   layer.set_bounds(bounds);
   built.add_layer(std::move(layer));
   built.set_active_layer(layer_id);
@@ -817,12 +929,14 @@ void ui_liquify_action_applies_selection_as_one_undo_step() {
   window.add_document_session(std::move(built), QStringLiteral("Liquify Apply"));
   show_window(window);
   auto* canvas = require_canvas(window);
-  patchy::PixelBuffer selection(100, 80, patchy::PixelFormat::gray8());
+  patchy::PixelBuffer selection(width + 20, height + 20, patchy::PixelFormat::gray8());
   selection.clear(0U);
-  const QRect selected_rect(30, 23, 40, 30);
+  const QRect selected_rect = fragmented ? QRect(11, 9, width - 2, height - 2) : QRect(30, 23, 40, 30);
   for (int y = selected_rect.top(); y <= selected_rect.bottom(); ++y) {
     for (int x = selected_rect.left(); x <= selected_rect.right(); ++x) {
-      selection.pixel(x, y)[0] = 255U;
+      if (!fragmented || (x % 2 == 0 && y % 2 == 0)) {
+        selection.pixel(x, y)[0] = 255U;
+      }
     }
   }
   canvas->replace_selection_from_grayscale(
@@ -832,23 +946,40 @@ void ui_liquify_action_applies_selection_as_one_undo_step() {
       patchy::ui::MainWindowTestAccess::active_session_undo_depth(window);
 
   bool accepted = false;
+  std::exception_ptr driver_error;
   QTimer::singleShot(0, [&] {
     auto* dialog = find_top_level_dialog(QStringLiteral("liquifyDialog"));
-    CHECK(dialog != nullptr);
-    auto* bloat = dialog->findChild<QToolButton*>(
-        QStringLiteral("liquifyBloatTool"));
-    auto* preview =
-        dialog->findChild<QWidget*>(QStringLiteral("liquifyPreview"));
-    CHECK(bloat != nullptr && preview != nullptr);
-    QTest::mouseClick(bloat, Qt::LeftButton);
-    QTest::mouseClick(preview, Qt::LeftButton, Qt::NoModifier,
-                      preview->rect().center());
-    accepted = true;
-    dialog->accept();
+    try {
+      CHECK(dialog != nullptr);
+      auto* bloat = dialog->findChild<QToolButton*>(
+          QStringLiteral("liquifyBloatTool"));
+      auto* preview =
+          dialog->findChild<QWidget*>(QStringLiteral("liquifyPreview"));
+      CHECK(bloat != nullptr && preview != nullptr);
+      QTest::mouseClick(bloat, Qt::LeftButton);
+      QTest::mouseClick(preview, Qt::LeftButton, Qt::NoModifier,
+                        preview->rect().center());
+      accepted = true;
+      dialog->accept();
+    } catch (...) {
+      driver_error = std::current_exception();
+      if (dialog != nullptr) {
+        dialog->reject();
+      }
+    }
   });
+  QElapsedTimer timer;
+  timer.start();
   require_action(window, "filterLiquifyAction")->trigger();
   QApplication::processEvents();
+  if (driver_error) {
+    std::rethrow_exception(driver_error);
+  }
   CHECK(accepted);
+  if (fragmented) {
+    std::cout << "  fragmented selection Liquify open, preview and apply " << timer.elapsed() << " ms\n";
+    CHECK(timer.elapsed() < 120000);
+  }
 
   const auto* applied = std::as_const(
       patchy::ui::MainWindowTestAccess::document(window)).find_layer(layer_id);
@@ -862,7 +993,7 @@ void ui_liquify_action_applies_selection_as_one_undo_step() {
       const bool equal = std::equal(original_pixels.pixel(x, y),
                                     original_pixels.pixel(x, y) + 4,
                                     applied->pixels().pixel(x, y));
-      if (selected_rect.contains(bounds.x + x, bounds.y + y)) {
+      if (*std::as_const(selection).pixel(bounds.x + x, bounds.y + y) != 0U) {
         changed_inside = changed_inside || !equal;
       } else {
         CHECK(equal);
@@ -894,6 +1025,14 @@ void ui_liquify_action_applies_selection_as_one_undo_step() {
         QStringLiteral("Rasterize the Smart Object before using Liquify"));
   CHECK(patchy::ui::MainWindowTestAccess::active_session_undo_depth(window) ==
         smart_undo_depth);
+}
+
+void ui_liquify_action_applies_selection_as_one_undo_step() {
+  check_liquify_action_applies_selection_as_one_undo_step(false);
+}
+
+void ui_liquify_fragmented_selection_preview_and_apply() {
+  check_liquify_action_applies_selection_as_one_undo_step(true);
 }
 
 void ui_filter_progress_callback_can_cancel_heavy_filter() {
@@ -1579,5 +1718,7 @@ std::vector<patchy::test::TestCase> filter_catalog_dialog_tests() {
        ui_liquify_dialog_exposes_manual_tools_and_brush_controls},
       {"ui_liquify_action_applies_selection_as_one_undo_step",
        ui_liquify_action_applies_selection_as_one_undo_step},
+      {"ui_liquify_fragmented_selection_preview_and_apply", ui_liquify_fragmented_selection_preview_and_apply},
+      {"ui_liquify_preview_selection_preserves_sample_mapping", ui_liquify_preview_selection_preserves_sample_mapping},
   };
 }

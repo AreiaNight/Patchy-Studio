@@ -12,6 +12,14 @@ The workspace edits a bounded proxy whose longest edge is 720 px. `LiquifyMesh` 
 
 Freeze and Thaw modify only the protection field. Warp adds the inverse of the pointer motion. Reconstruct tends displacement toward identity. Smooth tends each protected node toward its four-neighbor displacement average. Twirl, Pucker, and Bloat add bounded inverse offsets around each brush dab. Completed displacement, not the gesture history, is the full-resolution render input.
 
+Selection clipping never searches a `QRegion` per pixel. The preview caches a
+proxy-sized byte mask when the dialog opens, mapping the region's spans through
+the existing endpoint-aligned, floor-rounded source samples (including one-pixel
+axes and offset layers). Every gesture reuses that mask. Final Apply restores
+unselected row spans from the original pixels in one region walk. Both paths keep
+the existing hard-selection behavior and remain usable with fragmented wand
+selections; no full-resolution selection mask is allocated for the proxy.
+
 ## PSD and Smart Object behavior
 
 Liquify is currently a destructive pixel edit on an ordinary RGB/RGBA UInt8 layer. A PSD stores the resulting pixels through the normal layer channel path; no private Patchy resource or filter descriptor is added. Photoshop therefore sees the same raster result. Selection clipping, undo, palette compliance warnings, and subsequent PSD saves behave like other destructive pixel edits.
@@ -40,5 +48,8 @@ Relevant public records:
 - `ui_filter_catalog_and_menu_contracts_are_stable`
 - `ui_liquify_dialog_exposes_manual_tools_and_brush_controls`
 - `ui_liquify_action_applies_selection_as_one_undo_step`
+- `ui_liquify_fragmented_selection_preview_and_apply`
+- `ui_liquify_preview_selection_preserves_sample_mapping` (offset layers, clipped
+  regions, downsampled proxies, and one-pixel axes compared with scalar sampling)
 
 Keep an exact identity-render test. A zero-displacement mesh must return byte-identical pixels. Keep cancellation and monotonic progress covered independently from tool math.

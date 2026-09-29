@@ -4175,13 +4175,16 @@ void MainWindow::stroke_selection() {
   auto options = edit_options(*canvas_);
   options.primary = edit_color(chosen->color);
   options.lock_transparent_pixels = layer_locks_transparent_pixels(*layer);
-  options.selection = to_core_rect(stroke_region.boundingRect());
+  const auto stroke_bounds = stroke_region.boundingRect();
+  const auto stroke_mask = hard_mask_from_region(stroke_region, stroke_bounds);
+  options.selection = to_core_rect(stroke_bounds);
   options.selection_scan_rects.clear();
-  options.selection_scan_rects.reserve(static_cast<std::size_t>(stroke_region.rectCount()));
-  for (const auto& rect : stroke_region) {
-    options.selection_scan_rects.push_back(to_core_rect(rect));
-  }
-  options.selection_mask = [stroke_region](std::int32_t x, std::int32_t y) { return stroke_region.contains(QPoint(x, y)); };
+  // fill_rect queries coverage per pixel (unlike clear_rect's scan-rect path).
+  // Rasterize the stroke band once so disconnected islands cannot stall it.
+  options.selection_mask = [stroke_mask, stroke_bounds](std::int32_t x, std::int32_t y) {
+    return stroke_bounds.contains(x, y) &&
+           stroke_mask.constScanLine(y - stroke_bounds.y())[x - stroke_bounds.x()] != 0U;
+  };
   options.selection_coverage = {};
   const auto affected = patchy::fill_rect(doc, *active, to_core_rect(stroke_region.boundingRect()), options);
   if (!affected.empty()) {
