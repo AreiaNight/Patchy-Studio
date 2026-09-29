@@ -47,4 +47,14 @@ void wait_for_tracked_background_workers() {
   worker_finished.wait(lock, [] { return live_workers == 0; });
 }
 
+bool wait_for_tracked_background_workers(std::chrono::milliseconds timeout) {
+  std::unique_lock<std::mutex> lock(worker_mutex);
+  return worker_finished.wait_for(lock, timeout, [] { return live_workers == 0; });
+}
+
+int tracked_background_worker_count() {
+  const std::lock_guard<std::mutex> lock(worker_mutex);
+  return live_workers;
+}
+
 }  // namespace patchy::ui

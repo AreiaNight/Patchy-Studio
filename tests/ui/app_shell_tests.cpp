@@ -67,6 +67,7 @@
 #include "ui/app_settings.hpp"
 #include "ui/build_info.hpp"
 
+#include "ui/background_workers.hpp"
 #include "ui/network_mounts.hpp"
 #include "ui/update_checker.hpp"
 #include "ui/visual_filter_gallery_dialog.hpp"
@@ -196,6 +197,8 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
+#include <thread>
 #include <array>
 #include <cstdint>
 #include <cmath>
@@ -1863,6 +1866,36 @@ class ManifestServer {
 };
 
 }  // namespace
+
+// main() waits a bounded time for tracked workers at quit and force-exits when
+// one is still blocked in the OS: the timed wait must report a running worker,
+// then succeed once it finishes, and the count must balance.
+void ui_background_worker_wait_is_bounded() {
+  std::atomic<bool> release{false};
+  std::atomic<bool> finished{false};
+  const int before = patchy::ui::tracked_background_worker_count();
+  patchy::ui::run_tracked_background_worker([&release, &finished] {
+    while (!release.load()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    finished = true;
+  });
+  if (patchy::ui::kBackgroundWorkRunsInline) {
+    // Ran inline (single-threaded wasm): the worker could not have blocked.
+    CHECK(patchy::ui::wait_for_tracked_background_workers(std::chrono::milliseconds(0)));
+    return;
+  }
+  CHECK(patchy::ui::tracked_background_worker_count() == before + 1);
+  QElapsedTimer timer;
+  timer.start();
+  CHECK(!patchy::ui::wait_for_tracked_background_workers(std::chrono::milliseconds(150)));
+  CHECK(timer.elapsed() >= 100);
+  CHECK(!finished.load());
+  release = true;
+  CHECK(patchy::ui::wait_for_tracked_background_workers(std::chrono::seconds(10)));
+  CHECK(finished.load());
+  CHECK(patchy::ui::tracked_background_worker_count() == before);
+}
 
 void ui_update_manifest_url_honors_environment_override() {
   {
@@ -5025,6 +5058,7 @@ std::vector<patchy::test::TestCase> app_shell_tests() {
       {"ui_open_dialog_hides_name_filter_details", ui_open_dialog_hides_name_filter_details},
       {"ui_open_dialog_opens_every_selected_file", ui_open_dialog_opens_every_selected_file},
       {"update_manifest_parser_handles_supported_cases", update_manifest_parser_handles_supported_cases},
+      {"ui_background_worker_wait_is_bounded", ui_background_worker_wait_is_bounded},
       {"ui_update_manifest_url_honors_environment_override", ui_update_manifest_url_honors_environment_override},
       {"ui_update_check_fetches_manifest_after_resolving_host", ui_update_check_fetches_manifest_after_resolving_host},
       {"ui_update_check_reports_unresolvable_host_and_drops_destroyed_owner",
