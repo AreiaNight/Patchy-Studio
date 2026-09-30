@@ -101,11 +101,16 @@ int scroll_bar_drag_travel(QScrollBar& scroll_bar, const QStyleOptionSlider& opt
 
 // Row child buttons that must receive mouse clicks themselves instead of the
 // list-level select/drag handling.
+// Row buttons that handle their own presses. Every badge button belongs here:
+// a missing entry makes the list eat its press as a row drag start (so a real
+// click never reaches the button) and route its double-click to the row's
+// editor (a double-click on the vector badge opened Layer Style, September 2026).
 bool layer_row_button_owns_clicks(const QString& object_name) {
   return object_name == QLatin1String("layerVisibilityCheck") ||
          object_name == QLatin1String("layerMaskLinkButton") ||
          object_name == QLatin1String("layerFxBadgeButton") ||
          object_name == QLatin1String("layerSmartObjectBadgeButton") ||
+         object_name == QLatin1String("layerVectorBadgeButton") ||
          object_name == QLatin1String("layerClippingBadgeButton") ||
          object_name == QLatin1String("layerSmartFiltersVisibilityButton") ||
          object_name == QLatin1String("layerSmartFilterVisibilityButton") ||

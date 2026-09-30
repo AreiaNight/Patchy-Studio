@@ -2472,6 +2472,71 @@ void ui_layer_shape_row_double_click_opens_layer_style() {
   CHECK(saw_style_dialog);
 }
 
+// The vector badge owns its clicks: a real press is not a row drag start, and
+// a double-click on it never falls through to the row's Layer Style editor
+// (regression: double-clicking the badge opened Layer Style, September 2026).
+void ui_layer_vector_badge_double_click_opens_shape_appearance() {
+  VectorSettingsGuard settings_guard;
+  patchy::ui::MainWindow window;
+  show_window(window);
+  auto* canvas = require_canvas(window);
+  canvas->set_tool(patchy::ui::CanvasTool::Rectangle);
+  drag(*canvas, canvas->widget_position_for_document_point(QPoint(100, 100)),
+       canvas->widget_position_for_document_point(QPoint(400, 300)));
+  QApplication::processEvents();
+  auto& doc = patchy::ui::MainWindowTestAccess::document(window);
+  const auto shape_id = doc.active_layer_id();
+  CHECK(shape_id.has_value());
+  CHECK(patchy::layer_is_vector_shape(*std::as_const(doc).find_layer(*shape_id)));
+
+  auto* layer_list = window.findChild<QListWidget*>(QStringLiteral("layerList"));
+  CHECK(layer_list != nullptr);
+  auto* item = layer_list->currentItem();
+  CHECK(item != nullptr);
+  auto* badge = layer_list->itemWidget(item)->findChild<QToolButton*>(QStringLiteral("layerVectorBadgeButton"));
+  CHECK(badge != nullptr);
+
+  // The badge opens Shape Appearance one timer tick after its release, so the
+  // closer polls until the dialog exists (it fires inside the dialog's loop).
+  bool saw_style_dialog = false;
+  bool saw_appearance_dialog = false;
+  int attempts = 0;
+  std::function<void()> close_appearance_dialog = [&] {
+    if (find_top_level_dialog(QStringLiteral("patchyLayerStyleDialog")) != nullptr) {
+      saw_style_dialog = true;
+    }
+    if (auto* dialog = find_top_level_dialog(QStringLiteral("shapeAppearanceDialog")); dialog != nullptr) {
+      saw_appearance_dialog = true;
+      dialog->reject();
+      return;
+    }
+    if (++attempts < 20) {
+      QTimer::singleShot(0, close_appearance_dialog);
+    }
+  };
+
+  // A real double-click arrives as press, release, double-click, release.
+  const auto center = badge->rect().center();
+  send_mouse(*badge, QEvent::MouseButtonPress, center, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+  CHECK(badge->isDown());
+  QTimer::singleShot(0, close_appearance_dialog);
+  send_mouse(*badge, QEvent::MouseButtonRelease, center, Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+  QApplication::processEvents();
+  CHECK(saw_appearance_dialog);
+  CHECK(!saw_style_dialog);
+
+  saw_appearance_dialog = false;
+  attempts = 0;
+  send_double_click(*badge, center);
+  CHECK(find_inline_rename_edit(*layer_list) == nullptr);
+  QTimer::singleShot(0, close_appearance_dialog);
+  send_mouse(*badge, QEvent::MouseButtonRelease, center, Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+  QApplication::processEvents();
+  CHECK(saw_appearance_dialog);
+  CHECK(!saw_style_dialog);
+  CHECK(find_top_level_dialog(QStringLiteral("patchyLayerStyleDialog")) == nullptr);
+}
+
 // Layer ids restart per document: a commit whose focus loss went to another
 // document's tab is dropped rather than renaming that document's same-id layer.
 void ui_layer_inline_rename_drops_commit_after_document_switch() {
@@ -3811,6 +3876,8 @@ std::vector<patchy::test::TestCase> layer_panel_organization_tests() {
       {"ui_layer_inline_rename_drops_commit_after_document_switch",
        ui_layer_inline_rename_drops_commit_after_document_switch},
       {"ui_layer_shape_row_double_click_opens_layer_style", ui_layer_shape_row_double_click_opens_layer_style},
+      {"ui_layer_vector_badge_double_click_opens_shape_appearance",
+       ui_layer_vector_badge_double_click_opens_shape_appearance},
       {"ui_layer_eye_alt_click_isolates_and_restores", ui_layer_eye_alt_click_isolates_and_restores},
       {"ui_layer_eye_alt_click_folder_isolates_group", ui_layer_eye_alt_click_folder_isolates_group},
       {"ui_layer_eye_alt_click_reisolate_keeps_original_snapshot",
