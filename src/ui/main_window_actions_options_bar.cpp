@@ -2859,6 +2859,24 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
     }
   });
 
+  // Scrubby Zoom (GitHub issue 51, Photoshop's gesture): a persisted view
+  // preference (tools/zoomScrubby, default off) mirrored into every session
+  // canvas. See docs/view-navigation.md.
+  zoom_scrubby_check_ = new CheckGlyphBox(tr("Scrubby Zoom"), toolbar);
+  zoom_scrubby_check_->setObjectName(QStringLiteral("zoomScrubbyCheck"));
+  zoom_scrubby_check_->setChecked(canvas_defaults->zoom_scrubby());
+  bind_tooltip(zoom_scrubby_check_,
+               QT_TR_NOOP("Drag right to zoom in and left to zoom out around the point you pressed. "
+                          "Off: drag a rectangle to zoom to it"));
+  add_option_widget(zoom_scrubby_check_, {CanvasTool::Zoom});
+  connect(zoom_scrubby_check_, &QCheckBox::toggled, this, [this](bool checked) {
+    current_zoom_scrubby_ = checked;
+    if (canvas_ != nullptr) {
+      canvas_->set_zoom_scrubby(checked);
+      save_tool_settings();
+    }
+  });
+
   add_option_label(QT_TR_NOOP("Font:"), {CanvasTool::Text});
   text_font_combo_ = new FontPickerCombo(toolbar);
   text_font_combo_->setObjectName(QStringLiteral("textFontCombo"));

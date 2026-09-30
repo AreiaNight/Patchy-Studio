@@ -1526,7 +1526,7 @@ void CanvasWidget::emit_info_for_widget_position(QPoint widget_position) const {
   } else if (document_ != nullptr && dragging_text_rect_) {
     info.active_rect = normalized_rect(text_rect_start_, snapped_document_point(document_point));
     info.active_rect_label = tr("Text");
-  } else if (document_ != nullptr && zooming_) {
+  } else if (document_ != nullptr && zooming_ && !zoom_scrubbing_) {
     info.active_rect = normalized_rect(zoom_start_, document_point);
     info.active_rect_label = tr("Zoom");
   } else if (document_ != nullptr && !selection_.isEmpty()) {

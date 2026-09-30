@@ -431,6 +431,11 @@ public:
   void zoom_at_widget_point(QPointF widget_position, double factor);
   void set_wheel_zooms(bool enabled) noexcept;
   [[nodiscard]] bool wheel_zooms() const noexcept;
+  // Scrubby Zoom (docs/view-navigation.md): a Zoom tool drag zooms live about
+  // the press point instead of drawing a marquee. Persisted by MainWindow as
+  // tools/zoomScrubby; default off.
+  void set_zoom_scrubby(bool enabled) noexcept;
+  [[nodiscard]] bool zoom_scrubby() const noexcept;
   void refresh_tool_cursor();
   void fit_to_view();
   // Recenters the document in the viewport at the current zoom. Used after
@@ -2071,6 +2076,11 @@ private:
   void begin_zoom_drag(QPointF widget_position);
   void update_zoom_drag(QPointF widget_position);
   void end_zoom_drag();
+  // Multiplies the zoom by kZoomDragFactorPerPixel^delta about zoom_drag_anchor_widget_.
+  void apply_zoom_drag_step(double delta_pixels);
+  // The press position clamped onto the document frame (margin presses zoom
+  // toward the nearest document edge).
+  [[nodiscard]] QPointF zoom_click_anchor(QPointF widget_position) const;
   void begin_brush_adjust_drag(QPoint widget_position, bool from_tablet = false);
   void update_brush_adjust_drag(QPoint widget_position);
   void end_brush_adjust_drag(bool commit);
@@ -2105,6 +2115,7 @@ private:
   double zoom_{1.0};
   QPointF pan_{40.0, 40.0};
   bool wheel_zooms_{true};
+  bool zoom_scrubby_{false};
   QScrollBar* horizontal_scroll_bar_{nullptr};
   QScrollBar* vertical_scroll_bar_{nullptr};
   bool syncing_scroll_bars_{false};
@@ -2429,6 +2440,13 @@ private:
   QImage patch_tool_drag_proxy_image_;
   bool moving_selection_{false};
   bool zooming_{false};
+  // Scrubby Zoom sub-state of zooming_: armed by the press when the option is
+  // on, started once travel passes kZoomClickSlopPx (a shorter press stays a
+  // click). Shares zoom_drag_anchor_widget_ / zoom_drag_last_pos_ with the pen
+  // ZoomCanvas drag; the two gestures never overlap.
+  bool zoom_scrubbing_{false};
+  bool zoom_scrub_started_{false};
+  static constexpr int kZoomClickSlopPx = 8;
   QPoint zoom_start_{};
   QPoint zoom_current_{};
   QPolygon lasso_points_;
@@ -2600,6 +2618,7 @@ private:
   bool handling_tablet_event_{false};
   bool pen_button_suppressing_paint_{false};
   bool pen_zoom_dragging_{false};
+  // Shared by the pen ZoomCanvas drag and Scrubby Zoom (canvas_widget_events.cpp).
   QPointF zoom_drag_anchor_widget_{};
   QPointF zoom_drag_last_pos_{};
   std::vector<MovingLayer> moving_layers_;

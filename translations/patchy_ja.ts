@@ -18004,6 +18004,14 @@ Clipped to the layer below</source>
         <source>Canvas Background Color</source>
         <translation>カンバスの背景色</translation>
     </message>
+    <message>
+        <source>Scrubby Zoom</source>
+        <translation>スクラブズーム</translation>
+    </message>
+    <message>
+        <source>Drag right to zoom in and left to zoom out around the point you pressed. Off: drag a rectangle to zoom to it</source>
+        <translation>右にドラッグで押した位置を中心に拡大、左にドラッグで縮小します。オフの場合は矩形をドラッグしてその範囲にズームします</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>

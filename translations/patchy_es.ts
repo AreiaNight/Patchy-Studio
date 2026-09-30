@@ -18056,6 +18056,14 @@ Y: %2
         <source>Canvas Background Color</source>
         <translation>Color de fondo del lienzo</translation>
     </message>
+    <message>
+        <source>Scrubby Zoom</source>
+        <translation>Zoom de arrastre</translation>
+    </message>
+    <message>
+        <source>Drag right to zoom in and left to zoom out around the point you pressed. Off: drag a rectangle to zoom to it</source>
+        <translation>Arrastre a la derecha para acercar y a la izquierda para alejar alrededor del punto pulsado. Desactivado: arrastre un rectángulo para ampliarlo</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>

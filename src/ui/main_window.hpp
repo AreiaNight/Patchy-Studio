@@ -1855,6 +1855,7 @@ private:
   QCheckBox* sponge_vibrance_check_{nullptr};
   QCheckBox* wand_contiguous_check_{nullptr};
   QCheckBox* fill_contiguous_check_{nullptr};
+  QCheckBox* zoom_scrubby_check_{nullptr};
   QCheckBox* wand_sample_all_layers_check_{nullptr};
   QCheckBox* quick_select_sample_all_layers_check_{nullptr};
   QCheckBox* quick_select_enhance_edge_check_{nullptr};
@@ -2163,6 +2164,7 @@ private:
   int current_fill_softness_{0};
   int current_fill_tolerance_{32};
   bool current_fill_contiguous_{true};
+  bool current_zoom_scrubby_{false};
   int current_quick_select_size_{30};
   bool current_quick_select_sample_all_layers_{false};
   bool current_quick_select_enhance_edge_{false};

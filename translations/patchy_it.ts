@@ -18056,6 +18056,14 @@ Y: %2
         <source>Canvas Background Color</source>
         <translation>Colore di sfondo dell&apos;area di lavoro</translation>
     </message>
+    <message>
+        <source>Scrubby Zoom</source>
+        <translation>Zoom trascinando</translation>
+    </message>
+    <message>
+        <source>Drag right to zoom in and left to zoom out around the point you pressed. Off: drag a rectangle to zoom to it</source>
+        <translation>Trascina a destra per ingrandire e a sinistra per ridurre attorno al punto premuto. Disattivato: traccia un rettangolo per ingrandirlo</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>

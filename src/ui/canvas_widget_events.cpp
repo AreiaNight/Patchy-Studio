@@ -1060,6 +1060,15 @@ void CanvasWidget::mousePressEvent(QMouseEvent* event) {
     // stays clamped to the canvas edges instead of spanning into the margin.
     zoom_start_ = document_ != nullptr ? clamped_document_point(*document_, document_point) : document_point;
     zoom_current_ = zoom_start_;
+    // Scrubby Zoom (docs/view-navigation.md): the press arms a live drag zoom
+    // about the frame-clamped press point instead of a marquee. A click (travel
+    // under kZoomClickSlopPx) still zooms by the fixed factor on release.
+    zoom_scrubbing_ = zoom_scrubby_;
+    zoom_scrub_started_ = false;
+    if (zoom_scrubbing_) {
+      zoom_drag_anchor_widget_ = zoom_click_anchor(event->position());
+      zoom_drag_last_pos_ = event->position();
+    }
     emit_info_for_widget_position(event->pos());
     update();
     return;
@@ -1746,9 +1755,24 @@ void CanvasWidget::mouseMoveEvent(QMouseEvent* event) {
     emit_info_for_widget_position(event->pos());
   } else if (zooming_ && document_ != nullptr) {
     clear_move_hover_outline();
-    zoom_current_ = clamped_document_point(*document_, document_point);
+    if (zoom_scrubbing_) {
+      // Horizontal travel drives the zoom (right = in, left = out). The first
+      // move past the click slop applies the accumulated delta at once, so the
+      // gesture has no dead zone; zoom_drag_last_pos_ holds the press point
+      // until then.
+      if (!zoom_scrub_started_ &&
+          (event->pos() - zoom_drag_last_pos_.toPoint()).manhattanLength() >= kZoomClickSlopPx) {
+        zoom_scrub_started_ = true;
+      }
+      if (zoom_scrub_started_) {
+        apply_zoom_drag_step(event->position().x() - zoom_drag_last_pos_.x());
+        zoom_drag_last_pos_ = event->position();
+      }
+    } else {
+      zoom_current_ = clamped_document_point(*document_, document_point);
+      update();
+    }
     emit_info_for_widget_position(event->pos());
-    update();
   } else {
     const auto guide_index = guide_at_widget_position(event->pos());
     const auto guide_drag_allowed = tool_ == CanvasTool::Move || event->modifiers().testFlag(Qt::ControlModifier);
@@ -2522,7 +2546,10 @@ void CanvasWidget::mouseReleaseEvent(QMouseEvent* event) {
 
   if (zooming_) {
     zooming_ = false;
-    if (document_ != nullptr) {
+    // A scrub already applied its zoom on every move; the release is a no-op.
+    const bool scrubbed = zoom_scrubbing_ && zoom_scrub_started_;
+    zoom_scrubbing_ = zoom_scrub_started_ = false;
+    if (document_ != nullptr && !scrubbed) {
       zoom_current_ = clamped_document_point(*document_, document_position(event->pos()));
       const bool zoom_out = (event->modifiers() & Qt::AltModifier) != 0;
       const auto widget_drag = (event->pos() - widget_position(zoom_start_)).manhattanLength();
@@ -2530,17 +2557,12 @@ void CanvasWidget::mouseReleaseEvent(QMouseEvent* event) {
       // Alt is always a point zoom-out, never a marquee. A drag counts as a
       // marquee when it covers real distance and spans more than a pixel in at
       // least one axis, so a thin strip clamped to an edge still zooms to fit.
-      if (!zoom_out && widget_drag >= 8 && (zoom_rect.width() > 1 || zoom_rect.height() > 1)) {
+      if (!zoom_out && widget_drag >= kZoomClickSlopPx && (zoom_rect.width() > 1 || zoom_rect.height() > 1)) {
         zoom_to_document_rect(zoom_rect);
       } else {
         // A click in the grey margin zooms toward the nearest point on the
         // document frame rather than toward the empty space under the cursor.
-        const QRectF frame(widget_position_f(QPointF(0.0, 0.0)),
-                           widget_position_f(QPointF(document_->width(), document_->height())));
-        const QPointF clicked = event->position();
-        const QPointF anchor(std::clamp(clicked.x(), frame.left(), frame.right()),
-                             std::clamp(clicked.y(), frame.top(), frame.bottom()));
-        zoom_at_widget_point(anchor, zoom_out ? 0.5 : 2.0);
+        zoom_at_widget_point(zoom_click_anchor(event->position()), zoom_out ? 0.5 : 2.0);
       }
     }
     emit_info_for_widget_position(event->pos());
@@ -3448,6 +3470,7 @@ void CanvasWidget::cancel_pointer_gestures() {
     cancel_guide_drag();
   }
   panning_ = zooming_ = false;
+  zoom_scrubbing_ = zoom_scrub_started_ = false;
   spacebar_repositioning_drag_rect_ = spacebar_panning_ = false;
   update();
 }
@@ -3508,6 +3531,7 @@ void CanvasWidget::focusOutEvent(QFocusEvent* event) {
   reset_brush_smoothing();
   reset_axis_constrained_stroke();
   zooming_ = false;
+  zoom_scrubbing_ = zoom_scrub_started_ = false;
   // A hover trace cannot survive losing the keyboard: Backspace/Enter/Escape
   // would land elsewhere while the wire keeps following the pointer.
   cancel_magnetic_lasso();
@@ -3596,7 +3620,7 @@ void CanvasWidget::timerEvent(QTimerEvent* event) {
     selection_dash_offset_ = (selection_dash_offset_ + 1) % 8;
     if ((!quick_mask_active_ && !selection_.isEmpty() &&
          selection_edges_visible_) ||
-        lassoing_ || magnetic_lassoing_ || zooming_) {
+        lassoing_ || magnetic_lassoing_ || (zooming_ && !zoom_scrubbing_)) {
       update();
     }
     event->accept();

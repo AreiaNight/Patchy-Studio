@@ -18004,6 +18004,14 @@ Y：%2
         <source>Canvas Background Color</source>
         <translation>畫布背景顏色</translation>
     </message>
+    <message>
+        <source>Scrubby Zoom</source>
+        <translation>細微縮放</translation>
+    </message>
+    <message>
+        <source>Drag right to zoom in and left to zoom out around the point you pressed. Off: drag a rectangle to zoom to it</source>
+        <translation>向右拖曳以按下的點為中心放大，向左拖曳縮小。關閉時，拖出一個矩形以縮放到該區域</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>

@@ -443,6 +443,7 @@ void MainWindow::bind_action_translations(ActionBuildContext& ctx) {
       {gradient_edit_stops_button_, QT_TR_NOOP("Edit Stops...")},
       {wand_contiguous_check_, QT_TR_NOOP("Contiguous")},
       {fill_contiguous_check_, QT_TR_NOOP("Contiguous")},
+      {zoom_scrubby_check_, QT_TR_NOOP("Scrubby Zoom")},
       {wand_sample_all_layers_check_, QT_TR_NOOP("Sample All Layers")},
       {quick_select_sample_all_layers_check_, QT_TR_NOOP("Sample All Layers")},
       {quick_select_enhance_edge_check_, QT_TR_NOOP("Enhance Edge")},
@@ -501,6 +502,7 @@ void MainWindow::sync_tool_option_controls_from_canvas() {
   }
   set_checked(wand_contiguous_check_, canvas_->wand_contiguous());
   set_checked(fill_contiguous_check_, canvas_->fill_contiguous());
+  set_checked(zoom_scrubby_check_, canvas_->zoom_scrubby());
   set_checked(wand_sample_all_layers_check_, canvas_->wand_sample_all_layers());
   set_checked(quick_select_sample_all_layers_check_, canvas_->quick_select_sample_all_layers());
   set_checked(quick_select_enhance_edge_check_, canvas_->quick_select_enhance_edge());

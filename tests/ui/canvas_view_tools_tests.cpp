@@ -1324,6 +1324,139 @@ void ui_shape_flyout_and_zoom_tool_work() {
   save_widget_artifact("ui_shape_flyout_zoom_tool", window);
 }
 
+// Scrubby Zoom (GitHub issue 51): the Zoom tool's options-bar checkbox is off by
+// default, persists as tools/zoomScrubby, reaches the active canvas, and follows
+// the window into a second document.
+void ui_zoom_tool_scrubby_option_persists_and_reaches_canvas() {
+  SettingsValueRestorer saved_scrubby(QStringLiteral("tools/zoomScrubby"));
+  {
+    auto settings = patchy::ui::app_settings();
+    settings.remove(QStringLiteral("tools/zoomScrubby"));
+    settings.sync();
+  }
+  patchy::ui::MainWindow window;
+  show_window(window);
+  auto* canvas = require_canvas(window);
+  auto* scrubby = window.findChild<QCheckBox*>(QStringLiteral("zoomScrubbyCheck"));
+  CHECK(scrubby != nullptr);
+  if (scrubby == nullptr) {
+    return;
+  }
+  CHECK(!scrubby->isChecked());
+  CHECK(!canvas->zoom_scrubby());
+
+  require_action(window, "toolBrushAction")->trigger();
+  QApplication::processEvents();
+  CHECK(!scrubby->isVisible());
+  require_action_by_text(window, QStringLiteral("Zoom"))->trigger();
+  QApplication::processEvents();
+  CHECK(canvas->tool() == patchy::ui::CanvasTool::Zoom);
+  CHECK(scrubby->isVisible());
+  CHECK(scrubby->isEnabled());
+
+  scrubby->setChecked(true);
+  QApplication::processEvents();
+  CHECK(canvas->zoom_scrubby());
+  patchy::ui::MainWindowTestAccess::save_tool_settings(window);
+  {
+    auto settings = patchy::ui::app_settings();
+    CHECK(settings.value(QStringLiteral("tools/zoomScrubby"), false).toBool());
+  }
+
+  patchy::ui::MainWindowTestAccess::create_default_document(window);
+  QApplication::processEvents();
+  auto* second = require_canvas(window);
+  CHECK(second != canvas);
+  CHECK(second->zoom_scrubby());
+  CHECK(scrubby->isChecked());
+}
+
+// With Scrubby Zoom on, a Zoom tool drag zooms live from horizontal travel
+// (1.01 per pixel, right = in) about the press point, which stays put; a press
+// without travel is still the fixed-factor click, Alt+drag scrubs, vertical
+// travel does nothing, and turning the option off restores the marquee.
+void ui_zoom_tool_scrubby_drag_zooms_live_around_press_point() {
+  patchy::Document document(128, 96, patchy::PixelFormat::rgba8());
+  document.add_pixel_layer("Paint", solid_pixels(128, 96, patchy::PixelFormat::rgba8(), QColor(200, 200, 200, 255)));
+
+  patchy::ui::CanvasWidget canvas;
+  canvas.resize(400, 300);
+  canvas.set_document(&document);
+  canvas.set_tool(patchy::ui::CanvasTool::Zoom);
+  canvas.set_zoom_scrubby(true);
+  canvas.show();
+  QApplication::processEvents();
+
+  const QPoint anchor_document(40, 30);
+  const auto press = [&canvas](QPoint at, Qt::KeyboardModifiers modifiers = Qt::NoModifier) {
+    send_mouse(canvas, QEvent::MouseButtonPress, at, Qt::LeftButton, Qt::LeftButton, modifiers);
+  };
+  const auto move = [&canvas](QPoint to, Qt::KeyboardModifiers modifiers = Qt::NoModifier) {
+    send_mouse(canvas, QEvent::MouseMove, to, Qt::NoButton, Qt::LeftButton, modifiers);
+  };
+  const auto release = [&canvas](QPoint at, Qt::KeyboardModifiers modifiers = Qt::NoModifier) {
+    send_mouse(canvas, QEvent::MouseButtonRelease, at, Qt::LeftButton, Qt::NoButton, modifiers);
+  };
+
+  // (a) Drag right in steps: the zoom follows 1.01^dx and the pressed document
+  // point stays under the press position.
+  canvas.set_zoom(1.0);
+  const auto start = canvas.widget_position_for_document_point(anchor_document);
+  press(start);
+  move(start + QPoint(20, 0));
+  move(start + QPoint(60, 0));
+  move(start + QPoint(100, 0));
+  release(start + QPoint(100, 0));
+  const auto scrubbed_in = canvas.zoom();
+  CHECK(std::abs(scrubbed_in - std::pow(1.01, 100)) < 0.05);
+  const auto anchor_after = canvas.widget_position_for_document_point(anchor_document);
+  CHECK((anchor_after - start).manhattanLength() <= 2);
+
+  // (b) Drag left the same distance: back to the starting zoom.
+  const auto left_start = canvas.widget_position_for_document_point(anchor_document);
+  press(left_start);
+  move(left_start + QPoint(-50, 0));
+  move(left_start + QPoint(-100, 0));
+  release(left_start + QPoint(-100, 0));
+  CHECK(std::abs(canvas.zoom() - 1.0) < 0.05);
+
+  // (c) A press without travel is still a click: 2x, and 0.5x with Alt.
+  canvas.set_zoom(1.0);
+  const auto click_at = canvas.widget_position_for_document_point(anchor_document);
+  press(click_at);
+  release(click_at);
+  CHECK(std::abs(canvas.zoom() - 2.0) < 0.001);
+  const auto alt_click_at = canvas.widget_position_for_document_point(anchor_document);
+  press(alt_click_at, Qt::AltModifier);
+  release(alt_click_at, Qt::AltModifier);
+  CHECK(std::abs(canvas.zoom() - 1.0) < 0.001);
+
+  // (d) Alt only matters to a click: an Alt drag to the right still zooms in.
+  const auto alt_drag_at = canvas.widget_position_for_document_point(anchor_document);
+  press(alt_drag_at, Qt::AltModifier);
+  move(alt_drag_at + QPoint(50, 0), Qt::AltModifier);
+  release(alt_drag_at + QPoint(50, 0), Qt::AltModifier);
+  CHECK(canvas.zoom() > 1.5);
+
+  // (e) Vertical travel past the click slop is neither a click nor a zoom.
+  canvas.set_zoom(1.0);
+  const auto vertical_at = canvas.widget_position_for_document_point(anchor_document);
+  press(vertical_at);
+  move(vertical_at + QPoint(0, 40));
+  release(vertical_at + QPoint(0, 40));
+  CHECK(std::abs(canvas.zoom() - 1.0) < 0.001);
+
+  // (f) Option off: the same drag is a marquee fit, not a scrub.
+  canvas.set_zoom_scrubby(false);
+  canvas.set_zoom(1.0);
+  const auto marquee_at = canvas.widget_position_for_document_point(anchor_document);
+  press(marquee_at);
+  move(marquee_at + QPoint(60, 30));
+  release(marquee_at + QPoint(60, 30));
+  CHECK(std::abs(canvas.zoom() - std::pow(1.01, 60)) > 0.05);
+  CHECK(canvas.zoom() > 1.0);
+}
+
 void ui_tool_palette_icons_render_sheet() {
   patchy::ui::MainWindow window;
   show_window(window);
@@ -1778,6 +1911,7 @@ void ui_options_bar_tracks_active_tool() {
   auto* wand_tolerance = window.findChild<QSpinBox*>(QStringLiteral("wandToleranceSpin"));
   auto* wand_contiguous = window.findChild<QCheckBox*>(QStringLiteral("wandContiguousCheck"));
   auto* wand_sample_all_layers = window.findChild<QCheckBox*>(QStringLiteral("wandSampleAllLayersCheck"));
+  auto* zoom_scrubby = window.findChild<QCheckBox*>(QStringLiteral("zoomScrubbyCheck"));
   auto* feather_group = window.findChild<QWidget*>(QStringLiteral("selectionFeatherGroup"));
   auto* anti_alias = window.findChild<QCheckBox*>(QStringLiteral("selectionAntiAliasCheck"));
   CHECK(move_auto_select != nullptr);
@@ -1812,6 +1946,7 @@ void ui_options_bar_tracks_active_tool() {
   CHECK(wand_tolerance != nullptr);
   CHECK(wand_contiguous != nullptr);
   CHECK(wand_sample_all_layers != nullptr);
+  CHECK(zoom_scrubby != nullptr);
   CHECK(feather_group != nullptr);
   CHECK(anti_alias != nullptr);
   CHECK(anti_alias->isChecked());
@@ -1840,6 +1975,7 @@ void ui_options_bar_tracks_active_tool() {
   CHECK(!move_show_transform_controls->isVisible());
   CHECK(!wand_contiguous->isVisible());
   CHECK(!wand_sample_all_layers->isVisible());
+  CHECK(!zoom_scrubby->isVisible());
   CHECK(!text_font->isVisible());
   CHECK(!text_color->isVisible());
 
@@ -1893,6 +2029,7 @@ void ui_options_bar_tracks_active_tool() {
   CHECK(wand_tolerance->isVisible());
   CHECK(wand_contiguous->isVisible());
   CHECK(wand_sample_all_layers->isVisible());
+  CHECK(!zoom_scrubby->isVisible());
   CHECK(feather_group->isVisible());
   CHECK(anti_alias->isVisible());
   CHECK(!text_font->isVisible());
@@ -3512,6 +3649,10 @@ std::vector<patchy::test::TestCase> canvas_view_tools_tests() {
       {"ui_zoomed_out_canvas_uses_downsampled_display_mip",
        ui_zoomed_out_canvas_uses_downsampled_display_mip},
       {"ui_shape_flyout_and_zoom_tool_work", ui_shape_flyout_and_zoom_tool_work},
+      {"ui_zoom_tool_scrubby_option_persists_and_reaches_canvas",
+       ui_zoom_tool_scrubby_option_persists_and_reaches_canvas},
+      {"ui_zoom_tool_scrubby_drag_zooms_live_around_press_point",
+       ui_zoom_tool_scrubby_drag_zooms_live_around_press_point},
       {"ui_stamp_and_gradient_flyouts_swap_tools", ui_stamp_and_gradient_flyouts_swap_tools},
       {"ui_tool_cycle_hotkeys_walk_each_flyout", ui_tool_cycle_hotkeys_walk_each_flyout},
       {"ui_tool_flyout_double_click_opens_menu", ui_tool_flyout_double_click_opens_menu},
