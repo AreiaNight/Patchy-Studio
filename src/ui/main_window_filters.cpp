@@ -2712,7 +2712,7 @@ void MainWindow::liquify_dialog() {
   const auto original_pixels = source_layer->pixels();
   const auto bounds = source_layer->bounds();
   const auto selection = canvas_->selected_document_region();
-  const auto mesh = request_liquify(this, original_pixels, bounds, selection);
+  const auto mesh = request_liquify(this, original_pixels, bounds, selection, document_field_units().ppi);
   if (!mesh.has_value()) {
     statusBar()->showMessage(tr("Cancelled Liquify"));
     return;

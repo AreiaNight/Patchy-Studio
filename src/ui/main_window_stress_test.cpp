@@ -1491,7 +1491,7 @@ private:
   VectorToolMode saved_vector_tool_mode_{VectorToolMode::Shape};
   int saved_vector_combine_index_{0};
   int saved_shape_corner_radius_{0};
-  int saved_vector_line_weight_{4};
+  double saved_vector_line_weight_{4.0};
   bool saved_line_arrow_start_{false};
   bool saved_line_arrow_end_{false};
 };
@@ -2423,7 +2423,7 @@ void StressTestRunner::phase_arcade_vector() {
     w.activate_tool(CanvasTool::Line);
     canvas()->set_vector_tool_mode(VectorToolMode::Shape);
     set_vector_appearance(solid_vector_fill(QColor(226, 208, 130)));
-    w.current_vector_line_weight_ = std::max(2, at(0.003));
+    w.current_vector_line_weight_ = static_cast<double>(std::max(2, at(0.003)));
     w.current_line_arrow_end_ = true;
     drag(pt(1.035, 0.205), pt(1.10, 0.26), 4);
     w.current_line_arrow_end_ = false;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ui/measurement_units.hpp"
+
 #include <QContextMenuEvent>
 #include <QDoubleSpinBox>
 #include <QLocale>
@@ -16,6 +18,11 @@ namespace patchy::ui {
 // MeasurementUnit (rulers, unit combos, settings tokens) so Degrees never leaks into
 // a settings token.
 enum class SpinUnit { Pixels, Inches, Centimeters, Millimeters, Points, Percent, Degrees };
+
+// The bridge between the two enums: every MeasurementUnit has a SpinUnit; Degrees has
+// no MeasurementUnit (nullopt).
+[[nodiscard]] std::optional<MeasurementUnit> measurement_unit_for(SpinUnit unit) noexcept;
+[[nodiscard]] SpinUnit spin_unit_for(MeasurementUnit unit) noexcept;
 
 // What the user typed: a number plus an optional unit token. A missing unit means
 // "the field's native unit".
@@ -78,8 +85,17 @@ class UnitSpinBox : public QDoubleSpinBox {
   // Presentation unit. value() stays in the native unit; the suffix and the number
   // shown convert through the context, and a plain typed number is read in this
   // unit. A percent display without a basis falls back to the native text.
+  // Leaving the native unit also widens decimals() to the display unit's
+  // (measurement_unit_decimals) and sets singleStep() to one display unit converted
+  // through the context (measurement_unit_single_step), so arrow keys and a
+  // scrubby-label drag move a sensible amount in inches or cm; returning to the
+  // native unit restores the decimals and step the field was built with. Set the
+  // native decimals and step before switching units, never while one is shown.
   void set_display_unit(SpinUnit unit);
   [[nodiscard]] SpinUnit display_unit() const noexcept { return display_; }
+  // Recomputes the display-unit step for the current context (the PPI changed:
+  // another document became active, or Image Size edited the resolution).
+  void refresh_display_metrics();
   // Photoshop's X/Y/W/H fields: a typed unit token becomes the display unit, and a
   // right-click offers the unit list.
   void set_display_unit_switchable(bool enabled);
@@ -101,6 +117,10 @@ class UnitSpinBox : public QDoubleSpinBox {
   SpinUnit native_;
   SpinUnit display_;
   bool switchable_{false};
+  // The presentation the field was built with, captured when a display unit first
+  // replaces the native one and restored when the native unit comes back.
+  std::optional<int> native_decimals_;
+  std::optional<double> native_single_step_;
   ContextProvider context_provider_;
   // Set by valueFromText (const) while a typed token is being committed; applied
   // once the edit finishes so the field re-renders in the new unit.
@@ -131,5 +151,27 @@ class UnitIntSpinBox : public QSpinBox {
   SpinUnit native_;
   ContextProvider context_provider_;
 };
+
+// What a pixel-native dimension field needs to present itself in the user's unit
+// (docs/resolution-units.md): the ruler unit (`view/rulerUnits`), the document PPI,
+// and the document extent as the Percent basis per axis (0 = no basis).
+struct DocumentFieldUnits {
+  MeasurementUnit display_unit{MeasurementUnit::Pixels};
+  double ppi{300.0};
+  double document_width{0.0};
+  double document_height{0.0};
+};
+
+// The conversion context for one axis of `units`.
+[[nodiscard]] UnitConversionContext document_field_context(const DocumentFieldUnits& units, bool horizontal);
+
+// Makes `spin` switchable and shows it in `unit` (a no-op switch still refreshes the
+// step for the current context). The caller supplies the context provider.
+void set_field_display_unit(UnitSpinBox* spin, MeasurementUnit unit);
+
+// For fields in a modal dialog: a fixed context snapshot for the axis plus
+// set_field_display_unit. Fields whose live document can change (options bar,
+// panels) keep their own provider and call set_field_display_unit directly.
+void apply_document_field_units(UnitSpinBox* spin, const DocumentFieldUnits& units, bool horizontal);
 
 }  // namespace patchy::ui

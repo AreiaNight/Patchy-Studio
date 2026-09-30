@@ -2362,6 +2362,114 @@ void ui_new_document_dialog_remembers_last_settings() {
   CHECK(tabs->count() == 2);
 }
 
+// Issue 53: the W/H unit and the resolution unit persist with the other New
+// Document settings; a first run (no stored unit) seeds the W/H unit from the
+// ruler unit, and a stored token the combo cannot show falls back to Pixels.
+void ui_new_document_dialog_remembers_unit() {
+  QApplication::clipboard()->clear();
+  SettingsValueRestorer restore_units(QStringLiteral("view/rulerUnits"));
+  {
+    auto settings = patchy::ui::app_settings();
+    settings.remove(QStringLiteral("newDocument"));
+    settings.setValue(QStringLiteral("view/rulerUnits"), QStringLiteral("cm"));
+  }
+
+  patchy::ui::MainWindow window;
+  show_window(window);
+  auto* tabs = qobject_cast<QTabWidget*>(window.centralWidget());
+  CHECK(tabs != nullptr);
+
+  struct DialogFields {
+    QDialog* dialog{nullptr};
+    QComboBox* unit{nullptr};
+    QComboBox* resolution_unit{nullptr};
+    QDoubleSpinBox* width{nullptr};
+    QDoubleSpinBox* resolution{nullptr};
+  };
+  const auto with_dialog = [](std::function<void(const DialogFields&)> body) {
+    QTimer::singleShot(0, [body = std::move(body)] {
+      for (auto* widget : QApplication::topLevelWidgets()) {
+        if (widget->objectName() != QStringLiteral("patchyNewDocumentDialog")) {
+          continue;
+        }
+        DialogFields fields;
+        fields.dialog = qobject_cast<QDialog*>(widget);
+        fields.unit = fields.dialog->findChild<QComboBox*>(QStringLiteral("newDocumentUnitCombo"));
+        fields.resolution_unit =
+            fields.dialog->findChild<QComboBox*>(QStringLiteral("newDocumentResolutionUnitCombo"));
+        fields.width = fields.dialog->findChild<QDoubleSpinBox*>(QStringLiteral("newDocumentWidthSpin"));
+        fields.resolution =
+            fields.dialog->findChild<QDoubleSpinBox*>(QStringLiteral("newDocumentResolutionSpin"));
+        CHECK(fields.unit != nullptr);
+        CHECK(fields.resolution_unit != nullptr);
+        CHECK(fields.width != nullptr);
+        CHECK(fields.resolution != nullptr);
+        body(fields);
+        return;
+      }
+      CHECK(false);
+    });
+  };
+
+  // First run: the ruler unit (cm) seeds the combo and the width already reads
+  // in it. Pick mm and Pixels/Centimeter, then accept.
+  with_dialog([](const DialogFields& fields) {
+    CHECK(fields.unit->currentText() == QStringLiteral("Centimeters"));
+    CHECK(fields.resolution_unit->currentIndex() == 0);
+    const auto ppi = fields.resolution->value();
+    CHECK(ppi > 0.0);
+    CHECK(std::abs(fields.width->value() - 1024.0 / ppi * 2.54) < 0.01);
+    fields.unit->setCurrentIndex(fields.unit->findText(QStringLiteral("Millimeters")));
+    fields.resolution_unit->setCurrentIndex(1);
+    QApplication::processEvents();
+    CHECK(std::abs(fields.width->value() - 1024.0 / ppi * 25.4) < 0.1);  // mm shows one decimal
+    fields.dialog->accept();
+  });
+  require_action(window, "fileNewAction")->trigger();
+  QApplication::processEvents();
+  CHECK(tabs->count() == 2);
+  CHECK(patchy::ui::MainWindowTestAccess::document(window).width() == 1024);
+  {
+    auto settings = patchy::ui::app_settings();
+    CHECK(settings.value(QStringLiteral("newDocument/lastUnit")).toString() == QStringLiteral("mm"));
+    CHECK(settings.value(QStringLiteral("newDocument/lastResolutionUnit")).toString() == QStringLiteral("cm"));
+  }
+
+  // Reopening restores both units, whatever the ruler unit says now.
+  {
+    auto settings = patchy::ui::app_settings();
+    settings.setValue(QStringLiteral("view/rulerUnits"), QStringLiteral("in"));
+  }
+  with_dialog([](const DialogFields& fields) {
+    CHECK(fields.unit->currentText() == QStringLiteral("Millimeters"));
+    CHECK(fields.resolution_unit->currentIndex() == 1);
+    const auto ppi = fields.resolution->value() * 2.54;  // shown as pixels/cm
+    CHECK(std::abs(fields.width->value() - 1024.0 / ppi * 25.4) < 0.1);
+    fields.dialog->reject();
+  });
+  require_action(window, "fileNewAction")->trigger();
+  QApplication::processEvents();
+  CHECK(tabs->count() == 2);
+
+  // Points is a ruler unit but not a New Document unit: Pixels instead.
+  {
+    auto settings = patchy::ui::app_settings();
+    settings.setValue(QStringLiteral("newDocument/lastUnit"), QStringLiteral("pt"));
+  }
+  with_dialog([](const DialogFields& fields) {
+    CHECK(fields.unit->currentText() == QStringLiteral("Pixels"));
+    CHECK(fields.width->value() == 1024);
+    fields.dialog->reject();
+  });
+  require_action(window, "fileNewAction")->trigger();
+  QApplication::processEvents();
+  CHECK(tabs->count() == 2);
+  {
+    auto settings = patchy::ui::app_settings();
+    settings.remove(QStringLiteral("newDocument"));
+  }
+}
+
 void ui_new_document_opens_fit_to_view() {
   patchy::ui::MainWindow window;
   show_window(window);
@@ -2654,6 +2762,7 @@ std::vector<patchy::test::TestCase> layer_context_lifecycle_tests() {
        ui_canvas_size_preserves_layers_and_crop_option_resets},
       {"ui_new_document_presets_and_clipboard_work", ui_new_document_presets_and_clipboard_work},
       {"ui_new_document_dialog_remembers_last_settings", ui_new_document_dialog_remembers_last_settings},
+      {"ui_new_document_dialog_remembers_unit", ui_new_document_dialog_remembers_unit},
       {"ui_new_document_opens_fit_to_view", ui_new_document_opens_fit_to_view},
       {"ui_new_document_background_starts_locked", ui_new_document_background_starts_locked},
       {"ui_merge_down_into_position_locked_background_works",

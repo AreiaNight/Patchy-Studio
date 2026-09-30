@@ -163,7 +163,7 @@ void MainWindow::handle_vector_shape_drawn(LiveShapeKind kind, QRectF bounds, QP
     params.line_start_y = line_start.y();
     params.line_end_x = line_end.x();
     params.line_end_y = line_end.y();
-    params.line_weight = std::max(1, current_vector_line_weight_);
+    params.line_weight = std::max(1.0, current_vector_line_weight_);
     // Photoshop's default arrowhead proportions: width 5x, length 10x weight.
     params.arrow_start = current_line_arrow_start_;
     params.arrow_end = current_line_arrow_end_;
@@ -227,6 +227,7 @@ void MainWindow::handle_shape_create_requested(CanvasTool tool, QPointF document
   request.from_center = memory.from_center;
   const auto radius = static_cast<double>(std::max(0, current_shape_corner_radius_));
   request.corner_radii = {radius, radius, radius, radius};
+  request.units = document_field_units();
   const auto result = request_shape_create_settings(this, request);
   if (!result.has_value() || !has_active_document() || canvas_ == nullptr) {
     return;
@@ -820,7 +821,8 @@ bool MainWindow::edit_active_shape_appearance(bool record_undo) {
                static_cast<std::uint8_t>(foreground.blue())},
       RgbColor{static_cast<std::uint8_t>(background.red()),
                static_cast<std::uint8_t>(background.green()),
-               static_cast<std::uint8_t>(background.blue())});
+               static_cast<std::uint8_t>(background.blue())},
+      document_field_units());
   // On accept, drain the in-flight preview: its result IS the final raster,
   // so the commit reuses it instead of re-rasterizing (the second freeze).
   if (accepted.has_value()) {
@@ -2355,6 +2357,7 @@ void MainWindow::simplify_target_path() {
   auto* form = new QFormLayout();
   auto* tolerance = new UnitSpinBox(SpinUnit::Pixels, &dialog);
   tolerance->setObjectName(QStringLiteral("simplifyPathToleranceSpin"));
+  tolerance->set_context_provider(document_unit_context_provider(true));
   tolerance->setRange(0.1, 20.0);
   tolerance->setDecimals(1);
   tolerance->setSingleStep(0.5);

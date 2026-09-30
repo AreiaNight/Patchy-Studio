@@ -351,6 +351,8 @@ private:
                            slider->setValue(new_value);
                          });
       }
+    } else if (spin_->property(kToolbarSpinboxSliderCurvedProperty).toBool()) {
+      bind_curved_slider(*slider, *spin_, static_cast<int>(std::lround(slider_maximum)));
     } else {
       const int decimal_places = std::clamp(spin_->decimals(), 0, 3);
       const double scale = std::pow(10.0, decimal_places);

@@ -8,7 +8,9 @@
 #include "core/vector_shape.hpp"
 #include "core/vector_raster.hpp"
 #include "ui/default_custom_shapes.hpp"
+#include "ui/measurement_units.hpp"
 #include "ui/pattern_library.hpp"
+#include "ui/unit_spin_box.hpp"
 
 #include <QAction>
 #include <QCheckBox>
@@ -203,7 +205,7 @@ void ui_line_shape_layer_uses_weight_and_stroke_settings() {
   auto& document = patchy::ui::MainWindowTestAccess::document(window);
 
   canvas->set_tool(patchy::ui::CanvasTool::Line);
-  auto* weight_spin = window.findChild<QSpinBox*>(QStringLiteral("vectorLineWeightSpin"));
+  auto* weight_spin = window.findChild<QDoubleSpinBox*>(QStringLiteral("vectorLineWeightSpin"));
   CHECK(weight_spin != nullptr);
   weight_spin->setValue(10);
 
@@ -914,7 +916,7 @@ void ui_line_arrowheads_extend_the_shape() {
   auto& document = patchy::ui::MainWindowTestAccess::document(window);
 
   canvas->set_tool(patchy::ui::CanvasTool::Line);
-  auto* weight_spin = window.findChild<QSpinBox*>(QStringLiteral("vectorLineWeightSpin"));
+  auto* weight_spin = window.findChild<QDoubleSpinBox*>(QStringLiteral("vectorLineWeightSpin"));
   CHECK(weight_spin != nullptr);
   weight_spin->setValue(6);
   auto* arrow_end = window.findChild<QCheckBox*>(QStringLiteral("lineArrowEndCheck"));
@@ -4111,8 +4113,111 @@ void ui_shape_context_menu_offers_shape_commands() {
   }
 }
 
+// Issue 53: the shape W/H readouts (options bar and Properties panel), the
+// transform X/Y fields, stroke width and line weight present themselves in the
+// ruler unit through the document PPI. value() stays document pixels, a typed
+// plain number is read in the shown unit, arrow steps move one shown unit, and
+// a ruler unit change re-renders every field.
+void ui_shape_size_fields_follow_ruler_unit() {
+  VectorSettingsGuard settings_guard;
+  SettingsValueRestorer restore_units(QStringLiteral("view/rulerUnits"));
+  patchy::ui::MainWindow window;
+  show_window(window);
+  auto* canvas = require_canvas(window);
+  auto& document = patchy::ui::MainWindowTestAccess::document(window);
+  document.print_settings().horizontal_ppi = 300.0;
+  document.print_settings().vertical_ppi = 300.0;
+  patchy::ui::MainWindowTestAccess::set_ruler_unit(window, patchy::ui::MeasurementUnit::Pixels);
+
+  auto* width_spin = window.findChild<patchy::ui::UnitSpinBox*>(QStringLiteral("vectorShapeWidthSpin"));
+  auto* height_spin = window.findChild<patchy::ui::UnitSpinBox*>(QStringLiteral("vectorShapeHeightSpin"));
+  auto* properties_width =
+      window.findChild<patchy::ui::UnitSpinBox*>(QStringLiteral("propertiesShapeWidthSpin"));
+  auto* stroke_width = window.findChild<patchy::ui::UnitSpinBox*>(QStringLiteral("vectorStrokeWidthSpin"));
+  auto* line_weight = window.findChild<patchy::ui::UnitSpinBox*>(QStringLiteral("vectorLineWeightSpin"));
+  auto* transform_x = window.findChild<patchy::ui::UnitSpinBox*>(QStringLiteral("freeTransformXSpin"));
+  const std::array<patchy::ui::UnitSpinBox*, 6> fields{width_spin,   height_spin, properties_width,
+                                                        stroke_width, line_weight, transform_x};
+  for (auto* spin : fields) {
+    CHECK(spin != nullptr);
+    CHECK(spin->display_unit() == patchy::ui::SpinUnit::Pixels);
+    CHECK(spin->display_unit_switchable());
+  }
+  const auto mm_suffix =
+      QStringLiteral(" ") + patchy::ui::measurement_unit_suffix(patchy::ui::MeasurementUnit::Millimeters);
+  const auto commit_text = [](QDoubleSpinBox& spin, const QString& text) {
+    auto* editor = spin.findChild<QLineEdit*>();
+    CHECK(editor != nullptr);
+    editor->setText(text);
+    send_key(spin, Qt::Key_Return);
+    QApplication::processEvents();
+  };
+
+  require_action(window, "toolEllipseAction")->trigger();
+  QApplication::processEvents();
+  shape_drag(*canvas, QPoint(100, 100), QPoint(400, 250));  // 300 x 150 px
+  const auto layer_id = *document.active_layer_id();
+  CHECK(std::abs(width_spin->value() - 300.0) < 0.5);
+  stroke_width->setValue(6.0);
+  line_weight->setValue(3.0);
+
+  // Millimeters: every field re-renders; the values stay pixels.
+  patchy::ui::MainWindowTestAccess::set_ruler_unit(window, patchy::ui::MeasurementUnit::Millimeters);
+  for (auto* spin : fields) {
+    CHECK(spin->display_unit() == patchy::ui::SpinUnit::Millimeters);
+    CHECK(spin->suffix() == mm_suffix);
+  }
+  CHECK(std::abs(width_spin->value() - 300.0) < 0.5);
+  CHECK(width_spin->text() == QStringLiteral("25.4") + mm_suffix);
+  CHECK(properties_width->text() == QStringLiteral("25.4") + mm_suffix);
+  CHECK(height_spin->text() == QStringLiteral("12.7") + mm_suffix);
+  CHECK(std::abs(stroke_width->value() - 6.0) < 1e-9);
+  CHECK(stroke_width->text() == QStringLiteral("0.5") + mm_suffix);
+  CHECK(std::abs(width_spin->singleStep() - 300.0 / 25.4) < 1e-6);  // one arrow press = 1 mm
+  {
+    auto settings = patchy::ui::app_settings();
+    CHECK(settings.value(QStringLiteral("view/rulerUnits")).toString() == QStringLiteral("mm"));
+  }
+
+  // A plain number typed now means millimeters: 50.8 mm is 600 px, and the
+  // shape resizes to it.
+  commit_text(*width_spin, QStringLiteral("50.8"));
+  CHECK(std::abs(width_spin->value() - 600.0) < 0.5);
+  process_events_for(450);
+  const auto* content = document.find_layer(layer_id)->vector_shape();
+  CHECK(content != nullptr);
+  CHECK(content->origination.size() == 1);
+  CHECK(std::abs(content->origination[0].right - 700.0) < 0.5);
+  CHECK(properties_width->text() == QStringLiteral("50.8") + mm_suffix);
+
+  // A per-field right-click override is a session choice: the ruler stays mm.
+  height_spin->set_display_unit(patchy::ui::SpinUnit::Inches);
+  CHECK(height_spin->text() == QStringLiteral("0.500") + patchy::ui::inch_suffix());
+  CHECK(patchy::ui::MainWindowTestAccess::ruler_unit(window) == patchy::ui::MeasurementUnit::Millimeters);
+  CHECK(width_spin->display_unit() == patchy::ui::SpinUnit::Millimeters);
+
+  // A new preference overrides it and lands everywhere.
+  patchy::ui::MainWindowTestAccess::set_ruler_unit(window, patchy::ui::MeasurementUnit::Inches);
+  for (auto* spin : fields) {
+    CHECK(spin->display_unit() == patchy::ui::SpinUnit::Inches);
+  }
+  CHECK(width_spin->text() == QStringLiteral("2.000") + patchy::ui::inch_suffix());
+  CHECK(line_weight->text() == QStringLiteral("0.010") + patchy::ui::inch_suffix());
+
+  // Back to pixels restores the construction presentation.
+  patchy::ui::MainWindowTestAccess::set_ruler_unit(window, patchy::ui::MeasurementUnit::Pixels);
+  for (auto* spin : fields) {
+    CHECK(spin->display_unit() == patchy::ui::SpinUnit::Pixels);
+  }
+  CHECK(width_spin->text() == QStringLiteral("600.0") + patchy::ui::pixel_suffix());
+  CHECK(std::abs(width_spin->singleStep() - 1.0) < 1e-9);
+  CHECK(width_spin->decimals() == 1);
+  CHECK(line_weight->text() == QStringLiteral("3.0") + patchy::ui::pixel_suffix());
+}
+
 std::vector<patchy::test::TestCase> vector_shape_tool_tests() {
   return {
+      {"ui_shape_size_fields_follow_ruler_unit", ui_shape_size_fields_follow_ruler_unit},
       {"ui_shape_tool_creates_shape_layer_and_undoes", ui_shape_tool_creates_shape_layer_and_undoes},
       {"ui_shape_tool_combine_extends_active_shape_layer",
        ui_shape_tool_combine_extends_active_shape_layer},

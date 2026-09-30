@@ -1181,6 +1181,7 @@ void MainWindow::show_preferences() {
 
   auto* grid_spacing_spin = new UnitSpinBox(SpinUnit::Pixels, view_group);
   grid_spacing_spin->setObjectName(QStringLiteral("preferencesGridSpacingSpin"));
+  grid_spacing_spin->set_context_provider(document_unit_context_provider(true));
   grid_spacing_spin->setRange(0.03125, 10000.0);
   grid_spacing_spin->setDecimals(3);
   grid_spacing_spin->setValue(static_cast<double>(view_grid_spacing_32_) / 32.0);
@@ -1713,6 +1714,7 @@ void MainWindow::new_guide_dialog() {
   position_spin->setRange(0.0, std::max(document().width(), document().height()));
   position_spin->setDecimals(3);
   position_spin->setValue(0.0);
+  set_field_display_unit(position_spin, ruler_unit_);  // shown in the ruler unit, like the guide readout
   form->addRow(tr("Orientation:"), orientation_combo);
   form->addRow(tr("Position:"), position_spin);
   content->addLayout(form);
@@ -1813,7 +1815,51 @@ void MainWindow::set_ruler_unit_preference(MeasurementUnit unit) {
     apply_canvas_aid_settings(active_session->canvas);
   }
   save_view_settings();
+  apply_ruler_unit_to_fields();
   refresh_document_info();
+}
+
+void MainWindow::register_ruler_unit_field(UnitSpinBox* spin) {
+  if (spin == nullptr) {
+    return;
+  }
+  ruler_unit_fields_.emplace_back(spin);
+  set_field_display_unit(spin, ruler_unit_);
+}
+
+void MainWindow::apply_ruler_unit_to_fields() {
+  for (const auto& spin : ruler_unit_fields_) {
+    if (spin != nullptr) {
+      set_field_display_unit(spin, ruler_unit_);
+    }
+  }
+}
+
+void MainWindow::refresh_ruler_unit_field_metrics() {
+  for (const auto& spin : ruler_unit_fields_) {
+    if (spin != nullptr) {
+      spin->refresh_display_metrics();
+    }
+  }
+}
+
+UnitConversionContext MainWindow::document_unit_context(bool horizontal) const {
+  return document_field_context(document_field_units(), horizontal);
+}
+
+UnitSpinBox::ContextProvider MainWindow::document_unit_context_provider(bool horizontal) const {
+  return [this, horizontal] { return document_unit_context(horizontal); };
+}
+
+DocumentFieldUnits MainWindow::document_field_units() const {
+  DocumentFieldUnits units;
+  units.display_unit = ruler_unit_;
+  if (has_active_document()) {
+    units.ppi = text_size_ppi(document());
+    units.document_width = static_cast<double>(document().width());
+    units.document_height = static_cast<double>(document().height());
+  }
+  return units;
 }
 
 void MainWindow::set_canvas_backdrop_color_preference(std::optional<QColor> color) {
@@ -2008,6 +2054,7 @@ void MainWindow::load_view_settings() {
   ruler_unit_ = measurement_unit_from_settings_token(
       settings.value(QStringLiteral("view/rulerUnits"), QStringLiteral("px")).toString(),
       MeasurementUnit::Pixels);
+  apply_ruler_unit_to_fields();  // the options-bar fields exist by now; the docks enroll themselves
   view_grid_visible_ = settings.value(QStringLiteral("view/gridVisible"), view_grid_visible_).toBool();
   view_guides_visible_ = settings.value(QStringLiteral("view/guidesVisible"), view_guides_visible_).toBool();
   view_guides_locked_ = settings.value(QStringLiteral("view/guidesLocked"), view_guides_locked_).toBool();

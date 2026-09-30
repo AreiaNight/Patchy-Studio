@@ -1961,8 +1961,8 @@ void MainWindow::load_tool_settings() {
       settings.value(QStringLiteral("tools/vectorStrokeWidth"), current_vector_stroke_width_).toDouble(),
       0.1, 1000.0);
   current_vector_line_weight_ = std::clamp(
-      settings.value(QStringLiteral("tools/vectorLineWeight"), current_vector_line_weight_).toInt(), 1,
-      1000);
+      settings.value(QStringLiteral("tools/vectorLineWeight"), current_vector_line_weight_).toDouble(), 1.0,
+      1000.0);
   if (auto* stroke_check = findChild<QCheckBox*>(QStringLiteral("vectorStrokeCheck"));
       stroke_check != nullptr) {
     QSignalBlocker blocker(stroke_check);
@@ -1973,7 +1973,7 @@ void MainWindow::load_tool_settings() {
     QSignalBlocker blocker(stroke_width);
     stroke_width->setValue(current_vector_stroke_width_);
   }
-  if (auto* line_weight = findChild<QSpinBox*>(QStringLiteral("vectorLineWeightSpin"));
+  if (auto* line_weight = findChild<QDoubleSpinBox*>(QStringLiteral("vectorLineWeightSpin"));
       line_weight != nullptr) {
     QSignalBlocker blocker(line_weight);
     line_weight->setValue(current_vector_line_weight_);

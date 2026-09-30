@@ -612,11 +612,13 @@ void MainWindow::fill_active_path() {
   form->addRow(tr("Angle:"), pattern_angle);
   auto* pattern_offset_x = new UnitSpinBox(SpinUnit::Pixels, &dialog);
   pattern_offset_x->setObjectName(QStringLiteral("fillPathPatternOffsetXSpin"));
+  pattern_offset_x->set_context_provider(document_unit_context_provider(true));
   pattern_offset_x->setRange(-30000.0, 30000.0);
   pattern_offset_x->setDecimals(1);
   form->addRow(tr("Offset X:"), pattern_offset_x);
   auto* pattern_offset_y = new UnitSpinBox(SpinUnit::Pixels, &dialog);
   pattern_offset_y->setObjectName(QStringLiteral("fillPathPatternOffsetYSpin"));
+  pattern_offset_y->set_context_provider(document_unit_context_provider(false));
   pattern_offset_y->setRange(-30000.0, 30000.0);
   pattern_offset_y->setDecimals(1);
   form->addRow(tr("Offset Y:"), pattern_offset_y);
@@ -940,6 +942,7 @@ void MainWindow::make_selection_from_path() {
   auto* form = new QFormLayout();
   auto* feather = new UnitSpinBox(SpinUnit::Pixels, &dialog);
   feather->setObjectName(QStringLiteral("makeSelectionFeatherSpin"));
+  feather->set_context_provider(document_unit_context_provider(true));
   feather->setRange(0.0, static_cast<double>(kMaxSelectionFeatherRadius));
   feather->setDecimals(1);
   form->addRow(tr("Feather:"), feather);
@@ -998,6 +1001,7 @@ void MainWindow::make_work_path_from_selection() {
   auto* form = new QFormLayout();
   auto* tolerance = new UnitSpinBox(SpinUnit::Pixels, &dialog);
   tolerance->setObjectName(QStringLiteral("makeWorkPathToleranceSpin"));
+  tolerance->set_context_provider(document_unit_context_provider(true));
   tolerance->setRange(0.5, 10.0);
   tolerance->setDecimals(1);
   tolerance->setSingleStep(0.5);

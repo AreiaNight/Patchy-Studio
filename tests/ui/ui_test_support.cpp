@@ -1,5 +1,6 @@
 #include "ui_test_support.hpp"
 
+#include "ui/measurement_units.hpp"
 #include "ui/qt_paths.hpp"
 #include "ui_test_access.hpp"
 
@@ -1346,10 +1347,16 @@ void accept_new_document_dialog(int width_value, int height_value) {
       auto* dialog = qobject_cast<QDialog*>(widget);
       auto* width = dialog->findChild<QDoubleSpinBox*>(QStringLiteral("newDocumentWidthSpin"));
       auto* height = dialog->findChild<QDoubleSpinBox*>(QStringLiteral("newDocumentHeightSpin"));
+      auto* unit = dialog->findChild<QComboBox*>(QStringLiteral("newDocumentUnitCombo"));
       CHECK(width != nullptr);
       CHECK(height != nullptr);
+      CHECK(unit != nullptr);
       CHECK(width->buttonSymbols() == QAbstractSpinBox::NoButtons);
       CHECK(height->buttonSymbols() == QAbstractSpinBox::NoButtons);
+      // The sizes are pixels; the dialog remembers its last unit (issue 53), so
+      // an earlier test's mm pick must not scale them.
+      unit->setCurrentIndex(unit->findData(static_cast<int>(patchy::ui::MeasurementUnit::Pixels)));
+      QApplication::processEvents();
       width->setValue(width_value);
       height->setValue(height_value);
       widget->grab().save(QStringLiteral("test-artifacts/ui_new_document_dialog.png"));

@@ -68,6 +68,17 @@ public:
     window.refresh_document_info();
   }
 
+  // The ruler unit preference (view/rulerUnits) as the Preferences dialog or the
+  // ruler right-click would set it; it persists, so pair it with a
+  // SettingsValueRestorer.
+  static void set_ruler_unit(MainWindow& window, MeasurementUnit unit) {
+    window.set_ruler_unit_preference(unit);
+  }
+
+  static MeasurementUnit ruler_unit(const MainWindow& window) {
+    return window.ruler_unit_;
+  }
+
   static void levels_dialog(MainWindow& window) {
     window.levels_dialog();
   }

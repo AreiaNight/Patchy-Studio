@@ -29,8 +29,10 @@ struct NewDocumentSettings {
 // Shows the New Document dialog (category chips + clickable preset card grid on the
 // left, the width/height/resolution/background details pane on the right) and
 // returns the accepted settings, or nullopt on cancel. Remembers the last accepted
-// non-clipboard settings in the "newDocument" settings group and restores them the
-// next time it opens; a clipboard image preselects the Clipboard card instead.
+// non-clipboard settings (preset, size, PPI, background, the W/H unit and the
+// resolution unit) in the "newDocument" settings group and restores them the next
+// time it opens; a clipboard image preselects the Clipboard card instead. On a first
+// run the W/H unit follows the ruler unit preference (`view/rulerUnits`).
 [[nodiscard]] std::optional<NewDocumentSettings> request_new_document_settings(QWidget* parent);
 
 }  // namespace patchy::ui

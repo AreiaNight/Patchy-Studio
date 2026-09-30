@@ -1,6 +1,7 @@
 #include "ui/curved_slider.hpp"
 
 #include <QAbstractSlider>
+#include <QDoubleSpinBox>
 #include <QSignalBlocker>
 #include <QSlider>
 #include <QSpinBox>
@@ -64,9 +65,13 @@ int curved_slider_position(double value, double minimum, double maximum) {
   return static_cast<int>(std::lround(std::sqrt(fraction) * kCurvedSliderPositions));
 }
 
-void bind_curved_slider(QSlider& slider, QSpinBox& spin, int slider_maximum) {
-  const CurveRange range{spin.minimum(),
-                         std::clamp(std::min(slider_maximum, spin.maximum()), spin.minimum(), spin.maximum())};
+namespace {
+
+// The shared wiring: `current_value` reads the spin box as a whole value and
+// `set_value` writes one, so the int and double spin boxes bind the same way.
+template <typename SpinBox, typename Read, typename Write>
+void bind_curved_slider_with(QSlider& slider, SpinBox& spin, CurveRange range, Read current_value,
+                             Write set_value) {
   slider.setProperty(kCurvedSliderMinimumProperty, range.minimum);
   slider.setProperty(kCurvedSliderMaximumProperty, range.maximum);
   slider.setRange(0, kCurvedSliderPositions);
@@ -74,24 +79,25 @@ void bind_curved_slider(QSlider& slider, QSpinBox& spin, int slider_maximum) {
   slider.setPageStep(kCurvedSliderPositions / 20);
   {
     const QSignalBlocker blocker(slider);
-    set_slider_to_value(slider, spin.value());
+    set_slider_to_value(slider, current_value(spin));
   }
 
   auto* slider_ptr = &slider;
   auto* spin_ptr = &spin;
   QObject::connect(&slider, &QSlider::valueChanged, &spin,
-                   [spin_ptr, range](int position) { spin_ptr->setValue(value_at(range, position)); });
+                   [spin_ptr, range, set_value](int position) { set_value(*spin_ptr, value_at(range, position)); });
   // While dragging, the handle already shows the value it just set, so this
   // leaves it alone instead of snapping it to the value's canonical position.
-  QObject::connect(&spin, qOverload<int>(&QSpinBox::valueChanged), &slider, [slider_ptr](int value) {
+  QObject::connect(&spin, &SpinBox::valueChanged, &slider, [slider_ptr, spin_ptr, current_value](auto) {
     const QSignalBlocker blocker(slider_ptr);
-    set_slider_to_value(*slider_ptr, value);
+    set_slider_to_value(*slider_ptr, current_value(*spin_ptr));
   });
   // QAbstractSlider lets an actionTriggered slot adjust the pending position.
   // A single step near the bottom of the curve can land on the same rounded
   // value, so keep walking until the value actually changes. Drags are exempt:
   // the handle follows the mouse.
-  QObject::connect(&slider, &QAbstractSlider::actionTriggered, &spin, [slider_ptr, spin_ptr, range](int action) {
+  QObject::connect(&slider, &QAbstractSlider::actionTriggered, &spin,
+                   [slider_ptr, spin_ptr, range, current_value](int action) {
     if (action == QAbstractSlider::SliderNoAction || slider_ptr->isSliderDown()) {
       return;
     }
@@ -101,12 +107,32 @@ void bind_curved_slider(QSlider& slider, QSpinBox& spin, int slider_maximum) {
       return;
     }
     const auto direction = to > from ? 1 : -1;
-    const auto current = std::clamp(spin_ptr->value(), range.minimum, range.maximum);
+    const auto current = std::clamp(current_value(*spin_ptr), range.minimum, range.maximum);
     while (value_at(range, to) == current && to + direction >= 0 && to + direction <= kCurvedSliderPositions) {
       to += direction;
     }
     slider_ptr->setSliderPosition(to);
   });
+}
+
+}  // namespace
+
+void bind_curved_slider(QSlider& slider, QSpinBox& spin, int slider_maximum) {
+  const CurveRange range{spin.minimum(),
+                         std::clamp(std::min(slider_maximum, spin.maximum()), spin.minimum(), spin.maximum())};
+  bind_curved_slider_with(
+      slider, spin, range, [](const QSpinBox& box) { return box.value(); },
+      [](QSpinBox& box, int value) { box.setValue(value); });
+}
+
+void bind_curved_slider(QSlider& slider, QDoubleSpinBox& spin, int slider_maximum) {
+  const auto whole = [](double value) { return static_cast<int>(std::lround(value)); };
+  const auto minimum = whole(spin.minimum());
+  const auto maximum = whole(spin.maximum());
+  const CurveRange range{minimum, std::clamp(std::min(slider_maximum, maximum), minimum, maximum)};
+  bind_curved_slider_with(
+      slider, spin, range, [whole](const QDoubleSpinBox& box) { return whole(box.value()); },
+      [](QDoubleSpinBox& box, int value) { box.setValue(static_cast<double>(value)); });
 }
 
 int slider_value(const QSlider& slider) {

@@ -296,7 +296,8 @@ constexpr std::array<ToolEntry, 8> kTools{{
 std::optional<LiquifyMesh> request_liquify(QWidget* parent,
                                             const PixelBuffer& source,
                                             Rect bounds,
-                                            const QRegion& selection) {
+                                            const QRegion& selection,
+                                            double document_ppi) {
   auto source_image = qimage_from_pixel_buffer(source);
   if (source_image.isNull()) {
     return std::nullopt;
@@ -378,8 +379,9 @@ std::optional<LiquifyMesh> request_liquify(QWidget* parent,
       form, &dialog, QObject::tr("Size:"),
       QStringLiteral("liquifySizeSlider"),
       QStringLiteral("liquifySizeSpin"), 5, 2000, default_size,
-      SpinUnit::Pixels, {}, 80, /*row_spacing=*/-1, /*step_buttons=*/false,
-      SliderCurve::FineLowEnd);
+      SpinUnit::Pixels,
+      [ppi = sanitized_document_ppi(document_ppi)] { return UnitConversionContext{ppi, 0.0}; }, 80,
+      /*row_spacing=*/-1, /*step_buttons=*/false, SliderCurve::FineLowEnd);
   auto* pressure = add_dialog_slider_spin_row(
       form, &dialog, QObject::tr("Pressure:"),
       QStringLiteral("liquifyPressureSlider"),

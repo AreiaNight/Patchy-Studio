@@ -824,6 +824,22 @@ private:
   void clear_guides();
   void clear_selected_guides();
   void set_ruler_unit_preference(MeasurementUnit unit);
+  // The ruler unit as the display unit of the pixel-native dimension fields
+  // (docs/resolution-units.md): transform X/Y, the shape W/H readouts, stroke
+  // width and line weight. `register_ruler_unit_field` enrolls a field (its own
+  // context provider stays); `apply_ruler_unit_to_fields` resets every enrolled
+  // field to the preference (a right-click unit pick is a per-field override that
+  // lasts until the next preference change); `refresh_ruler_unit_field_metrics`
+  // recomputes their steps when the active document, and so the PPI, changes.
+  void register_ruler_unit_field(UnitSpinBox* spin);
+  void apply_ruler_unit_to_fields();
+  void refresh_ruler_unit_field_metrics();
+  // The document PPI (300 without a document) and, per axis, the document extent
+  // as the Percent basis, for fields that convert typed units.
+  [[nodiscard]] UnitConversionContext document_unit_context(bool horizontal) const;
+  [[nodiscard]] UnitSpinBox::ContextProvider document_unit_context_provider(bool horizontal) const;
+  // A snapshot for modal dialogs that build their own dimension fields.
+  [[nodiscard]] DocumentFieldUnits document_field_units() const;
   // The pasteboard color behind every document (nullopt = the theme's canvas_backdrop),
   // chosen from the backdrop's right-click menu and persisted as view/canvasBackdropColor.
   void set_canvas_backdrop_color_preference(std::optional<QColor> color);
@@ -1963,8 +1979,8 @@ private:
   QLabel* active_layer_text_label_{nullptr};
   QLabel* active_layer_shape_label_{nullptr};
   QWidget* properties_shape_size_panel_{nullptr};
-  QDoubleSpinBox* properties_shape_width_spin_{nullptr};
-  QDoubleSpinBox* properties_shape_height_spin_{nullptr};
+  UnitSpinBox* properties_shape_width_spin_{nullptr};
+  UnitSpinBox* properties_shape_height_spin_{nullptr};
   QPushButton* properties_shape_link_size_button_{nullptr};
   QPushButton* properties_edit_appearance_button_{nullptr};
   QLabel* active_tool_info_label_{nullptr};
@@ -2190,7 +2206,7 @@ private:
   // custom gradient synced from a layer lives only for the session).
   QString current_vector_fill_gradient_id_;
   QString current_vector_stroke_gradient_id_;
-  int current_vector_line_weight_{4};
+  double current_vector_line_weight_{4.0};
   // 0 = New Layer; 1..4 = PathCombineOp Add / Subtract / Intersect / Xor
   // applied to the active shape layer or work path (session-only).
   int current_vector_combine_index_{0};
@@ -2211,8 +2227,8 @@ private:
   // Debounces live-editing bursts (stroke-width spin / its popup slider) into
   // one undo entry + one rasterize.
   QTimer* vector_appearance_apply_timer_{nullptr};
-  QDoubleSpinBox* vector_shape_width_spin_{nullptr};
-  QDoubleSpinBox* vector_shape_height_spin_{nullptr};
+  UnitSpinBox* vector_shape_width_spin_{nullptr};
+  UnitSpinBox* vector_shape_height_spin_{nullptr};
   QPushButton* vector_shape_link_size_button_{nullptr};
   QPushButton* vector_appearance_button_{nullptr};
   QTimer* vector_shape_size_apply_timer_{nullptr};
@@ -2235,6 +2251,7 @@ private:
   bool current_sponge_vibrance_{true};
   bool view_rulers_visible_{false};
   MeasurementUnit ruler_unit_{MeasurementUnit::Pixels};
+  std::vector<QPointer<UnitSpinBox>> ruler_unit_fields_;
   bool view_grid_visible_{false};
   bool view_guides_visible_{true};
   // Photoshop's View > Show > Target Path (Ctrl+Shift+H). Deliberately NOT

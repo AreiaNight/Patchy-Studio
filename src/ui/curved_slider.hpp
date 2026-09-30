@@ -2,6 +2,7 @@
 
 #include <limits>
 
+class QDoubleSpinBox;
 class QSlider;
 class QSpinBox;
 
@@ -30,6 +31,11 @@ inline constexpr int kCurvedSliderPositions = 1000;
 // wheel and page steps always move the value by at least one unit, even where
 // the curve is flat.
 void bind_curved_slider(QSlider& slider, QSpinBox& spin,
+                        int slider_maximum = std::numeric_limits<int>::max());
+// The same for a fractional field whose slider picks whole units (a line
+// weight in px): the curve spans the rounded range, the handle sets whole
+// values, and a fractional typed value parks the handle at its nearest position.
+void bind_curved_slider(QSlider& slider, QDoubleSpinBox& spin,
                         int slider_maximum = std::numeric_limits<int>::max());
 
 // Value-space access that works for curved and linear sliders alike, so code

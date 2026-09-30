@@ -50,6 +50,8 @@ std::optional<ShapeCreateResult> request_shape_create_settings(QWidget* parent,
   };
   auto* width_spin = make_spin("shapeCreateWidthSpin", 1.0, 30000.0, request.width);
   auto* height_spin = make_spin("shapeCreateHeightSpin", 1.0, 30000.0, request.height);
+  apply_document_field_units(width_spin, request.units, true);
+  apply_document_field_units(height_spin, request.units, false);
   form->addRow(QObject::tr("Width:"), width_spin);
   form->addRow(QObject::tr("Height:"), height_spin);
   auto* from_center = new QCheckBox(QObject::tr("From Center"), &dialog);
@@ -68,8 +70,13 @@ std::optional<ShapeCreateResult> request_shape_create_settings(QWidget* parent,
         "shapeCreateRadiusBottomRightSpin", "shapeCreateRadiusBottomLeftSpin"};
     const std::array<QString, 4> labels{QObject::tr("Top left:"), QObject::tr("Top right:"),
                                         QObject::tr("Bottom right:"), QObject::tr("Bottom left:")};
+    auto radius_units = request.units;  // a radius has no percent basis
+    radius_units.document_width = 0.0;
+    radius_units.document_height = 0.0;
     for (std::size_t corner = 0; corner < 4; ++corner) {
-      radius_spins[corner] = make_spin(names[corner], 0.0, 30000.0, request.corner_radii[corner]);
+      auto* radius_spin = make_spin(names[corner], 0.0, 30000.0, request.corner_radii[corner]);
+      radius_spin->set_context_provider([radius_units] { return document_field_context(radius_units, true); });
+      radius_spins[corner] = radius_spin;
       radii_form->addRow(labels[corner], radius_spins[corner]);
     }
     dialog_layout->addWidget(radii_group);
