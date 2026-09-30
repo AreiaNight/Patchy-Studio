@@ -1760,7 +1760,7 @@ void psd_smart_object_authored_link_round_trips() {
   CHECK((*parsed)[1].filetype == "png " && (*parsed)[1].external_rel_path == link.external_rel_path);
 }
 
-// Photoshop 2026's own linked and embedded placements (scripts\dev\smart-objects\
+// Photoshop 2026's own linked and embedded placements (scripts/dev/smart-objects/
 // ps-capture-linked.ps1): the authored placed-layer block must equal Photoshop's
 // byte for byte, for a linked SVG, an embedded SVG, and a linked PNG.
 void psd_photoshop_linked_captures_match_authored_blocks_if_available() {

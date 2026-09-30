@@ -1257,7 +1257,7 @@ std::optional<OpenDocumentResult> load_document_interactive(QWidget* parent, con
     if (!outcome.has_value()) {
       return std::nullopt;
     }
-    OpenDocumentResult loaded{std::move(outcome->document), info.fileName(), extension, {}, {}, {}};
+    OpenDocumentResult loaded{std::move(outcome->document), info.fileName(), extension, {}, {}, {}, {}};
     if (const auto default_layer_id = default_non_group_layer_id(loaded.document.layers());
         default_layer_id.has_value()) {
       loaded.document.set_active_layer(*default_layer_id);
