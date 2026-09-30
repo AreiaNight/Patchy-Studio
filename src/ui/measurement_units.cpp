@@ -1,5 +1,7 @@
 #include "ui/measurement_units.hpp"
 
+#include "ui/app_settings.hpp"
+
 #include <QLocale>
 #include <QObject>
 
@@ -143,6 +145,28 @@ MeasurementUnit measurement_unit_from_settings_token(const QString& token, Measu
     return MeasurementUnit::Percent;
   }
   return fallback;
+}
+
+MeasurementUnit remembered_dialog_unit(const QString& settings_key, std::initializer_list<MeasurementUnit> offered) {
+  auto settings = app_settings();
+  auto token = settings.value(settings_key).toString();
+  if (token.trimmed().isEmpty()) {
+    token = settings.value(QStringLiteral("view/rulerUnits"), QStringLiteral("px")).toString();
+  }
+  const auto unit = measurement_unit_from_settings_token(token, MeasurementUnit::Pixels);
+  return std::find(offered.begin(), offered.end(), unit) != offered.end() ? unit : MeasurementUnit::Pixels;
+}
+
+void remember_dialog_unit(const QString& settings_key, MeasurementUnit unit) {
+  app_settings().setValue(settings_key, measurement_unit_settings_token(unit));
+}
+
+int remembered_resolution_unit_index(const QString& settings_key) {
+  return app_settings().value(settings_key).toString().trimmed().toLower() == QStringLiteral("cm") ? 1 : 0;
+}
+
+void remember_resolution_unit(const QString& settings_key, int index) {
+  app_settings().setValue(settings_key, index == 1 ? QStringLiteral("cm") : QStringLiteral("in"));
 }
 
 bool measurement_unit_is_physical(MeasurementUnit unit) noexcept {

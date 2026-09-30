@@ -838,8 +838,11 @@ private:
   // as the Percent basis, for fields that convert typed units.
   [[nodiscard]] UnitConversionContext document_unit_context(bool horizontal) const;
   [[nodiscard]] UnitSpinBox::ContextProvider document_unit_context_provider(bool horizontal) const;
-  // A snapshot for modal dialogs that build their own dimension fields.
+  // A snapshot for modal dialogs that build their own dimension fields;
+  // `dialog_field_units` adds the unit-menu callback (a pick there sets the ruler
+  // unit preference, like a pick on a live field).
   [[nodiscard]] DocumentFieldUnits document_field_units() const;
+  [[nodiscard]] DocumentFieldUnits dialog_field_units();
   // The pasteboard color behind every document (nullopt = the theme's canvas_backdrop),
   // chosen from the backdrop's right-click menu and persisted as view/canvasBackdropColor.
   void set_canvas_backdrop_color_preference(std::optional<QColor> color);

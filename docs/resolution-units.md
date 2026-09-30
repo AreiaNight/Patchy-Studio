@@ -48,15 +48,16 @@ enables the destructive layer/mask crop, even when the canvas dimensions are unc
 The checkbox starts unchecked on every opening and is never persisted. Both modes are
 undoable. Document alpha/spot channels remain canvas-sized; editable vector paths, text
 transforms and Smart Object placements continue to follow the anchor translation.
-Units (`request_canvas_size_settings`): the state is the absolute target size in
-pixels; the W/H fields show it converted through the document PPI in the unit the two
-linked combos select (Percent/Pixels/Inches/Cm/Mm/Points, Pixels on every opening).
+Units (`request_canvas_size_settings`, main_window_document_dialogs.cpp): the state is
+the absolute target size in pixels; the W/H fields show it converted through the
+document PPI in the unit the two linked combos select (Percent/Pixels/Inches/Cm/Mm/Points).
 Percent is relative to the current size per axis. Relative mode shows the change in that
 unit (negative allowed) with the range mapped so the pixel result stays 1..30000, and the
 Current Size lines follow the unit. `ui_canvas_size_dialog_units_convert_through_resolution`.
+The unit is remembered across openings (below); Relative and the crop checkbox are not.
 
-Image Size (`request_image_size_settings`, main_window.cpp): canonical state is pixel
-W/H + PPI. W/H unit combos (Percent/Pixels/Inches/Cm/Mm/Points) stay in step. Resample ON:
+Image Size (`request_image_size_settings`, main_window_document_dialogs.cpp): canonical
+state is pixel W/H + PPI. W/H unit combos (Percent/Pixels/Inches/Cm/Mm/Points) stay in step. Resample ON:
 pixel/percent edits move pixels; physical edits set pixels = value x ppi; a resolution
 edit keeps the PHYSICAL size (recomputes pixels) unless the units are pixel/percent, then
 pixels hold. Resample OFF: pixels lock to the document's real dimensions (pending
@@ -67,11 +68,21 @@ is a metadata-only undo step ("Print resolution").
 New Document: presets carry a resolution (physical paper presets 300; the screen presets,
 the default 1024x768 included, and Clipboard follow Photoshop's 72 screen convention). One
 shared W/H unit combo (px/in/cm/mm) converts through the Resolution spin; physical entry
-holds its size when the resolution changes. The accepted W/H unit and the resolution unit
-persist with the other settings as `newDocument/lastUnit` (a settings token) and
-`newDocument/lastResolutionUnit` (`in`/`cm`), issue 53; with no stored unit the combo
-seeds from `view/rulerUnits`, and a token the combo cannot show (`pt`, `percent`) falls
-back to Pixels. `ui_new_document_dialog_remembers_unit`.
+holds its size when the resolution changes.
+
+Remembered dialog units (Photoshop's dialog memory, issue 53): each dialog's W/H unit,
+and the Image Size / New Document resolution unit, persist on accept only (Cancel writes
+nothing) through `remembered_dialog_unit` / `remember_dialog_unit` and
+`remembered_resolution_unit_index` / `remember_resolution_unit` (measurement_units.hpp).
+With no stored unit the combo seeds from `view/rulerUnits`; a token the combo cannot
+show falls back to Pixels (New Document has no `pt` or `percent`). The keys are settings
+tokens and compatibility contracts: `newDocument/lastUnit`,
+`newDocument/lastResolutionUnit`, `imageSize/lastUnit`, `imageSize/lastResolutionUnit`,
+`canvasSize/lastUnit` (resolution units are `in`/`cm`). An Image Size accept with
+Resample off remembers the Inches the dialog forced. Tests:
+`ui_new_document_dialog_remembers_unit`, `ui_image_size_dialog_remembers_units`,
+`ui_canvas_size_dialog_remembers_unit`; the UI suite clears the three groups at startup
+and the auto-accept helpers select Pixels before typing pixel values.
 
 Print dialog (src/ui/print_dialog.cpp): print resolution is READ-ONLY, derived as document
 PPI / scale (Photoshop semantics); editing resolution belongs to Image Size. Default scale
@@ -144,7 +155,9 @@ spacing fields all did that. `ui_feather_field_typed_unit_uses_document_ppi`.
 A switchable field (`set_display_unit_switchable`) adopts a typed unit as its display unit,
 Photoshop-style: `value()` stays native, `textFromValue` converts for display, a plain
 number is then read in the shown unit, and a right-click lists the units
-(`display_unit_changed` lets the linked transform W/H pair follow each other). Leaving the
+(`display_unit_changed` fires for every switch and lets the linked transform W/H pair
+follow each other; a menu pick goes through `pick_display_unit`, which also emits
+`display_unit_picked`). Leaving the
 native unit widens `decimals()` to `measurement_unit_decimals` (never narrower than the
 field's own) and sets `singleStep()` to one shown unit converted to native
 (`measurement_unit_single_step`: 1 for px/mm/pt/%, 0.1 cm, 0.01 in), so arrow keys and a
@@ -161,15 +174,23 @@ Photoshop's Units & Rulers model: the transform X/Y fields, the shape W/H readou
 bar and Properties panel), the vector stroke width and line weight (both fractional px so
 a 0.5 mm hairline survives), the New Guide position, and the Shape Appearance and Create
 Shape dialogs' X/Y/W/H, line start/end, line weight and stroke width. The transform W/H
-pair stays percent-native. MainWindow enrolls its live fields with
-`register_ruler_unit_field`; `apply_ruler_unit_to_fields` (Preferences OK, the ruler
-right-click, startup) resets them all to the preference, so a right-click unit pick on one
-field is a per-field session override that lasts until the next preference change;
-`refresh_ruler_unit_field_metrics` runs from `refresh_document_info` because the PPI is per
-document. Dialogs receive a `DocumentFieldUnits` snapshot (`document_field_units()`) and
-call `apply_document_field_units`. `measurement_unit_for` / `spin_unit_for` bridge the two
-enums. A Percent ruler unit shows percent of the document extent on position/size fields
-and falls back to the native text on thicknesses (no basis).
+pair stays percent-native. MainWindow enrolls its live fields (and the New Guide position
+spin for that dialog's lifetime) with `register_ruler_unit_field`;
+`apply_ruler_unit_to_fields` (Preferences OK, the ruler right-click, a field's unit menu,
+startup) resets them all to the preference; `refresh_ruler_unit_field_metrics` runs from
+`refresh_document_info` because the PPI is per document. A unit picked from any field's
+right-click menu is Photoshop's Units & Rulers change: `display_unit_picked` routes to
+`set_ruler_unit_preference`, so the rulers and every field follow and `view/rulerUnits`
+is saved. A typed unit token ("2 in") only switches that field for the session, until the
+next preference change; routing it through the preference would flip every ruler because
+one stroke width was typed in inches. Dialogs receive a `DocumentFieldUnits` snapshot
+(`document_field_units()`, whose `on_unit_picked` is the preference setter) and call
+`apply_document_field_units`; `link_field_unit_picks` makes a pick on one dialog field
+show on the dialog's others, since the app-wide re-apply covers only enrolled live
+fields. `measurement_unit_for` / `spin_unit_for` bridge the two enums. A Percent ruler
+unit shows percent of the document extent on position/size fields and falls back to the
+native text on thicknesses (no basis). `ui_shape_appearance_unit_pick_sets_ruler_unit`,
+`unit_spin_box_context_menu_pick_emits_picked`.
 
 Deliberately still px: selection Feather, corner radii, pattern offsets, layer-style
 sizes and distances, brush and Liquify sizes, tolerances. They are raster parameters
@@ -180,7 +201,7 @@ PPI. Coverage: the `unit_spin_box` UI test group, `ui_transform_fields_accept_un
 ## Known limits / future work
 
 Type unit preference (pt vs px for the text tool), Info-panel cursor/selection readouts in
-ruler units, a right-click unit pick that changes the ruler preference itself (Photoshop
-does; Patchy keeps it per field), physical presets in Image Size's Fit To combo, and reading
-PCX header DPI (unreliable in the wild; Photoshop ignores it too) are deliberately not
-implemented yet.
+ruler units, remembering Image Size's Resample state and Canvas Size's Relative checkbox
+(Photoshop does; Seth chose units only, September 2026), physical presets in Image Size's
+Fit To combo, and reading PCX header DPI (unreliable in the wild; Photoshop ignores it
+too) are deliberately not implemented yet.

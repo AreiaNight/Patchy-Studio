@@ -52,6 +52,7 @@ std::optional<ShapeCreateResult> request_shape_create_settings(QWidget* parent,
   auto* height_spin = make_spin("shapeCreateHeightSpin", 1.0, 30000.0, request.height);
   apply_document_field_units(width_spin, request.units, true);
   apply_document_field_units(height_spin, request.units, false);
+  link_field_unit_picks({width_spin, height_spin});
   form->addRow(QObject::tr("Width:"), width_spin);
   form->addRow(QObject::tr("Height:"), height_spin);
   auto* from_center = new QCheckBox(QObject::tr("From Center"), &dialog);

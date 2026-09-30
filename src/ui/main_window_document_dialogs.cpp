@@ -563,12 +563,18 @@ std::optional<ImageSizeSettings> request_image_size_settings(QWidget* parent, co
   height->setObjectName(QStringLiteral("imageSizeHeightSpin"));
   configure_dialog_spinbox(height, 72);
 
-  const auto populate_dimension_units = [](QComboBox* combo) {
-    for (const auto unit : {MeasurementUnit::Percent, MeasurementUnit::Pixels, MeasurementUnit::Inches,
-                            MeasurementUnit::Centimeters, MeasurementUnit::Millimeters, MeasurementUnit::Points}) {
+  // The W/H unit persists across sessions (`imageSize/lastUnit`, Photoshop's dialog
+  // memory) and seeds from the ruler unit on a first run; the combos are connected
+  // only after the first refresh_all below, so seeding needs no signal blocking.
+  const std::initializer_list<MeasurementUnit> dimension_units = {
+      MeasurementUnit::Percent,     MeasurementUnit::Pixels,      MeasurementUnit::Inches,
+      MeasurementUnit::Centimeters, MeasurementUnit::Millimeters, MeasurementUnit::Points};
+  const auto initial_unit = remembered_dialog_unit(QStringLiteral("imageSize/lastUnit"), dimension_units);
+  const auto populate_dimension_units = [&dimension_units, initial_unit](QComboBox* combo) {
+    for (const auto unit : dimension_units) {
       combo->addItem(measurement_unit_name(unit), static_cast<int>(unit));
     }
-    combo->setCurrentIndex(combo->findData(static_cast<int>(MeasurementUnit::Pixels)));
+    combo->setCurrentIndex(combo->findData(static_cast<int>(initial_unit)));
   };
   auto* width_unit = new QComboBox(&dialog);
   width_unit->setObjectName(QStringLiteral("imageSizeWidthUnitCombo"));
@@ -607,6 +613,7 @@ std::optional<ImageSizeSettings> request_image_size_settings(QWidget* parent, co
   resolution_unit->setObjectName(QStringLiteral("imageSizeResolutionUnitCombo"));
   resolution_unit->addItem(QObject::tr("Pixels/Inch"), 1.0);
   resolution_unit->addItem(QObject::tr("Pixels/Centimeter"), 2.54);
+  resolution_unit->setCurrentIndex(remembered_resolution_unit_index(QStringLiteral("imageSize/lastResolutionUnit")));
   grid->addWidget(new QLabel(QObject::tr("Resolution:"), &dialog), 5, 0, Qt::AlignRight | Qt::AlignVCenter);
   grid->addWidget(resolution, 5, 2);
   grid->addWidget(resolution_unit, 5, 3);
@@ -801,6 +808,8 @@ std::optional<ImageSizeSettings> request_image_size_settings(QWidget* parent, co
   if (exec_dialog(dialog) != QDialog::Accepted) {
     return std::nullopt;
   }
+  remember_dialog_unit(QStringLiteral("imageSize/lastUnit"), current_unit(width_unit));
+  remember_resolution_unit(QStringLiteral("imageSize/lastResolutionUnit"), resolution_unit->currentIndex());
   return ImageSizeSettings{state.pixel_width, state.pixel_height, state.ppi, resample->isChecked()};
 }
 
@@ -980,12 +989,18 @@ std::optional<CanvasSizeSettings> request_canvas_size_settings(QWidget* parent, 
   height->setObjectName(QStringLiteral("canvasSizeHeightSpin"));
   configure_dialog_spinbox(height, 84);
 
-  const auto populate_dimension_units = [](QComboBox* combo) {
-    for (const auto unit : {MeasurementUnit::Percent, MeasurementUnit::Pixels, MeasurementUnit::Inches,
-                            MeasurementUnit::Centimeters, MeasurementUnit::Millimeters, MeasurementUnit::Points}) {
+  // The unit persists across sessions (`canvasSize/lastUnit`) and seeds from the
+  // ruler unit on a first run, like Image Size; the combos connect after the first
+  // refresh_all, so seeding needs no signal blocking.
+  const std::initializer_list<MeasurementUnit> dimension_units = {
+      MeasurementUnit::Percent,     MeasurementUnit::Pixels,      MeasurementUnit::Inches,
+      MeasurementUnit::Centimeters, MeasurementUnit::Millimeters, MeasurementUnit::Points};
+  const auto initial_unit = remembered_dialog_unit(QStringLiteral("canvasSize/lastUnit"), dimension_units);
+  const auto populate_dimension_units = [&dimension_units, initial_unit](QComboBox* combo) {
+    for (const auto unit : dimension_units) {
       combo->addItem(measurement_unit_name(unit), static_cast<int>(unit));
     }
-    combo->setCurrentIndex(combo->findData(static_cast<int>(MeasurementUnit::Pixels)));
+    combo->setCurrentIndex(combo->findData(static_cast<int>(initial_unit)));
   };
   auto* width_unit = new QComboBox(&dialog);
   width_unit->setObjectName(QStringLiteral("canvasSizeWidthUnitCombo"));
@@ -1224,6 +1239,7 @@ std::optional<CanvasSizeSettings> request_canvas_size_settings(QWidget* parent, 
   if (exec_dialog(dialog) != QDialog::Accepted) {
     return std::nullopt;
   }
+  remember_dialog_unit(QStringLiteral("canvasSize/lastUnit"), current_unit());
   const auto checked_anchor =
       anchor_group->checkedId() < 0 ? CanvasAnchor::Center : static_cast<CanvasAnchor>(anchor_group->checkedId());
   return CanvasSizeSettings{state.target_width, state.target_height, checked_anchor, extension_color_value,

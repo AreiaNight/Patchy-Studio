@@ -4264,11 +4264,30 @@ void ui_shape_size_fields_follow_ruler_unit() {
   CHECK(std::abs(content->origination[0].right - 700.0) < 0.5);
   CHECK(properties_width->text() == QStringLiteral("50.8") + mm_suffix);
 
-  // A per-field right-click override is a session choice: the ruler stays mm.
-  height_spin->set_display_unit(patchy::ui::SpinUnit::Inches);
+  // A unit picked from a field's menu is Photoshop's Units & Rulers change: the
+  // preference, the rulers and every enrolled field follow.
+  height_spin->pick_display_unit(patchy::ui::SpinUnit::Centimeters);
+  CHECK(patchy::ui::MainWindowTestAccess::ruler_unit(window) == patchy::ui::MeasurementUnit::Centimeters);
+  CHECK(canvas->ruler_unit() == patchy::ui::MeasurementUnit::Centimeters);
+  for (auto* spin : fields) {
+    CHECK(spin->display_unit() == patchy::ui::SpinUnit::Centimeters);
+  }
+  const auto cm_suffix =
+      QStringLiteral(" ") + patchy::ui::measurement_unit_suffix(patchy::ui::MeasurementUnit::Centimeters);
+  CHECK(height_spin->text() == QStringLiteral("1.27") + cm_suffix);
+  {
+    auto settings = patchy::ui::app_settings();
+    CHECK(settings.value(QStringLiteral("view/rulerUnits")).toString() == QStringLiteral("cm"));
+  }
+
+  // A typed unit token is the field's own choice: the preference and the other
+  // fields stay in centimeters.
+  commit_text(*height_spin, QStringLiteral("0.5 in"));
+  CHECK(std::abs(height_spin->value() - 150.0) < 0.5);
+  CHECK(height_spin->display_unit() == patchy::ui::SpinUnit::Inches);
   CHECK(height_spin->text() == QStringLiteral("0.500") + patchy::ui::inch_suffix());
-  CHECK(patchy::ui::MainWindowTestAccess::ruler_unit(window) == patchy::ui::MeasurementUnit::Millimeters);
-  CHECK(width_spin->display_unit() == patchy::ui::SpinUnit::Millimeters);
+  CHECK(patchy::ui::MainWindowTestAccess::ruler_unit(window) == patchy::ui::MeasurementUnit::Centimeters);
+  CHECK(width_spin->display_unit() == patchy::ui::SpinUnit::Centimeters);
 
   // A new preference overrides it and lands everywhere.
   patchy::ui::MainWindowTestAccess::set_ruler_unit(window, patchy::ui::MeasurementUnit::Inches);
@@ -4289,9 +4308,60 @@ void ui_shape_size_fields_follow_ruler_unit() {
   CHECK(line_weight->text() == QStringLiteral("3.0") + patchy::ui::pixel_suffix());
 }
 
+// A unit picked on a modal dialog's field is the same Units & Rulers change as on a
+// live field: the preference, the options-bar readouts and the dialog's other
+// dimension fields all follow while the dialog is still open.
+void ui_shape_appearance_unit_pick_sets_ruler_unit() {
+  VectorSettingsGuard settings_guard;
+  SettingsValueRestorer restore_units(QStringLiteral("view/rulerUnits"));
+  patchy::ui::MainWindow window;
+  show_window(window);
+  auto* canvas = require_canvas(window);
+  auto& document = patchy::ui::MainWindowTestAccess::document(window);
+  document.print_settings().horizontal_ppi = 300.0;
+  document.print_settings().vertical_ppi = 300.0;
+  patchy::ui::MainWindowTestAccess::set_ruler_unit(window, patchy::ui::MeasurementUnit::Pixels);
+  make_rect_shape_layer(window, *canvas);  // 200 x 120 px
+  auto* options_width = window.findChild<patchy::ui::UnitSpinBox*>(QStringLiteral("vectorShapeWidthSpin"));
+  CHECK(options_width != nullptr);
+
+  bool drove_dialog = false;
+  QTimer::singleShot(0, [&] {
+    auto* dialog = patchy::test::ui::find_top_level_dialog(QStringLiteral("shapeAppearanceDialog"));
+    CHECK(dialog != nullptr);
+    if (dialog == nullptr) {
+      return;
+    }
+    auto* width = dialog->findChild<patchy::ui::UnitSpinBox*>(QStringLiteral("shapeGeometryWidthSpin"));
+    auto* height = dialog->findChild<patchy::ui::UnitSpinBox*>(QStringLiteral("shapeGeometryHeightSpin"));
+    auto* stroke = dialog->findChild<patchy::ui::UnitSpinBox*>(QStringLiteral("shapeStrokeWidthSpin"));
+    CHECK(width != nullptr && height != nullptr && stroke != nullptr);
+    CHECK(width->display_unit() == patchy::ui::SpinUnit::Pixels);
+    height->pick_display_unit(patchy::ui::SpinUnit::Inches);
+    QApplication::processEvents();
+    CHECK(width->display_unit() == patchy::ui::SpinUnit::Inches);
+    CHECK(stroke->display_unit() == patchy::ui::SpinUnit::Inches);
+    CHECK(std::abs(width->value() - 200.0) < 1e-6);  // the value stays pixels
+    CHECK(width->text() == QStringLiteral("0.667") + patchy::ui::inch_suffix());
+    CHECK(patchy::ui::MainWindowTestAccess::ruler_unit(window) == patchy::ui::MeasurementUnit::Inches);
+    CHECK(options_width->display_unit() == patchy::ui::SpinUnit::Inches);
+    drove_dialog = true;
+    dialog->reject();
+  });
+  patchy::ui::MainWindowTestAccess::edit_active_shape_appearance(window);
+  QApplication::processEvents();
+  CHECK(drove_dialog);
+  CHECK(canvas->ruler_unit() == patchy::ui::MeasurementUnit::Inches);
+  {
+    auto settings = patchy::ui::app_settings();
+    CHECK(settings.value(QStringLiteral("view/rulerUnits")).toString() == QStringLiteral("in"));
+  }
+}
+
 std::vector<patchy::test::TestCase> vector_shape_tool_tests() {
   return {
       {"ui_shape_size_fields_follow_ruler_unit", ui_shape_size_fields_follow_ruler_unit},
+      {"ui_shape_appearance_unit_pick_sets_ruler_unit", ui_shape_appearance_unit_pick_sets_ruler_unit},
       {"ui_shape_tool_creates_shape_layer_and_undoes", ui_shape_tool_creates_shape_layer_and_undoes},
       {"ui_shape_tool_combine_extends_active_shape_layer",
        ui_shape_tool_combine_extends_active_shape_layer},

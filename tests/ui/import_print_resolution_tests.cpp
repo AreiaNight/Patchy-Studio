@@ -3936,6 +3936,10 @@ void ui_print_dialog_exposes_printer_and_visible_checkboxes() {
 }
 
 void ui_image_size_dialog_unit_and_resolution_links_work() {
+  // The dialog remembers its units on accept; this test ends in Inches.
+  SettingsValueRestorer restore_unit(QStringLiteral("imageSize/lastUnit"));
+  SettingsValueRestorer restore_resolution_unit(QStringLiteral("imageSize/lastResolutionUnit"));
+  patchy::ui::app_settings().remove(QStringLiteral("imageSize"));
   patchy::ui::MainWindow window;  // default document: 1024x768 at 72 ppi
   show_window(window);
 
@@ -4030,6 +4034,8 @@ void ui_image_size_dialog_unit_and_resolution_links_work() {
 // unit combos stay in step, Percent is relative to the current size, Relative mode
 // shows the change in the chosen unit, and the Current Size lines follow the unit.
 void ui_canvas_size_dialog_units_convert_through_resolution() {
+  SettingsValueRestorer restore_unit(QStringLiteral("canvasSize/lastUnit"));
+  patchy::ui::app_settings().remove(QStringLiteral("canvasSize"));
   patchy::ui::MainWindow window;  // default document: 1024x768 at 72 ppi
   show_window(window);
 
@@ -4125,6 +4131,187 @@ void ui_canvas_size_dialog_units_convert_through_resolution() {
   auto& document = patchy::ui::MainWindowTestAccess::document(window);
   CHECK(document.width() == 1096);
   CHECK(document.height() == 1152);
+}
+
+// Photoshop's dialog memory: Image Size keeps its W/H unit and its resolution unit
+// across openings (`imageSize/lastUnit`, `imageSize/lastResolutionUnit`, written on
+// accept only); a first run seeds the W/H unit from the ruler unit, and a token the
+// combo cannot show falls back to Pixels.
+void ui_image_size_dialog_remembers_units() {
+  SettingsValueRestorer restore_ruler(QStringLiteral("view/rulerUnits"));
+  SettingsValueRestorer restore_unit(QStringLiteral("imageSize/lastUnit"));
+  SettingsValueRestorer restore_resolution_unit(QStringLiteral("imageSize/lastResolutionUnit"));
+  {
+    auto settings = patchy::ui::app_settings();
+    settings.remove(QStringLiteral("imageSize"));
+    settings.setValue(QStringLiteral("view/rulerUnits"), QStringLiteral("cm"));
+  }
+  patchy::ui::MainWindow window;  // default document: 1024x768 at 72 ppi
+  show_window(window);
+
+  struct Fields {
+    QDialog* dialog{nullptr};
+    QComboBox* width_unit{nullptr};
+    QComboBox* height_unit{nullptr};
+    QComboBox* resolution_unit{nullptr};
+    QDoubleSpinBox* width{nullptr};
+    QDoubleSpinBox* resolution{nullptr};
+  };
+  bool drove_dialog = false;
+  const auto open_dialog = [&](std::function<void(const Fields&)> body) {
+    drove_dialog = false;
+    QTimer::singleShot(0, [&drove_dialog, body = std::move(body)] {
+      auto* dialog = find_top_level_dialog(QStringLiteral("patchyImageSizeDialog"));
+      CHECK(dialog != nullptr);
+      if (dialog == nullptr) {
+        return;
+      }
+      Fields fields;
+      fields.dialog = dialog;
+      fields.width_unit = dialog->findChild<QComboBox*>(QStringLiteral("imageSizeWidthUnitCombo"));
+      fields.height_unit = dialog->findChild<QComboBox*>(QStringLiteral("imageSizeHeightUnitCombo"));
+      fields.resolution_unit = dialog->findChild<QComboBox*>(QStringLiteral("imageSizeResolutionUnitCombo"));
+      fields.width = dialog->findChild<QDoubleSpinBox*>(QStringLiteral("imageSizeWidthSpin"));
+      fields.resolution = dialog->findChild<QDoubleSpinBox*>(QStringLiteral("imageSizeResolutionSpin"));
+      CHECK(fields.width_unit != nullptr && fields.height_unit != nullptr && fields.resolution_unit != nullptr &&
+            fields.width != nullptr && fields.resolution != nullptr);
+      body(fields);
+      drove_dialog = true;
+    });
+    require_action(window, "imageSizeAction")->trigger();
+    QApplication::processEvents();
+    CHECK(drove_dialog);
+  };
+  const auto stored = [](const char* key) {
+    return patchy::ui::app_settings().value(QLatin1String(key)).toString();
+  };
+
+  // First run: the ruler unit (cm) seeds both combos and the width already reads
+  // in it. Pick Millimeters and Pixels/Centimeter, then accept without an edit.
+  open_dialog([](const Fields& fields) {
+    CHECK(fields.width_unit->currentText() == QStringLiteral("Centimeters"));
+    CHECK(fields.height_unit->currentText() == QStringLiteral("Centimeters"));
+    CHECK(fields.resolution_unit->currentIndex() == 0);
+    CHECK(std::abs(fields.width->value() - 1024.0 / 72.0 * 2.54) < 0.01);
+    fields.width_unit->setCurrentIndex(fields.width_unit->findText(QStringLiteral("Millimeters")));
+    fields.resolution_unit->setCurrentIndex(1);
+    QApplication::processEvents();
+    CHECK(fields.height_unit->currentText() == QStringLiteral("Millimeters"));
+    fields.dialog->accept();
+  });
+  CHECK(stored("imageSize/lastUnit") == QStringLiteral("mm"));
+  CHECK(stored("imageSize/lastResolutionUnit") == QStringLiteral("cm"));
+  auto& document = patchy::ui::MainWindowTestAccess::document(window);
+  CHECK(document.width() == 1024 && document.height() == 768);  // an unedited accept changes nothing
+
+  // Reopening restores both units whatever the ruler unit says now; a cancel
+  // writes nothing, so a unit picked before Cancel is forgotten.
+  patchy::ui::app_settings().setValue(QStringLiteral("view/rulerUnits"), QStringLiteral("in"));
+  open_dialog([](const Fields& fields) {
+    CHECK(fields.width_unit->currentText() == QStringLiteral("Millimeters"));
+    CHECK(fields.resolution_unit->currentIndex() == 1);
+    CHECK(std::abs(fields.resolution->value() - 72.0 / 2.54) < 0.01);  // shown as pixels/cm
+    CHECK(std::abs(fields.width->value() - 1024.0 / 72.0 * 25.4) < 0.1);
+    fields.width_unit->setCurrentIndex(fields.width_unit->findText(QStringLiteral("Inches")));
+    fields.resolution_unit->setCurrentIndex(0);
+    QApplication::processEvents();
+    fields.dialog->reject();
+  });
+  CHECK(stored("imageSize/lastUnit") == QStringLiteral("mm"));
+  CHECK(stored("imageSize/lastResolutionUnit") == QStringLiteral("cm"));
+
+  // A token the combo cannot show falls back to Pixels.
+  patchy::ui::app_settings().setValue(QStringLiteral("imageSize/lastUnit"), QStringLiteral("furlongs"));
+  open_dialog([](const Fields& fields) {
+    CHECK(fields.width_unit->currentText() == QStringLiteral("Pixels"));
+    CHECK(fields.width->value() == 1024.0);
+    fields.dialog->reject();
+  });
+}
+
+// Canvas Size keeps its unit the same way (`canvasSize/lastUnit`); Relative and the
+// layer crop stay unremembered.
+void ui_canvas_size_dialog_remembers_unit() {
+  SettingsValueRestorer restore_ruler(QStringLiteral("view/rulerUnits"));
+  SettingsValueRestorer restore_unit(QStringLiteral("canvasSize/lastUnit"));
+  {
+    auto settings = patchy::ui::app_settings();
+    settings.remove(QStringLiteral("canvasSize"));
+    settings.setValue(QStringLiteral("view/rulerUnits"), QStringLiteral("pt"));
+  }
+  patchy::ui::MainWindow window;  // default document: 1024x768 at 72 ppi
+  show_window(window);
+
+  struct Fields {
+    QDialog* dialog{nullptr};
+    QComboBox* width_unit{nullptr};
+    QComboBox* height_unit{nullptr};
+    QCheckBox* relative{nullptr};
+    QDoubleSpinBox* width{nullptr};
+  };
+  bool drove_dialog = false;
+  const auto open_dialog = [&](std::function<void(const Fields&)> body) {
+    drove_dialog = false;
+    QTimer::singleShot(0, [&drove_dialog, body = std::move(body)] {
+      auto* dialog = find_top_level_dialog(QStringLiteral("patchyCanvasSizeDialog"));
+      CHECK(dialog != nullptr);
+      if (dialog == nullptr) {
+        return;
+      }
+      Fields fields;
+      fields.dialog = dialog;
+      fields.width_unit = dialog->findChild<QComboBox*>(QStringLiteral("canvasSizeWidthUnitCombo"));
+      fields.height_unit = dialog->findChild<QComboBox*>(QStringLiteral("canvasSizeHeightUnitCombo"));
+      fields.relative = dialog->findChild<QCheckBox*>(QStringLiteral("canvasSizeRelativeCheck"));
+      fields.width = dialog->findChild<QDoubleSpinBox*>(QStringLiteral("canvasSizeWidthSpin"));
+      CHECK(fields.width_unit != nullptr && fields.height_unit != nullptr && fields.relative != nullptr &&
+            fields.width != nullptr);
+      body(fields);
+      drove_dialog = true;
+    });
+    require_action(window, "imageCanvasSizeAction")->trigger();
+    QApplication::processEvents();
+    CHECK(drove_dialog);
+  };
+  const auto stored_unit = [] {
+    return patchy::ui::app_settings().value(QStringLiteral("canvasSize/lastUnit")).toString();
+  };
+
+  // First run: the ruler unit (points, a unit this dialog offers) seeds the combos.
+  open_dialog([](const Fields& fields) {
+    CHECK(fields.width_unit->currentText() == QStringLiteral("Points"));
+    CHECK(fields.height_unit->currentText() == QStringLiteral("Points"));
+    CHECK(std::abs(fields.width->value() - 1024.0) < 0.01);  // 72 ppi: one point per pixel
+    fields.width_unit->setCurrentIndex(fields.width_unit->findText(QStringLiteral("Percent")));
+    fields.relative->setChecked(true);
+    QApplication::processEvents();
+    fields.dialog->accept();
+  });
+  CHECK(stored_unit() == QStringLiteral("percent"));
+  auto& document = patchy::ui::MainWindowTestAccess::document(window);
+  CHECK(document.width() == 1024 && document.height() == 768);
+
+  // Reopening restores Percent under another ruler unit; Relative starts unchecked
+  // again; a cancel forgets the pick made before it.
+  patchy::ui::app_settings().setValue(QStringLiteral("view/rulerUnits"), QStringLiteral("in"));
+  open_dialog([](const Fields& fields) {
+    CHECK(fields.width_unit->currentText() == QStringLiteral("Percent"));
+    CHECK(fields.height_unit->currentText() == QStringLiteral("Percent"));
+    CHECK(std::abs(fields.width->value() - 100.0) < 0.01);
+    CHECK(!fields.relative->isChecked());
+    fields.width_unit->setCurrentIndex(fields.width_unit->findText(QStringLiteral("Millimeters")));
+    QApplication::processEvents();
+    fields.dialog->reject();
+  });
+  CHECK(stored_unit() == QStringLiteral("percent"));
+
+  // An unknown token falls back to Pixels.
+  patchy::ui::app_settings().setValue(QStringLiteral("canvasSize/lastUnit"), QStringLiteral("cubits"));
+  open_dialog([](const Fields& fields) {
+    CHECK(fields.width_unit->currentText() == QStringLiteral("Pixels"));
+    CHECK(fields.width->value() == 1024.0);
+    fields.dialog->reject();
+  });
 }
 
 void ui_imported_image_density_follows_photoshop_conventions() {
@@ -4976,6 +5163,8 @@ std::vector<patchy::test::TestCase> import_print_resolution_tests() {
        ui_image_size_dialog_unit_and_resolution_links_work},
       {"ui_canvas_size_dialog_units_convert_through_resolution",
        ui_canvas_size_dialog_units_convert_through_resolution},
+      {"ui_image_size_dialog_remembers_units", ui_image_size_dialog_remembers_units},
+      {"ui_canvas_size_dialog_remembers_unit", ui_canvas_size_dialog_remembers_unit},
       {"ui_imported_image_density_follows_photoshop_conventions",
        ui_imported_image_density_follows_photoshop_conventions},
       {"ui_ruler_unit_preference_changes_ruler_ticks", ui_ruler_unit_preference_changes_ruler_ticks},

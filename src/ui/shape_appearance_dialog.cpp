@@ -161,6 +161,8 @@ std::optional<ShapeAppearanceSettings> request_shape_appearance_settings(
   thickness_units.document_width = 0.0;
   thickness_units.document_height = 0.0;
   const auto pixel_field_context = [thickness_units] { return document_field_context(thickness_units, true); };
+  // Every field shown in the ruler unit; a unit picked on one shows on all of them.
+  std::vector<UnitSpinBox*> unit_fields;
   dialog.setWindowTitle(QObject::tr("Shape Appearance"));
   auto* dialog_layout = new QVBoxLayout(&dialog);
 
@@ -325,6 +327,7 @@ std::optional<ShapeAppearanceSettings> request_shape_appearance_settings(
       apply_document_field_units(end_x, units, true);
       apply_document_field_units(end_y, units, false);
       apply_document_field_units(weight, thickness_units, true);
+      unit_fields.insert(unit_fields.end(), {start_x, start_y, end_x, end_y, weight});
       add_geometry_row(QObject::tr("Start X:"), start_x);
       add_geometry_row(QObject::tr("Start Y:"), start_y);
       add_geometry_row(QObject::tr("End X:"), end_x);
@@ -358,6 +361,7 @@ std::optional<ShapeAppearanceSettings> request_shape_appearance_settings(
       apply_document_field_units(y_spin, units, false);
       apply_document_field_units(width_spin, units, true);
       apply_document_field_units(height_spin, units, false);
+      unit_fields.insert(unit_fields.end(), {x_spin, y_spin, width_spin, height_spin});
       add_geometry_row(QObject::tr("X:"), x_spin);
       add_geometry_row(QObject::tr("Y:"), y_spin);
       const int width_row = add_geometry_row(QObject::tr("Width:"), width_spin);
@@ -676,6 +680,8 @@ std::optional<ShapeAppearanceSettings> request_shape_appearance_settings(
   stroke_width_spin->setDecimals(1);
   stroke_width_spin->setValue(state->settings.stroke.width);
   apply_document_field_units(stroke_width_spin, thickness_units, true);
+  unit_fields.push_back(stroke_width_spin);
+  link_field_unit_picks(unit_fields);
   configure_dialog_spinbox(stroke_width_spin, 80);
   add_spin_row(stroke_form, QObject::tr("Width:"), stroke_width_spin);
 

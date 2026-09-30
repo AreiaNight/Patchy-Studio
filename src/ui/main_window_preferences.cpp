@@ -1714,7 +1714,9 @@ void MainWindow::new_guide_dialog() {
   position_spin->setRange(0.0, std::max(document().width(), document().height()));
   position_spin->setDecimals(3);
   position_spin->setValue(0.0);
-  set_field_display_unit(position_spin, ruler_unit_);  // shown in the ruler unit, like the guide readout
+  // Shown in the ruler unit, like the guide readout; enrolled for the dialog's
+  // lifetime so its unit menu changes the preference like every other field.
+  register_ruler_unit_field(position_spin);
   form->addRow(tr("Orientation:"), orientation_combo);
   form->addRow(tr("Position:"), position_spin);
   content->addLayout(form);
@@ -1825,13 +1827,21 @@ void MainWindow::register_ruler_unit_field(UnitSpinBox* spin) {
   }
   ruler_unit_fields_.emplace_back(spin);
   set_field_display_unit(spin, ruler_unit_);
+  // Photoshop: a unit picked from a field's menu changes Units & Rulers for every
+  // field and the rulers (set_ruler_unit_preference re-applies it to every enrolled
+  // field; this one already shows it). A typed unit token stays the field's own.
+  connect(spin, &UnitSpinBox::display_unit_picked, this, [this](SpinUnit unit) {
+    if (const auto measurement = measurement_unit_for(unit); measurement.has_value()) {
+      set_ruler_unit_preference(*measurement);
+    }
+  });
 }
 
 void MainWindow::apply_ruler_unit_to_fields() {
+  // Dialog fields (New Guide) enroll for their lifetime; drop the dead pointers.
+  std::erase_if(ruler_unit_fields_, [](const QPointer<UnitSpinBox>& spin) { return spin.isNull(); });
   for (const auto& spin : ruler_unit_fields_) {
-    if (spin != nullptr) {
-      set_field_display_unit(spin, ruler_unit_);
-    }
+    set_field_display_unit(spin, ruler_unit_);
   }
 }
 
@@ -1859,6 +1869,13 @@ DocumentFieldUnits MainWindow::document_field_units() const {
     units.document_width = static_cast<double>(document().width());
     units.document_height = static_cast<double>(document().height());
   }
+  return units;
+}
+
+DocumentFieldUnits MainWindow::dialog_field_units() {
+  auto units = document_field_units();
+  // A unit picked in a modal dialog is the same gesture as on a live field.
+  units.on_unit_picked = [this](MeasurementUnit unit) { set_ruler_unit_preference(unit); };
   return units;
 }
 

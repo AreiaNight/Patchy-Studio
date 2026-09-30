@@ -358,6 +358,14 @@ void UnitSpinBox::set_display_unit_switchable(bool enabled) {
   switchable_ = enabled;
 }
 
+void UnitSpinBox::pick_display_unit(SpinUnit unit) {
+  if (!switchable_ || unit == SpinUnit::Degrees || native_ == SpinUnit::Degrees) {
+    return;
+  }
+  set_display_unit(unit);
+  Q_EMIT display_unit_picked(unit);
+}
+
 UnitEntry UnitSpinBox::effective_entry(UnitEntry entry) const {
   // A plain number means "in the unit on screen".
   if (!entry.unit.has_value() && display_ != native_) {
@@ -449,7 +457,7 @@ void UnitSpinBox::contextMenuEvent(QContextMenuEvent* event) {
     action->setCheckable(true);
     action->setChecked(unit == display_);
     const auto chosen = unit;
-    connect(action, &QAction::triggered, this, [this, chosen] { set_display_unit(chosen); });
+    connect(action, &QAction::triggered, this, [this, chosen] { pick_display_unit(chosen); });
   }
   menu.exec(event->globalPos());
   event->accept();
@@ -537,8 +545,32 @@ void apply_document_field_units(UnitSpinBox* spin, const DocumentFieldUnits& uni
   if (spin == nullptr) {
     return;
   }
-  spin->set_context_provider([units, horizontal] { return document_field_context(units, horizontal); });
+  const auto context = document_field_context(units, horizontal);
+  spin->set_context_provider([context] { return context; });
   set_field_display_unit(spin, units.display_unit);
+  if (units.on_unit_picked) {
+    QObject::connect(spin, &UnitSpinBox::display_unit_picked, spin,
+                     [callback = units.on_unit_picked](SpinUnit unit) {
+                       if (const auto measurement = measurement_unit_for(unit); measurement.has_value()) {
+                         callback(*measurement);
+                       }
+                     });
+  }
+}
+
+void link_field_unit_picks(const std::vector<UnitSpinBox*>& fields) {
+  for (auto* field : fields) {
+    if (field == nullptr) {
+      continue;
+    }
+    QObject::connect(field, &UnitSpinBox::display_unit_picked, field, [fields, field](SpinUnit unit) {
+      for (auto* other : fields) {
+        if (other != nullptr && other != field) {
+          other->set_display_unit(unit);
+        }
+      }
+    });
+  }
 }
 
 }  // namespace patchy::ui

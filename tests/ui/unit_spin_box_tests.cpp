@@ -9,10 +9,14 @@
 #include "ui_test_groups.hpp"
 #include "ui_test_support.hpp"
 
+#include <QAction>
 #include <QApplication>
+#include <QContextMenuEvent>
 #include <QLineEdit>
 #include <QLocale>
+#include <QMenu>
 #include <QString>
+#include <QTimer>
 
 #include <cmath>
 #include <optional>
@@ -449,6 +453,77 @@ void unit_spin_box_document_field_units_helpers() {
 
 }  // namespace
 
+// The right-click menu lists the units and its pick goes through pick_display_unit:
+// the field shows the unit and emits display_unit_picked (MainWindow's cue to change
+// the ruler preference). A typed token emits display_unit_changed only, and an
+// unswitchable field ignores picks.
+void unit_spin_box_context_menu_pick_emits_picked() {
+  using patchy::ui::MeasurementUnit;
+  UnitSpinBox spin(SpinUnit::Pixels);
+  spin.setRange(0.0, 10000.0);
+  spin.setDecimals(1);
+  spin.setValue(300.0);
+  spin.set_context_provider([] { return UnitConversionContext{300.0, 600.0}; });
+  spin.set_display_unit_switchable(true);
+  spin.show();
+  QApplication::processEvents();
+  std::vector<SpinUnit> picked;
+  std::vector<SpinUnit> changed;
+  QObject::connect(&spin, &UnitSpinBox::display_unit_picked, &spin, [&picked](SpinUnit unit) { picked.push_back(unit); });
+  QObject::connect(&spin, &UnitSpinBox::display_unit_changed, &spin,
+                   [&changed](SpinUnit unit) { changed.push_back(unit); });
+
+  bool saw_menu = false;
+  QTimer::singleShot(0, [&] {
+    for (auto* widget : QApplication::topLevelWidgets()) {
+      auto* menu = qobject_cast<QMenu*>(widget);
+      if (menu == nullptr || !menu->isVisible()) {
+        continue;
+      }
+      QStringList names;
+      for (auto* action : menu->actions()) {
+        names << action->text();
+      }
+      CHECK(names.contains(patchy::ui::measurement_unit_name(MeasurementUnit::Inches)));
+      CHECK(names.contains(patchy::ui::measurement_unit_name(MeasurementUnit::Percent)));  // has a basis
+      for (auto* action : menu->actions()) {
+        if (action->text() == patchy::ui::measurement_unit_name(MeasurementUnit::Inches)) {
+          saw_menu = true;
+          action->trigger();
+          menu->close();
+          return;
+        }
+      }
+    }
+    CHECK(false);
+  });
+  const auto point = spin.rect().center();
+  QContextMenuEvent event(QContextMenuEvent::Mouse, point, spin.mapToGlobal(point));
+  QApplication::sendEvent(&spin, &event);
+  QApplication::processEvents();
+  CHECK(saw_menu);
+  CHECK(spin.display_unit() == SpinUnit::Inches);
+  CHECK(spin.text() == QStringLiteral("1.000") + patchy::ui::inch_suffix());
+  CHECK(picked == std::vector<SpinUnit>{SpinUnit::Inches});
+  CHECK(changed == std::vector<SpinUnit>{SpinUnit::Inches});
+
+  // A typed token switches the display without a pick.
+  commit_text(spin, QStringLiteral("25.4 mm"));
+  CHECK(spin.display_unit() == SpinUnit::Millimeters);
+  CHECK(close_to(spin.value(), 300.0));
+  CHECK(picked.size() == 1);
+  CHECK(changed.size() == 2);
+
+  // Direct picks: a no-op once the field stops being switchable.
+  spin.pick_display_unit(SpinUnit::Centimeters);
+  CHECK(spin.display_unit() == SpinUnit::Centimeters);
+  CHECK(picked.size() == 2);
+  spin.set_display_unit_switchable(false);
+  spin.pick_display_unit(SpinUnit::Pixels);
+  CHECK(spin.display_unit() == SpinUnit::Centimeters);
+  CHECK(picked.size() == 2);
+}
+
 std::vector<patchy::test::TestCase> unit_spin_box_tests() {
   return {
       {"unit_spin_box_parses_unit_tokens", unit_spin_box_parses_unit_tokens},
@@ -462,5 +537,6 @@ std::vector<patchy::test::TestCase> unit_spin_box_tests() {
       {"unit_spin_box_int_rounds_converted_values", unit_spin_box_int_rounds_converted_values},
       {"unit_spin_box_display_unit_adjusts_decimals_and_step", unit_spin_box_display_unit_adjusts_decimals_and_step},
       {"unit_spin_box_document_field_units_helpers", unit_spin_box_document_field_units_helpers},
+      {"unit_spin_box_context_menu_pick_emits_picked", unit_spin_box_context_menu_pick_emits_picked},
   };
 }
