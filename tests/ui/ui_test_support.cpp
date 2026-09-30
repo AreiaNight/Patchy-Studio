@@ -1566,6 +1566,10 @@ void accept_canvas_size_dialog(int width_value, int height_value) {
       CHECK(width->buttonSymbols() == QAbstractSpinBox::NoButtons);
       CHECK(height->buttonSymbols() == QAbstractSpinBox::NoButtons);
       CHECK(!relative->isChecked());
+      // The dialog remembers its last unit; the values below are pixels, so pick
+      // Pixels explicitly (the height combo follows the width combo).
+      width_unit->setCurrentIndex(width_unit->findText(QStringLiteral("Pixels")));
+      QApplication::processEvents();
       CHECK(width_unit->currentText() == QStringLiteral("Pixels"));
       CHECK(height_unit->currentText() == QStringLiteral("Pixels"));
       CHECK(extension_color->currentText() == QStringLiteral("Other..."));
@@ -1623,6 +1627,7 @@ void accept_image_size_dialog(int width_value, int height_value) {
       auto* resample = dialog->findChild<QCheckBox*>(QStringLiteral("imageSizeResampleCheck"));
       auto* method = dialog->findChild<QComboBox*>(QStringLiteral("imageSizeResampleCombo"));
       auto* link = dialog->findChild<QToolButton*>(QStringLiteral("imageSizeLinkButton"));
+      auto* width_unit = dialog->findChild<QComboBox*>(QStringLiteral("imageSizeWidthUnitCombo"));
       CHECK(width != nullptr);
       CHECK(height != nullptr);
       CHECK(dimensions != nullptr);
@@ -1630,6 +1635,11 @@ void accept_image_size_dialog(int width_value, int height_value) {
       CHECK(resample != nullptr);
       CHECK(method != nullptr);
       CHECK(link != nullptr);
+      CHECK(width_unit != nullptr);
+      // The dialog remembers its last unit (a Resample-off accept leaves Inches);
+      // the values below are pixels, so pick Pixels explicitly.
+      width_unit->setCurrentIndex(width_unit->findText(QStringLiteral("Pixels")));
+      QApplication::processEvents();
       CHECK(width->buttonSymbols() == QAbstractSpinBox::NoButtons);
       CHECK(height->buttonSymbols() == QAbstractSpinBox::NoButtons);
       CHECK(dimensions->text().contains(QStringLiteral("px x")));

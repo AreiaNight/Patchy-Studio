@@ -227,7 +227,7 @@ void MainWindow::handle_shape_create_requested(CanvasTool tool, QPointF document
   request.from_center = memory.from_center;
   const auto radius = static_cast<double>(std::max(0, current_shape_corner_radius_));
   request.corner_radii = {radius, radius, radius, radius};
-  request.units = document_field_units();
+  request.units = dialog_field_units();
   const auto result = request_shape_create_settings(this, request);
   if (!result.has_value() || !has_active_document() || canvas_ == nullptr) {
     return;
@@ -822,7 +822,7 @@ bool MainWindow::edit_active_shape_appearance(bool record_undo) {
       RgbColor{static_cast<std::uint8_t>(background.red()),
                static_cast<std::uint8_t>(background.green()),
                static_cast<std::uint8_t>(background.blue())},
-      document_field_units());
+      dialog_field_units());
   // On accept, drain the in-flight preview: its result IS the final raster,
   // so the commit reuses it instead of re-rasterizing (the second freeze).
   if (accepted.has_value()) {

@@ -725,24 +725,19 @@ std::optional<NewDocumentSettings> request_new_document_settings(QWidget* parent
     const auto last_height = settings.value(QStringLiteral("lastHeight")).toInt();
     const auto last_ppi = settings.value(QStringLiteral("lastPpi")).toDouble();
     const auto last_background = settings.value(QStringLiteral("lastBackground")).value<QColor>();
-    // The W/H unit (issue 53): the last accepted one, else the ruler unit on a
-    // first run. Both are settings tokens; the combo has no Points or Percent, so
-    // those (and anything unknown) fall back to Pixels.
-    const auto last_unit_token = settings.value(QStringLiteral("lastUnit")).toString();
-    const auto last_resolution_unit_token =
-        settings.value(QStringLiteral("lastResolutionUnit")).toString();
     settings.endGroup();
-    const auto seed_unit_token =
-        last_unit_token.isEmpty()
-            ? settings.value(QStringLiteral("view/rulerUnits"), QStringLiteral("px")).toString()
-            : last_unit_token;
+    // The W/H unit and the resolution unit (issue 53): the last accepted ones, else
+    // the ruler unit on a first run; the combo has no Points or Percent, so those
+    // fall back to Pixels (remembered_dialog_unit).
     {
-      const auto seed_unit = measurement_unit_from_settings_token(seed_unit_token, MeasurementUnit::Pixels);
-      const auto unit_index = unit->findData(static_cast<int>(seed_unit));
+      const auto seed_unit = remembered_dialog_unit(
+          QStringLiteral("newDocument/lastUnit"), {MeasurementUnit::Pixels, MeasurementUnit::Inches,
+                                                   MeasurementUnit::Centimeters, MeasurementUnit::Millimeters});
       const QSignalBlocker unit_blocker(unit);  // the first refresh below picks it up once
-      unit->setCurrentIndex(std::max(0, unit_index));
+      unit->setCurrentIndex(std::max(0, unit->findData(static_cast<int>(seed_unit))));
       const QSignalBlocker resolution_unit_blocker(resolution_unit);
-      resolution_unit->setCurrentIndex(last_resolution_unit_token == QStringLiteral("cm") ? 1 : 0);
+      resolution_unit->setCurrentIndex(
+          remembered_resolution_unit_index(QStringLiteral("newDocument/lastResolutionUnit")));
     }
 
     if (last_background.isValid()) {
@@ -800,10 +795,9 @@ std::optional<NewDocumentSettings> request_new_document_settings(QWidget* parent
     settings.setValue(QStringLiteral("lastHeight"), state.pixel_height);
     settings.setValue(QStringLiteral("lastPpi"), state.ppi);
     settings.setValue(QStringLiteral("lastBackground"), background_color);
-    settings.setValue(QStringLiteral("lastUnit"), measurement_unit_settings_token(current_unit()));
-    settings.setValue(QStringLiteral("lastResolutionUnit"),
-                      resolution_unit->currentIndex() == 1 ? QStringLiteral("cm") : QStringLiteral("in"));
     settings.endGroup();
+    remember_dialog_unit(QStringLiteral("newDocument/lastUnit"), current_unit());
+    remember_resolution_unit(QStringLiteral("newDocument/lastResolutionUnit"), resolution_unit->currentIndex());
   }
   return NewDocumentSettings{state.pixel_width,   state.pixel_height,
                              state.ppi,           background_color,

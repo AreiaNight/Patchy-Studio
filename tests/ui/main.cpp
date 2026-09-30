@@ -198,6 +198,12 @@ int main(int argc, char* argv[]) {
     settings.remove(QStringLiteral("imports"));
     settings.remove(QStringLiteral("window"));
     settings.remove(QStringLiteral("filters/gallery"));
+    // The dialogs that remember their unit combos (docs/resolution-units.md); the
+    // auto-accept helpers type pixel values, so a developer's real choice must not
+    // seed a run.
+    settings.remove(QStringLiteral("newDocument"));
+    settings.remove(QStringLiteral("imageSize"));
+    settings.remove(QStringLiteral("canvasSize"));
     // Hotkey tests customize-then-restore this group; a run killed in between
     // would otherwise leave the overrides in the shared store permanently and
     // fail every later default-shortcut assertion.

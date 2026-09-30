@@ -11,6 +11,7 @@
 
 #include <functional>
 #include <optional>
+#include <vector>
 
 namespace patchy::ui {
 
@@ -100,9 +101,19 @@ class UnitSpinBox : public QDoubleSpinBox {
   // right-click offers the unit list.
   void set_display_unit_switchable(bool enabled);
   [[nodiscard]] bool display_unit_switchable() const noexcept { return switchable_; }
+  // What the right-click menu does: shows `unit` and emits display_unit_picked, which
+  // MainWindow routes to the ruler unit preference (Photoshop: a field's unit menu
+  // changes Units & Rulers for every field and the rulers). A typed unit token goes
+  // through set_display_unit alone and stays this field's choice. No-op unless
+  // switchable.
+  void pick_display_unit(SpinUnit unit);
 
  signals:
+  // Every display-unit change, whatever caused it (the linked transform W/H pair
+  // follows through this).
   void display_unit_changed(patchy::ui::SpinUnit unit);
+  // The user picked `unit` from the field's unit menu (pick_display_unit).
+  void display_unit_picked(patchy::ui::SpinUnit unit);
 
  protected:
   QValidator::State validate(QString& input, int& pos) const override;
@@ -160,6 +171,10 @@ struct DocumentFieldUnits {
   double ppi{300.0};
   double document_width{0.0};
   double document_height{0.0};
+  // Where a field's unit-menu pick goes (MainWindow fills it with the ruler unit
+  // preference setter, so the pick lands on the rulers and every live field, as in
+  // Photoshop). Empty: the pick stays inside the dialog.
+  std::function<void(MeasurementUnit)> on_unit_picked;
 };
 
 // The conversion context for one axis of `units`.
@@ -170,8 +185,14 @@ struct DocumentFieldUnits {
 void set_field_display_unit(UnitSpinBox* spin, MeasurementUnit unit);
 
 // For fields in a modal dialog: a fixed context snapshot for the axis plus
-// set_field_display_unit. Fields whose live document can change (options bar,
+// set_field_display_unit, and the field's unit-menu pick forwarded to
+// `units.on_unit_picked`. Fields whose live document can change (options bar,
 // panels) keep their own provider and call set_field_display_unit directly.
 void apply_document_field_units(UnitSpinBox* spin, const DocumentFieldUnits& units, bool horizontal);
+
+// A dialog's dimension fields read as one control: a unit picked on any of them
+// shows on all of them (the app-wide preference change covers only MainWindow's
+// enrolled live fields, not a modal dialog's).
+void link_field_unit_picks(const std::vector<UnitSpinBox*>& fields);
 
 }  // namespace patchy::ui
