@@ -132,7 +132,9 @@ struct Writer {
 
   // A texture brush tiles the image at its pixel size in the painter's logical space;
   // the fill's scale, angle, and phase ride the brush transform (the same anchoring SVG
-  // export uses: document origin, layer-linked placement approximated).
+  // export uses: document origin, layer-linked placement approximated). A positive
+  // pattern angle turns the tile counterclockwise (the Photoshop dial,
+  // PatternTileSampler); QTransform::rotate() is clockwise on the y-down page.
   QBrush pattern_brush(const VectorFill& fill) {
     const auto* resource = document.metadata().patterns.find(fill.pattern_id);
     if (resource == nullptr || resource->tile.empty() || pattern_tile_is_unrenderable(resource->tile)) {
@@ -145,7 +147,7 @@ struct Writer {
     QBrush brush(qimage_from_pixel_buffer(resource->tile));
     QTransform transform;
     transform.translate(fill.pattern_phase_x, fill.pattern_phase_y);
-    transform.rotate(fill.pattern_angle_degrees);
+    transform.rotate(-fill.pattern_angle_degrees);
     const double scale = std::clamp(fill.pattern_scale, 0.01, 100.0);
     transform.scale(scale, scale);
     brush.setTransform(transform);

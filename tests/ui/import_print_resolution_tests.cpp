@@ -4,6 +4,7 @@
 #include "core/gradient_presets.hpp"
 #include "core/layer_metadata.hpp"
 #include "core/pattern_presets.hpp"
+#include "core/pattern_resource.hpp"
 #include "core/vector_live_shapes.hpp"
 #include "core/vector_raster.hpp"
 #include "core/vector_shape.hpp"
@@ -2164,6 +2165,121 @@ void ui_pdf_export_editable_gradients_clips_and_opacity_render_like_canvas() {
   CHECK(color_close(rendered.pixelColor(180, 60), QColor(240, 180, 20), 2));  // inside the mask
   CHECK(color_close(rendered.pixelColor(140, 30), QColor(250, 250, 245), 2));  // clipped away
   CHECK(color_close(over_white(rendered).pixelColor(120, 130), QColor(125, 125, 122), 3));
+}
+
+// A pattern fill's angle is counterclockwise-positive (the Photoshop dial, PatternTileSampler)
+// while QTransform::rotate() is clockwise on the y-down page, so the exported tiling pattern
+// must turn the same way as the layer's own raster: bands that start horizontal climb to the
+// right at +30 degrees.
+void ui_pdf_export_editable_pattern_fill_rotates_like_canvas() {
+  ensure_artifact_dir();
+  patchy::Document document(200, 200, patchy::PixelFormat::rgba8());
+  document.print_settings().horizontal_ppi = 72.0;
+  document.print_settings().vertical_ppi = 72.0;
+  document.add_pixel_layer("Paper", solid_pixels(200, 200, patchy::PixelFormat::rgba8(), QColor(250, 250, 245)));
+
+  // Horizontal bands: the top half of the tile dark, the bottom half light.
+  const QColor dark(20, 40, 160);
+  const QColor light(240, 220, 60);
+  patchy::PatternResource bands;
+  bands.id = "3f0e9d52-6c1b-4a77-9e21-5b8c4d1a7e90";
+  bands.name = "Bands";
+  bands.tile = solid_pixels(16, 32, patchy::PixelFormat::rgba8(), light);
+  fill_pixel_rect(bands.tile, QRect(0, 0, 16, 16), dark);
+  document.metadata().patterns.adopt(bands);
+
+  constexpr double kAngleDegrees = 30.0;
+  constexpr double kPhaseX = 5.0;
+  constexpr double kPhaseY = 3.0;
+  {
+    patchy::LiveShapeParams params;
+    params.kind = patchy::LiveShapeKind::Rectangle;
+    params.left = 20;
+    params.top = 20;
+    params.right = 180;
+    params.bottom = 180;
+    params.index = 0;
+    patchy::populate_live_shape_box_corners(params);
+    patchy::VectorShapeContent content;
+    content.path.subpaths = patchy::generate_live_shape_subpaths(params);
+    content.origination = {params};
+    content.fill.kind = patchy::VectorFillKind::Pattern;
+    content.fill.pattern_id = bands.id;
+    content.fill.pattern_name = bands.name;
+    content.fill.pattern_angle_degrees = kAngleDegrees;
+    content.fill.pattern_linked = false;
+    content.fill.pattern_phase_x = kPhaseX;
+    content.fill.pattern_phase_y = kPhaseY;
+    patchy::Layer layer(document.allocate_layer_id(), "Banded", patchy::LayerKind::Pixel);
+    layer.metadata()[patchy::kLayerMetadataVectorShape] = "1";
+    patchy::mark_layer_vector_block_dirty(layer);
+    layer.set_vector_shape(std::move(content));
+    patchy::update_vector_shape_raster(layer, patchy::Rect::from_size(document.width(), document.height()),
+                                       &document.metadata().patterns);
+    document.add_layer(std::move(layer));
+  }
+
+  const auto path = QStringLiteral("test-artifacts/ui_pdf_export_editable_pattern.pdf");
+  QFile::remove(path);
+  std::vector<std::string> notices;
+  patchy::ui::write_pdf_document_file(document, path, patchy::ui::PdfExportOptions{true, true}, &notices);
+  for (const auto& notice : notices) {
+    std::printf("[pdf] unexpected notice: %s\n", notice.c_str());
+  }
+  CHECK(notices.empty());
+  CHECK(read_file_bytes(path).contains("/PatternType"));  // a real tiling pattern, not a picture
+
+  QPdfDocument reader;
+  CHECK(reader.load(path) == QPdfDocument::Error::None);
+  const QImage page = reader.render(0, QSize(200, 200));
+  CHECK(!page.isNull());
+  const QImage rendered = over_white(page);
+  const QImage composite = over_white(patchy::ui::qimage_from_document(document, true));
+
+  // The middle of a dark band, from the sampler's document-to-tile mapping
+  // (tile = R(angle) @ (p - phase)): tile row 7.5 of the fourth repeat.
+  constexpr double kPi = 3.14159265358979323846;
+  const double cosine = std::cos(kAngleDegrees * kPi / 180.0);
+  const double sine = std::sin(kAngleDegrees * kPi / 180.0);
+  const double tile_row = 7.5 + 32.0 * 3.0;
+  const QPointF start(kPhaseX + tile_row * sine, kPhaseY + tile_row * cosine);
+  // The share of dark samples 40 px either way from `start` along `direction`.
+  const auto dark_share = [&](const QImage& image, QPointF direction) {
+    int dark_samples = 0;
+    int samples = 0;
+    for (int step = -40; step <= 40; ++step) {
+      const QPoint pixel(static_cast<int>(std::floor(start.x() + direction.x() * step)),
+                         static_cast<int>(std::floor(start.y() + direction.y() * step)));
+      dark_samples += image.pixelColor(pixel).red() < 130 ? 1 : 0;
+      ++samples;
+    }
+    return static_cast<double>(dark_samples) / samples;
+  };
+  const QPointF climbing(cosine, -sine);  // counterclockwise on screen: up to the right
+  const QPointF falling(cosine, sine);
+  const double composite_climbing = dark_share(composite, climbing);
+  const double composite_falling = dark_share(composite, falling);
+  const double rendered_climbing = dark_share(rendered, climbing);
+  const double rendered_falling = dark_share(rendered, falling);
+  const double delta = mean_rgb_delta_over_white(rendered, composite);
+  // Band edges antialias differently and PDFium draws faint tile seams: the delta is
+  // about 4 when the bands line up and about 54 when they are mirrored.
+  constexpr double kMaxDelta = 12.0;
+  const bool matches = rendered_climbing > 0.95 && rendered_falling < 0.75 && delta < kMaxDelta;
+  if (!matches) {
+    std::fprintf(stderr,
+                 "[pdf] pattern export: dark share along the climbing band %f (canvas %f), across it %f (canvas %f), "
+                 "mean delta %f\n",
+                 rendered_climbing, composite_climbing, rendered_falling, composite_falling, delta);
+    rendered.save(QStringLiteral("test-artifacts/ui_pdf_export_editable_pattern_pdfium.png"));
+    composite.save(QStringLiteral("test-artifacts/ui_pdf_export_editable_pattern_composite.png"));
+  }
+  // The layer's own raster is the reference: its bands climb to the right.
+  CHECK(composite_climbing > 0.95);
+  CHECK(composite_falling < 0.75);
+  CHECK(rendered_climbing > 0.95);
+  CHECK(rendered_falling < 0.75);
+  CHECK(delta < kMaxDelta);
 }
 
 // Qt's PDF engine writes no blend modes, so a Multiply layer is a barrier: everything
@@ -5131,6 +5247,8 @@ std::vector<patchy::test::TestCase> import_print_resolution_tests() {
        ui_pdf_export_editable_keeps_psd_preview_text_and_substitutes_missing_fonts},
       {"ui_pdf_export_editable_gradients_clips_and_opacity_render_like_canvas",
        ui_pdf_export_editable_gradients_clips_and_opacity_render_like_canvas},
+      {"ui_pdf_export_editable_pattern_fill_rotates_like_canvas",
+       ui_pdf_export_editable_pattern_fill_rotates_like_canvas},
       {"ui_pdf_export_editable_flattens_blend_modes_with_notice",
        ui_pdf_export_editable_flattens_blend_modes_with_notice},
       {"ui_font_bootstrap_never_registers_installed_families",
