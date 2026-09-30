@@ -473,6 +473,7 @@ void MainWindow::run_legacy_plugin(QString identifier, bool show_dialog) {
   if (session == nullptr) {
     return;
   }
+  select_only_layer_if_none_active();
   const auto active = document().active_layer_id();
   if (!active.has_value()) {
     show_status_error(tr("Select a pixel layer before running the plug-in"));

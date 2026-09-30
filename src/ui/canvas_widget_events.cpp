@@ -833,6 +833,11 @@ void CanvasWidget::mousePressEvent(QMouseEvent* event) {
       begin_move_layer_selection(event, nullptr, true);
       return;
     }
+    if (move_selected_layers) {
+      // Auto-Select off drags the selection; with nothing selected a
+      // one-layer document still has an obvious target.
+      select_only_layer_if_none_active();
+    }
     const auto selected_move_layer_ids = movable_layer_ids();
     if (move_selected_layers) {
       layer_ids = selected_move_layer_ids;
@@ -3676,6 +3681,7 @@ bool CanvasWidget::begin_edit(QString label) {
     report_status_error(tr("Vector masks are edited with the pen and path tools"));
     return false;
   }
+  select_only_layer_if_none_active();
   if (active_layer_locks_image_pixels()) {
     show_layer_pixels_locked_message();
     return false;
@@ -3732,6 +3738,11 @@ bool CanvasWidget::begin_edit(QString label) {
 }
 
 bool CanvasWidget::can_begin_pixel_edit(bool report) {
+  if (report) {
+    // A reporting precheck is a real press; the silent one (hover, cursor)
+    // must not change the selection.
+    select_only_layer_if_none_active();
+  }
   if (active_layer_locks_image_pixels()) {
     if (report) {
       show_layer_pixels_locked_message();

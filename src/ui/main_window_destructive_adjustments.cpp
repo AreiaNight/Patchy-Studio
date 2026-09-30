@@ -241,6 +241,7 @@ bool curves_settings_have_effect(const CurvesSettings& curves) {
 
 void MainWindow::levels_dialog() {
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto active = doc.active_layer_id();
   if (!active.has_value()) {
     return;
@@ -396,6 +397,7 @@ void MainWindow::levels_dialog() {
 
 void MainWindow::curves_dialog() {
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto active = doc.active_layer_id();
   if (!active.has_value()) {
     return;
@@ -556,6 +558,7 @@ void MainWindow::curves_dialog() {
 
 void MainWindow::hue_saturation_dialog() {
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto active = doc.active_layer_id();
   if (!active.has_value()) {
     return;
@@ -659,6 +662,7 @@ void MainWindow::hue_saturation_dialog() {
 
 void MainWindow::color_balance_dialog() {
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto active = doc.active_layer_id();
   if (!active.has_value()) {
     return;

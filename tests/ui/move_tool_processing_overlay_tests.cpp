@@ -1371,6 +1371,101 @@ void ui_move_deselect_layers_clears_panel_rows_and_active_layer() {
   CHECK(history->count() == history_count);
 }
 
+// A one-layer document leaves a layer command only one possible target, so a
+// tool or command that needs a layer selects it instead of refusing.
+void ui_move_deselected_only_layer_is_selected_on_demand() {
+  patchy::Document document(120, 90, patchy::PixelFormat::rgba8());
+  const auto layer_id = document
+                            .add_pixel_layer("Layer 1", solid_pixels(120, 90, patchy::PixelFormat::rgba8(),
+                                                                     QColor(Qt::white)))
+                            .id();
+
+  patchy::ui::MainWindow window;
+  show_window(window);
+  window.add_document_session(std::move(document), QStringLiteral("Only Layer"));
+  QApplication::processEvents();
+  auto* canvas = require_canvas(window);
+  auto* layer_list = window.findChild<QListWidget*>(QStringLiteral("layerList"));
+  auto* history = window.findChild<QListWidget*>(QStringLiteral("historyList"));
+  auto* status_bar = qobject_cast<patchy::ui::ZoomStatusBar*>(window.statusBar());
+  CHECK(layer_list != nullptr && history != nullptr && status_bar != nullptr);
+  auto* deselect_action = require_hotkey_action(window, QStringLiteral("select.deselect_layers"));
+  canvas->set_show_transform_controls(false);
+  canvas->set_snap_enabled(false);
+
+  const auto deselect = [&] {
+    deselect_action->trigger();
+    QApplication::processEvents();
+    CHECK(!patchy::ui::MainWindowTestAccess::document(window).active_layer_id().has_value());
+    CHECK(layer_list->selectedItems().isEmpty());
+  };
+  const auto expect_only_layer_selected = [&] {
+    QApplication::processEvents();
+    CHECK(patchy::ui::MainWindowTestAccess::document(window).active_layer_id() == layer_id);
+    CHECK(layer_list->selectedItems().size() == 1);
+    CHECK(!status_bar->error_message_active());
+  };
+
+  // A paint tool: the press selects the layer and the stroke lands.
+  canvas->set_tool(patchy::ui::CanvasTool::Brush);
+  deselect();
+  auto history_count = history->count();
+  const auto brush_point = canvas->widget_position_for_document_point(QPoint(60, 60));
+  send_mouse(*canvas, QEvent::MouseButtonPress, brush_point, Qt::LeftButton, Qt::LeftButton);
+  send_mouse(*canvas, QEvent::MouseButtonRelease, brush_point, Qt::LeftButton, Qt::NoButton);
+  expect_only_layer_selected();
+  CHECK(!color_close(canvas_pixel(*canvas, QPoint(60, 60)), QColor(Qt::white), 8));
+  CHECK(history->count() == history_count + 1);
+
+  // A menu command: Fill used to return without doing anything.
+  deselect();
+  canvas->set_primary_color(QColor(40, 90, 220));
+  history_count = history->count();
+  require_hotkey_action(window, QStringLiteral("layer.fill"))->trigger();
+  expect_only_layer_selected();
+  CHECK(color_close(canvas_pixel(*canvas, QPoint(10, 10)), QColor(40, 90, 220), 8));
+  CHECK(history->count() == history_count + 1);
+
+  // The Move tool with Auto-Select off drags the selection, so it needs one.
+  require_action_by_text(window, QStringLiteral("Move"))->trigger();
+  canvas->set_auto_select_layer(false);
+  deselect();
+  drag(*canvas, canvas->widget_position_for_document_point(QPoint(30, 30)),
+       canvas->widget_position_for_document_point(QPoint(50, 40)));
+  expect_only_layer_selected();
+  CHECK(canvas->active_layer_document_rect() == QRect(20, 10, 120, 90));
+
+  // With Auto-Select on, an empty click still deselects the only layer: the
+  // deselected state stays reachable, it just no longer blocks the next command.
+  canvas->set_auto_select_layer(true);
+  const auto empty = canvas->widget_position_for_document_point(QPoint(5, 5));
+  send_mouse(*canvas, QEvent::MouseButtonPress, empty, Qt::LeftButton, Qt::LeftButton);
+  send_mouse(*canvas, QEvent::MouseButtonRelease, empty, Qt::LeftButton, Qt::NoButton);
+  QApplication::processEvents();
+  CHECK(!patchy::ui::MainWindowTestAccess::document(window).active_layer_id().has_value());
+
+  // Two layers leave the target ambiguous: nothing is selected for the user.
+  patchy::Document two(120, 90, patchy::PixelFormat::rgba8());
+  two.add_pixel_layer("Lower", solid_pixels(120, 90, patchy::PixelFormat::rgba8(), QColor(Qt::white)));
+  patchy::Layer upper(two.allocate_layer_id(), "Upper",
+                      solid_pixels(20, 20, patchy::PixelFormat::rgba8(), QColor(Qt::red)));
+  upper.set_bounds(patchy::Rect{10, 10, 20, 20});
+  two.add_layer(std::move(upper));
+  window.add_document_session(std::move(two), QStringLiteral("Two Layers"));
+  QApplication::processEvents();
+  canvas = require_canvas(window);
+  layer_list = window.findChild<QListWidget*>(QStringLiteral("layerList"));
+  history = window.findChild<QListWidget*>(QStringLiteral("historyList"));
+  CHECK(layer_list != nullptr && history != nullptr);
+  deselect();
+  history_count = history->count();
+  require_hotkey_action(window, QStringLiteral("layer.fill"))->trigger();
+  QApplication::processEvents();
+  CHECK(!patchy::ui::MainWindowTestAccess::document(window).active_layer_id().has_value());
+  CHECK(layer_list->selectedItems().isEmpty());
+  CHECK(history->count() == history_count);
+}
+
 void ui_move_rectangle_reveals_collapsed_and_filtered_layers() {
   patchy::Document document(120, 90, patchy::PixelFormat::rgba8());
   auto& background = document.add_pixel_layer("Background",
@@ -4624,6 +4719,8 @@ std::vector<patchy::test::TestCase> move_tool_processing_overlay_tests() {
       {"ui_move_empty_click_and_rectangle_deselect_layers", ui_move_empty_click_and_rectangle_deselect_layers},
       {"ui_move_deselect_layers_clears_panel_rows_and_active_layer",
        ui_move_deselect_layers_clears_panel_rows_and_active_layer},
+      {"ui_move_deselected_only_layer_is_selected_on_demand",
+       ui_move_deselected_only_layer_is_selected_on_demand},
       {"ui_move_rectangle_reveals_collapsed_and_filtered_layers", ui_move_rectangle_reveals_collapsed_and_filtered_layers},
       {"ui_move_tool_uses_opaque_bounds_for_transparent_layer",
        ui_move_tool_uses_opaque_bounds_for_transparent_layer},

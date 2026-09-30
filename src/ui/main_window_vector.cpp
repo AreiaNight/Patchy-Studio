@@ -593,6 +593,7 @@ bool MainWindow::edit_active_shape_appearance(bool record_undo) {
     return false;
   }
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto active = doc.active_layer_id();
   auto* layer = active.has_value() ? doc.find_layer(*active) : nullptr;
   if (layer == nullptr || !layer_is_vector_shape(*layer)) {
@@ -1104,6 +1105,7 @@ Layer* MainWindow::vector_mask_command_layer(bool require_mask) {
     return nullptr;
   }
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto active = doc.active_layer_id();
   auto* layer = active.has_value() ? doc.find_layer(*active) : nullptr;
   if (layer == nullptr) {
@@ -1297,6 +1299,7 @@ void MainWindow::define_custom_shape_from_path() {
   if (path == nullptr || path->empty()) {
     // Fall back to the active layer's path / work path without a panel selection.
     if (canvas_ != nullptr) {
+      select_only_layer_if_none_active();
       path = canvas_->path_edit_target_path();
     }
   }
@@ -2183,6 +2186,7 @@ void MainWindow::trace_image_to_shapes() {
     return;
   }
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto active = doc.active_layer_id();
   if (!active.has_value()) {
     show_status_error(tr("Select a pixel layer to trace"));
@@ -2293,6 +2297,7 @@ void MainWindow::simplify_target_path() {
     show_preview_dialog_edit_lock_message();
     return;
   }
+  select_only_layer_if_none_active();
   const auto* target = canvas_->path_edit_target_path();
   if (target == nullptr || target->subpaths.empty()) {
     show_status_error(tr("Select a path or shape layer to simplify"));

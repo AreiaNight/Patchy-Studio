@@ -1576,6 +1576,10 @@ private:
   // Escape with nothing to cancel, and Move-tool empty clicks/rectangles:
   // clear the layer selection and the active layer (no history entry).
   void request_layer_deselection();
+  // For a tool that needs a layer: with no active layer, a one-layer
+  // document's only layer becomes the selection instead of the gesture
+  // being refused (MainWindow::select_only_layer_if_none_active's twin).
+  void select_only_layer_if_none_active();
   // Move-tool section of the canvas context menu (canvas_widget_move.cpp):
   // the hit leaf layers under the pointer. Returns whether any entry was added.
   bool add_move_layer_menu_entries(QMenu& menu, QPoint widget_point);

@@ -103,6 +103,13 @@ std::optional<LayerId> default_non_group_layer_id(const std::vector<Layer>& laye
   return std::nullopt;
 }
 
+std::optional<LayerId> only_layer_id(const std::vector<Layer>& layers) {
+  if (layers.size() != 1U || !layers.front().children().empty()) {
+    return std::nullopt;
+  }
+  return layers.front().id();
+}
+
 void collect_layer_group_ids(const std::vector<Layer>& layers, std::set<LayerId>& ids) {
   for (const auto& layer : layers) {
     if (layer.kind() == LayerKind::Group) {

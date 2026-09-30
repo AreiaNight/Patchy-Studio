@@ -420,6 +420,7 @@ void MainWindow::export_smart_object_contents() {
   if (!has_active_document()) {
     return;
   }
+  select_only_layer_if_none_active();
   const auto active = document().active_layer_id();
   const auto* layer = active.has_value() ? document().find_layer(*active) : nullptr;
   if (layer == nullptr || !layer_is_smart_object(*layer)) {
@@ -456,6 +457,7 @@ void MainWindow::open_smart_object_contents() {
   if (!has_active_document()) {
     return;
   }
+  select_only_layer_if_none_active();
   const auto active = document().active_layer_id();
   const auto* layer = active.has_value() ? document().find_layer(*active) : nullptr;
   if (layer == nullptr || !layer_is_smart_object(*layer)) {
@@ -939,6 +941,7 @@ void MainWindow::update_smart_object_content() {
     return;
   }
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto active = doc.active_layer_id();
   const auto* layer = active.has_value() ? doc.find_layer(*active) : nullptr;
   if (layer == nullptr || !layer_is_smart_object(*layer) || smart_object_lock_reason(*layer) != "external") {
@@ -1031,6 +1034,7 @@ void MainWindow::relink_smart_object_contents_with_path(const QString& path) {
     return;
   }
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto active = doc.active_layer_id();
   const auto* layer = active.has_value() ? doc.find_layer(*active) : nullptr;
   if (layer == nullptr || !layer_is_smart_object(*layer) || smart_object_lock_reason(*layer) != "external") {
@@ -1199,6 +1203,7 @@ void MainWindow::embed_linked_smart_object() {
     return;
   }
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto active = doc.active_layer_id();
   const auto* layer = active.has_value() ? doc.find_layer(*active) : nullptr;
   if (layer == nullptr || !layer_is_smart_object(*layer) || smart_object_lock_reason(*layer) != "external") {
@@ -1268,6 +1273,7 @@ void MainWindow::replace_smart_object_contents() {
     return;
   }
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto active = doc.active_layer_id();
   auto* layer = active.has_value() ? doc.find_layer(*active) : nullptr;
   if (layer == nullptr || !layer_is_smart_object(*layer)) {
@@ -1301,6 +1307,7 @@ void MainWindow::replace_smart_object_contents_with_path(const QString& path) {
     return;
   }
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto active = doc.active_layer_id();
   auto* layer = active.has_value() ? doc.find_layer(*active) : nullptr;
   if (layer == nullptr || !layer_is_smart_object(*layer) || !smart_object_lock_reason(*layer).empty()) {
@@ -1459,6 +1466,7 @@ void MainWindow::convert_to_smart_object() {
   }
   finish_active_text_editor();
   auto& doc = document();
+  select_only_layer_if_none_active();
   convert_layers_to_smart_object(root_drop_layer_ids(doc.layers(), selected_or_active_layer_ids()));
 }
 
@@ -1618,6 +1626,7 @@ void MainWindow::new_smart_object_via_copy() {
   if (!has_active_document()) {
     return;
   }
+  select_only_layer_if_none_active();
   auto& target_document = document();
   auto doc = target_document;
   const auto active = doc.active_layer_id();
@@ -1694,6 +1703,7 @@ void MainWindow::convert_smart_object_to_layers() {
     canvas_->finish_free_transform();
   }
   const auto& current = std::as_const(document());
+  select_only_layer_if_none_active();
   const auto active = current.active_layer_id();
   const auto* layer = active.has_value() ? current.find_layer(*active) : nullptr;
   if (layer == nullptr || !layer_is_smart_object(*layer)) {

@@ -2771,6 +2771,20 @@ void MainWindow::deselect_all_layers() {
   refresh_paths_panel();
 }
 
+void MainWindow::select_only_layer_if_none_active() {
+  if (!has_active_document() || layer_list_ == nullptr || preview_dialog_edit_locked()) {
+    return;
+  }
+  const auto& doc = std::as_const(document());
+  if (doc.active_layer_id().has_value()) {
+    return;
+  }
+  if (const auto id = only_layer_id(doc.layers()); id.has_value()) {
+    select_layers_in_layer_list({*id}, *id);
+    refresh_options_bar();
+  }
+}
+
 void MainWindow::select_layers_in_layer_list(const std::vector<LayerId>& ids, LayerId active_id) {
   if (layer_list_ == nullptr) {
     return;

@@ -660,6 +660,7 @@ void MainWindow::copy_as_svg() {
   }
   canvas_->finish_free_transform();
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto ids = root_drop_layer_ids(doc.layers(), selected_or_active_layer_ids());
   if (ids.empty()) {
     show_status_error(tr("Select a layer to copy as SVG"));
@@ -775,6 +776,7 @@ void MainWindow::cut_selection() {
                                                  : tr("Copied color %1").arg(color.name()));
     return;
   }
+  select_only_layer_if_none_active();
   auto ids = selected_layer_ids();
   if (ids.empty()) {
     const auto active = document().active_layer_id();
@@ -859,6 +861,7 @@ void MainWindow::copy_selection() {
   if (canvas_ != nullptr) {
     canvas_->finish_free_transform();
   }
+  select_only_layer_if_none_active();
   auto ids = selected_layer_ids();
   if (ids.empty()) {
     const auto active = document().active_layer_id();
@@ -1216,6 +1219,7 @@ void MainWindow::transform_active_layer_dialog() {
   if (canvas_->findChild<QTextEdit*>(QStringLiteral("inlineTextEditor")) != nullptr) {
     finish_active_text_editor();
   }
+  select_only_layer_if_none_active();
   // With a path tool active and a targetable path, Ctrl+T transforms the
   // PATH (Photoshop); the layer position lock governs pixels, not path
   // geometry (path edits never consulted it). Kept out of
@@ -1241,6 +1245,7 @@ void MainWindow::warp_transform_active_layer() {
   if (canvas_->findChild<QTextEdit*>(QStringLiteral("inlineTextEditor")) != nullptr) {
     finish_active_text_editor();
   }
+  select_only_layer_if_none_active();
   if (const auto active = document().active_layer_id();
       active.has_value() && layer_id_locks_position(*active)) {
     show_status_error(tr("Layer position is locked."));
@@ -1324,6 +1329,7 @@ void MainWindow::layer_via_copy() {
   if (canvas_ != nullptr) {
     canvas_->finish_free_transform();
   }
+  select_only_layer_if_none_active();
   const auto ids = selected_or_active_layer_ids();
   const auto payload = collect_layer_copy_pixels(document(), ids, *canvas_);
   if (!payload.has_value()) {
@@ -1346,6 +1352,7 @@ void MainWindow::layer_via_cut() {
   if (canvas_ != nullptr) {
     canvas_->finish_free_transform();
   }
+  select_only_layer_if_none_active();
   const auto ids = selected_or_active_layer_ids();
   auto payload = collect_layer_copy_pixels(document(), ids, *canvas_);
   if (!payload.has_value()) {
@@ -1395,6 +1402,7 @@ void MainWindow::add_layer_mask() {
     return;
   }
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto active = doc.active_layer_id();
   if (!active.has_value()) {
     show_status_error(tr("Select a pixel, adjustment, or group layer before adding a mask"));
@@ -1810,6 +1818,7 @@ void MainWindow::duplicate_active_layer() {
   if (canvas_ != nullptr) {
     canvas_->finish_free_transform();
   }
+  select_only_layer_if_none_active();
   duplicate_layers(selected_or_active_layer_ids());
 }
 
@@ -2154,6 +2163,7 @@ void MainWindow::duplicate_layer_to_document() {
   if (canvas_ != nullptr) {
     canvas_->finish_free_transform();
   }
+  select_only_layer_if_none_active();
   auto ids = root_drop_layer_ids(std::as_const(document()).layers(), selected_or_active_layer_ids());
   if (ids.empty()) {
     show_status_error(tr("Select a layer to copy"));
@@ -2228,6 +2238,7 @@ void MainWindow::duplicate_layer_to_document() {
 
 void MainWindow::rename_active_layer() {
   auto& doc = document();
+  select_only_layer_if_none_active();
   if (!doc.active_layer_id().has_value()) {
     return;
   }
@@ -2275,6 +2286,7 @@ void MainWindow::set_selected_layers_frame_time(std::optional<std::uint16_t> del
     return;
   }
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto ids = selected_or_active_layer_ids();
   if (ids.empty()) {
     show_status_error(tr("No layers selected"));
@@ -3330,6 +3342,7 @@ void MainWindow::fill_active_layer_with_color(QColor color, QString label) {
     return;
   }
 
+  select_only_layer_if_none_active();
   const auto ids = selected_or_active_layer_ids();
   if (ids.empty()) {
     return;
@@ -3442,6 +3455,7 @@ void MainWindow::clear_active_layer() {
     return;
   }
 
+  select_only_layer_if_none_active();
   const auto ids = selected_or_active_layer_ids();
   if (ids.empty()) {
     return;
@@ -4126,6 +4140,7 @@ void MainWindow::remove_object_dialog() {
 
 void MainWindow::stroke_selection() {
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto active = doc.active_layer_id();
   if (!active.has_value()) {
     return;
@@ -4344,6 +4359,7 @@ void MainWindow::flip_active_layer_horizontal() {
       return;
     }
   }
+  select_only_layer_if_none_active();
   const auto ids = selected_or_active_layer_ids();
   if (ids.empty()) {
     return;
@@ -4382,6 +4398,7 @@ void MainWindow::flip_active_layer_vertical() {
       return;
     }
   }
+  select_only_layer_if_none_active();
   const auto ids = selected_or_active_layer_ids();
   if (ids.empty()) {
     return;

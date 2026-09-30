@@ -2226,6 +2226,7 @@ void MainWindow::apply_filter(const QString& identifier) {
     return;
   }
   auto& doc = document();
+  select_only_layer_if_none_active();
   auto active = doc.active_layer_id();
   if (!active.has_value()) {
     return;
@@ -2559,6 +2560,7 @@ void MainWindow::auto_all_adjustments() {
     return;
   }
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto active = doc.active_layer_id();
   if (!active.has_value()) {
     return;
@@ -2680,6 +2682,7 @@ void MainWindow::liquify_dialog() {
   }
 
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto active = doc.active_layer_id();
   if (!active.has_value()) {
     return;
@@ -2802,6 +2805,7 @@ void MainWindow::visual_filter_gallery_dialog() {
   if (target_session == nullptr || target_session->canvas == nullptr) {
     return;
   }
+  select_only_layer_if_none_active();
   const auto active = target_session->document.active_layer_id();
   if (!active.has_value()) {
     return;

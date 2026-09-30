@@ -544,6 +544,8 @@ void MainWindow::delete_selected_path() {
 }
 
 void MainWindow::fill_active_path() {
+  // Before the path resolves: selecting a layer can retarget the Paths panel.
+  select_only_layer_if_none_active();
   QString path_name;
   const auto* path = resolved_panel_path(&path_name);
   if (path == nullptr || path->empty()) {
@@ -808,6 +810,8 @@ void MainWindow::fill_active_path() {
 }
 
 void MainWindow::stroke_active_path() {
+  // Before the path resolves: selecting a layer can retarget the Paths panel.
+  select_only_layer_if_none_active();
   QString path_name;
   const auto* path = resolved_panel_path(&path_name);
   if (path == nullptr || path->empty()) {

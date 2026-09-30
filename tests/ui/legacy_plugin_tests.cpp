@@ -565,6 +565,35 @@ void ui_legacy_plugin_ui_absent_off_windows() {
 #endif
 
 #ifdef Q_OS_WIN
+// With nothing selected, a one-layer document still has an obvious target: the
+// plug-in runs on it instead of asking for a layer.
+void ui_legacy_plugin_runs_on_only_layer_when_none_selected() {
+  patchy::ui::MainWindow window;
+  show_window(window);
+  wait_for_legacy_plugin_scan(window);
+  // The menu path needs a 32-bit copy (see ui_legacy_plugin_run_respects_selection_and_undoes).
+  const auto menu_folder =
+      make_plugin_folder(QStringLiteral("onlylayer32"), {{"Greyscale.8bf", QStringLiteral("Only Grey32.8bf")}});
+  CHECK(run_script(window, QStringLiteral("patchy.plugins.folders = ['%1'];").arg(menu_folder)));
+  patchy::Document document(64, 64, patchy::PixelFormat::rgba8());
+  document.add_pixel_layer("Layer 1", solid_pixels(64, 64, patchy::PixelFormat::rgba8(), QColor(220, 30, 30)));
+  window.add_document_session(std::move(document), QStringLiteral("Only Layer"));
+  QApplication::processEvents();
+  auto* menu_action = find_plugin_action(window, QStringLiteral("legacy.photoshop.Only Grey32"));
+  CHECK(menu_action != nullptr);
+  if (menu_action != nullptr) {
+    require_hotkey_action(window, QStringLiteral("select.deselect_layers"))->trigger();
+    QApplication::processEvents();
+    CHECK(!MainWindowTestAccess::document(window).active_layer_id().has_value());
+    menu_action->trigger();
+    QApplication::processEvents();
+    const auto after = layer_pixel(window, 32, 32);  // also checks that the layer is active again
+    CHECK(after.red() == after.green() && after.green() == after.blue());
+    CHECK(after.red() > 60 && after.red() < 120);
+  }
+  CHECK(run_script(window, QStringLiteral("patchy.plugins.folders = [];")));
+}
+
 // A plug-in run on a text layer offers to rasterize it first (a plug-in only
 // ever sees pixels); Rasterize runs the plug-in on the pixels, Cancel leaves
 // the text layer alone.
@@ -814,6 +843,8 @@ std::vector<patchy::test::TestCase> legacy_plugin_tests() {
       {"ui_about_dialog_has_plugins_folder_row", ui_about_dialog_has_plugins_folder_row},
       {"ui_preferences_plugin_screen_size_round_trips", ui_preferences_plugin_screen_size_round_trips},
       {"ui_legacy_plugin_offers_to_rasterize_text_layer", ui_legacy_plugin_offers_to_rasterize_text_layer},
+      {"ui_legacy_plugin_runs_on_only_layer_when_none_selected",
+       ui_legacy_plugin_runs_on_only_layer_when_none_selected},
       {"ui_legacy_plugin_repeat_last_commands", ui_legacy_plugin_repeat_last_commands},
 #else
       {"ui_legacy_plugin_ui_absent_off_windows", ui_legacy_plugin_ui_absent_off_windows},

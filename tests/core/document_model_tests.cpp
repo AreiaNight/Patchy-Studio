@@ -392,6 +392,24 @@ void default_non_group_layer_id_selects_topmost_visible_unlocked_pixel_child() {
   CHECK(*default_layer_id == child_id);
 }
 
+void only_layer_id_needs_exactly_one_layer_in_the_tree() {
+  patchy::Document document(2, 2, patchy::PixelFormat::rgb8());
+  CHECK(!patchy::only_layer_id(std::as_const(document).layers()).has_value());
+  patchy::Layer pixel(document.allocate_layer_id(), "Pixel", solid_rgb(2, 2, 10, 20, 30));
+  const auto pixel_id = pixel.id();
+  document.add_layer(std::move(pixel));
+  CHECK(patchy::only_layer_id(std::as_const(document).layers()).value() == pixel_id);
+  document.add_layer(patchy::Layer(document.allocate_layer_id(), "Second", solid_rgb(2, 2, 40, 50, 60)));
+  CHECK(!patchy::only_layer_id(std::as_const(document).layers()).has_value());
+
+  // A folder holding one layer is two layers, not one.
+  patchy::Document grouped(2, 2, patchy::PixelFormat::rgb8());
+  patchy::Layer group(grouped.allocate_layer_id(), "Folder", patchy::LayerKind::Group);
+  group.add_child(patchy::Layer(grouped.allocate_layer_id(), "Child", solid_rgb(2, 2, 10, 20, 30)));
+  grouped.add_layer(std::move(group));
+  CHECK(!patchy::only_layer_id(std::as_const(grouped).layers()).has_value());
+}
+
 void default_non_group_layer_id_uses_visible_adjustment_before_hidden_pixels() {
   patchy::Document document(2, 2, patchy::PixelFormat::rgb8());
   patchy::Layer hidden_pixel(document.allocate_layer_id(), "Hidden Pixel", solid_rgb(2, 2, 10, 20, 30));
@@ -736,6 +754,7 @@ std::vector<patchy::test::TestCase> document_model_tests() {
       {"document_can_clear_active_layer", document_can_clear_active_layer},
       {"default_non_group_layer_id_selects_topmost_visible_unlocked_pixel_child",
        default_non_group_layer_id_selects_topmost_visible_unlocked_pixel_child},
+      {"only_layer_id_needs_exactly_one_layer_in_the_tree", only_layer_id_needs_exactly_one_layer_in_the_tree},
       {"default_non_group_layer_id_uses_visible_adjustment_before_hidden_pixels",
        default_non_group_layer_id_uses_visible_adjustment_before_hidden_pixels},
       {"default_non_group_layer_id_ignores_locked_content_and_folder_only_trees",

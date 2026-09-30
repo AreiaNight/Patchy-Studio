@@ -10861,6 +10861,7 @@ void MainWindow::request_warp_text_dialog() {
   // The dialog operates on the committed layer; finish any open inline edit first.
   commit_active_text_editor();
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto active_id = doc.active_layer_id();
   Layer* layer = active_id.has_value() ? doc.find_layer(*active_id) : nullptr;
   if (layer == nullptr || !layer_is_text(*layer)) {
@@ -11525,6 +11526,7 @@ void MainWindow::merge_down() {
   }
   finish_active_text_editor();
 
+  select_only_layer_if_none_active();
   auto ids = selected_or_active_layer_ids();
   if (ids.empty()) {
     show_status_error(tr("Select a layer to merge down"));

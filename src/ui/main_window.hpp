@@ -1301,6 +1301,11 @@ private:
   void select_layers_in_layer_list(const std::vector<LayerId>& ids, LayerId active_id);
   // Select > Deselect Layers: no selected rows and no active layer.
   void deselect_all_layers();
+  // For a command that needs a layer: with no active layer, a one-layer
+  // document's only layer becomes the selection instead of the command
+  // refusing. Call it right before the command reads its target. See
+  // docs/layer-panel.md, "Deselected state".
+  void select_only_layer_if_none_active();
   void zoom_canvas_to_layer_content(LayerId id);
   void set_layer_visibility_from_item(QListWidgetItem* item);
   void set_layer_visibility(LayerId id, bool visible);

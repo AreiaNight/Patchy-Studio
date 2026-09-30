@@ -1173,6 +1173,15 @@ void CanvasWidget::set_error_status_callback(std::function<void(QString)> callba
 
 // Blocking refusals from canvas tools. Falls back to the plain status callback
 // so hosts that wire only set_status_callback still see the message text.
+void CanvasWidget::select_only_layer_if_none_active() {
+  if (document_ == nullptr || edit_locked_ || document_->active_layer_id().has_value()) {
+    return;
+  }
+  if (const auto id = only_layer_id(std::as_const(*document_).layers()); id.has_value()) {
+    request_layer_selection({*id}, *id);
+  }
+}
+
 void CanvasWidget::report_status_error(const QString& message) const {
   if (error_status_callback_) {
     error_status_callback_(message);

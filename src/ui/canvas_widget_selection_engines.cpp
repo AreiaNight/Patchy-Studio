@@ -145,6 +145,7 @@ void CanvasWidget::magic_wand_select(QPoint start) {
     }
     source_image = render_cache_;
   } else {
+    select_only_layer_if_none_active();
     const auto* layer = active_pixel_layer();
     if (layer == nullptr) {
       report_status_error(tr("Select a pixel layer before using Magic Wand"));
@@ -375,6 +376,7 @@ void CanvasWidget::finish_quick_select_stroke() {
     ensure_render_cache();
     source_image = render_cache_;
   } else {
+    select_only_layer_if_none_active();
     const auto* layer = active_pixel_layer();
     if (layer == nullptr) {
       report_status_error(tr("Select a pixel layer before using Quick Select"));

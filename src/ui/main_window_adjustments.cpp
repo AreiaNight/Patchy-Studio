@@ -675,6 +675,7 @@ void MainWindow::edit_active_adjustment_layer() {
     return;
   }
   auto& doc = document();
+  select_only_layer_if_none_active();
   const auto active = doc.active_layer_id();
   auto* layer = active.has_value() ? doc.find_layer(*active) : nullptr;
   if (layer == nullptr || layer->kind() != LayerKind::Adjustment) {

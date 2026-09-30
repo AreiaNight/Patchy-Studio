@@ -704,6 +704,7 @@ void MainWindow::build_menu_bar_actions(ActionBuildContext& ctx) {
   connect(contract_selection_action, &QAction::triggered, this, [this] { contract_selection_dialog(); });
   connect(border_selection_action, &QAction::triggered, this, [this] { border_selection_dialog(); });
   connect(layer_transparency_action, &QAction::triggered, this, [this] {
+    select_only_layer_if_none_active();
     canvas_->run_selection_command(tr("Load Layer Transparency"),
                                    [this] { canvas_->select_active_layer_opaque_pixels(); });
   });
