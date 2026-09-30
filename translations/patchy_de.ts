@@ -8584,6 +8584,30 @@ RGB: %2, %3, %4</translation>
         <source>Keep the layers clipped to this one under its interior effects; turn this off together with Blend Interior Effects as Group to draw them over the overlays instead</source>
         <translation>Die an diese Ebene geschnittenen Ebenen unter ihren inneren Effekten halten; zusammen mit „Interne Effekte als Gruppe mischen“ ausschalten, um sie stattdessen über die Überlagerungen zu zeichnen</translation>
     </message>
+    <message>
+        <source>This file is 32-bit per channel (HDR). Patchy converted it to 8-bit for editing: precision and dynamic range beyond 8-bit were lost, and saving writes an 8-bit file. Keep the original if you need the 32-bit data.</source>
+        <translation>Diese Datei hat 32 Bit pro Kanal (HDR). Patchy hat sie zur Bearbeitung in 8 Bit umgewandelt: Präzision und Dynamikumfang jenseits von 8 Bit gingen verloren, und beim Speichern entsteht eine 8-Bit-Datei. Behalten Sie das Original, wenn Sie die 32-Bit-Daten brauchen.</translation>
+    </message>
+    <message>
+        <source>This file is 16-bit per channel. Patchy converted it to 8-bit for editing: some precision was lost, and saving writes an 8-bit file. Keep the original if you need the 16-bit data.</source>
+        <translation>Diese Datei hat 16 Bit pro Kanal. Patchy hat sie zur Bearbeitung in 8 Bit umgewandelt: etwas Präzision ging verloren, und beim Speichern entsteht eine 8-Bit-Datei. Behalten Sie das Original, wenn Sie die 16-Bit-Daten brauchen.</translation>
+    </message>
+    <message>
+        <source>The source is %1 bits per channel; Patchy converted it to 8-bit for editing and saves an 8-bit file. Keep the original if you need the deeper data.</source>
+        <translation>Die Quelle hat %1 Bit pro Kanal. Patchy hat sie zur Bearbeitung in 8 Bit umgewandelt und speichert eine 8-Bit-Datei. Behalten Sie das Original, wenn Sie die höhere Farbtiefe brauchen.</translation>
+    </message>
+    <message>
+        <source>%1 opened with notes:
+
+%2</source>
+        <translation>%1 wurde mit Hinweisen geöffnet:
+
+%2</translation>
+    </message>
+    <message>
+        <source>Import Notes</source>
+        <translation>Importhinweise</translation>
+    </message>
 </context>
 <context>
     <name>ScannerImport</name>
@@ -13242,18 +13266,6 @@ Rechteck: -</translation>
     <message>
         <source>Opened %1. %2</source>
         <translation>%1 geöffnet. %2</translation>
-    </message>
-    <message>
-        <source>Import Notes</source>
-        <translation>Importhinweise</translation>
-    </message>
-    <message>
-        <source>%1 opened with notes:
-
-%2</source>
-        <translation>%1 wurde mit Hinweisen geöffnet:
-
-%2</translation>
     </message>
     <message>
         <source>File is missing</source>

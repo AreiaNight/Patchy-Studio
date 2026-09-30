@@ -887,6 +887,77 @@ void ui_import_notices_dialog_shown_when_setting_enabled() {
   CHECK(window.statusBar()->currentMessage().contains(QStringLiteral("frames as layers")));
 }
 
+// A 16-bit source converts to 8-bit and every save then writes 8-bit, so that note pops
+// up even with the popup preference off (GitHub issue 52). The compatibility report,
+// which shares the preference, stays hidden: only the notes box is forced.
+void ui_deep_psd_import_forces_notices_popup() {
+  ensure_artifact_dir();
+  const auto path = QFileInfo(QStringLiteral("test-artifacts/ui_deep_psd_16_bit.psd")).absoluteFilePath();
+  {
+    // The core suite's synthetic 16-bit flat file: a 5x1 RGB raw composite.
+    patchy::psd::BigEndianWriter writer;
+    patchy::psd::write_header(writer, patchy::psd::Header{false, 3, 1, 5, 16, 3});
+    writer.write_u32(0);
+    writer.write_u32(0);
+    writer.write_u32(0);
+    writer.write_u16(0);
+    constexpr std::array<std::uint16_t, 5> samples{0, 128, 256, 32768, 65535};
+    for (int channel = 0; channel < 3; ++channel) {
+      for (const auto sample : samples) {
+        writer.write_u16(sample);
+      }
+    }
+    QFile file(path);
+    CHECK(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    const auto bytes = writer.bytes();
+    file.write(reinterpret_cast<const char*>(bytes.data()), static_cast<qint64>(bytes.size()));
+  }
+
+  SettingsValueRestorer notes_setting(QStringLiteral("imports/showPsdWarningsAndInfo"));
+  patchy::ui::app_settings().remove(QStringLiteral("imports/showPsdWarningsAndInfo"));
+  patchy::ui::MainWindow window;
+  show_window(window);
+
+  const auto compatibility_report_done = std::make_shared<bool>(false);
+  accept_compatibility_report_when_present(compatibility_report_done);
+
+  bool saw_notice = false;
+  QString notice_text;
+  int poll_attempts = 0;
+  QTimer poller;
+  QObject::connect(&poller, &QTimer::timeout, [&saw_notice, &notice_text, &poll_attempts, &poller] {
+    if (++poll_attempts > 500) {
+      poller.stop();
+      return;
+    }
+    for (auto* widget : QApplication::topLevelWidgets()) {
+      auto* box = qobject_cast<QMessageBox*>(widget);
+      if (box != nullptr && box->objectName() == QStringLiteral("importNoticesMessageBox") && box->isVisible()) {
+        saw_notice = true;
+        notice_text = box->text();
+        CHECK(box->icon() == QMessageBox::Warning);
+        box->accept();
+        poller.stop();
+        return;
+      }
+    }
+  });
+  poller.start(10);
+  patchy::ui::MainWindowTestAccess::open_document_path(window, path);
+  QApplication::processEvents();
+  poller.stop();
+  const bool saw_compatibility_report = *compatibility_report_done;
+  *compatibility_report_done = true;
+
+  CHECK(saw_notice);
+  CHECK(notice_text.contains(QStringLiteral("16-bit")));
+  CHECK(notice_text.contains(QStringLiteral("8-bit file")));
+  CHECK(!saw_compatibility_report);
+  CHECK(window.statusBar()->currentMessage().contains(QStringLiteral("16-bit")));
+  const auto& document = patchy::ui::MainWindowTestAccess::document(window);
+  CHECK(document.metadata().values.at("psd.depth") == "16");
+}
+
 void ui_animated_gif_export_round_trips() {
   std::filesystem::create_directories("test-artifacts");
   // Four layers bottom to top: a base, a hidden layer that must be skipped, a name-token
@@ -2023,6 +2094,7 @@ std::vector<patchy::test::TestCase> flat_image_format_tests() {
       {"ui_animated_gif_opens_frames_as_layers", ui_animated_gif_opens_frames_as_layers},
       {"ui_import_notices_dialog_shown_when_setting_enabled",
        ui_import_notices_dialog_shown_when_setting_enabled},
+      {"ui_deep_psd_import_forces_notices_popup", ui_deep_psd_import_forces_notices_popup},
       {"ui_animated_gif_export_round_trips", ui_animated_gif_export_round_trips},
       {"ui_animated_gif_open_save_round_trip", ui_animated_gif_open_save_round_trip},
       {"ui_gif_save_options_dialog_choices", ui_gif_save_options_dialog_choices},

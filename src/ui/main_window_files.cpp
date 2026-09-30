@@ -891,6 +891,10 @@ struct OpenDocumentResult {
   // User-facing notes about features the reader dropped or approximated (for example
   // "imported the first frame only"); shown in the Import Notes dialog after the open.
   QStringList import_notices;
+  // The notes describe permanent data loss (a 16/32-bit source converted to 8-bit, which
+  // every save then writes), so the Import Notes popup shows even when the popup
+  // preference is off. Only the status bar would otherwise carry them (GitHub issue 52).
+  bool force_import_notices_popup{false};
   // A multi-page PDF opened as separate documents: the first page's label ("Page 1")
   // and every further page as its own document. Empty for every other open.
   QString document_title;
@@ -923,6 +927,7 @@ OpenDocumentResult load_document_from_path(QString path) {
   const auto extension = info.suffix().toLower();
   Document opened;
   QStringList import_notices;
+  bool force_import_notices_popup = false;
   const auto load_via_qt = [&] {
     QImageReader reader(path);
     reader.setAutoTransform(true);
@@ -1001,6 +1006,10 @@ OpenDocumentResult load_document_from_path(QString path) {
     opened = psd::DocumentIo::read_file(to_filesystem_path(path), psd_options);
     for (const auto& notice : psd_notices) {
       import_notices.push_back(translated_file_message(notice));
+    }
+    if (const auto depth = opened.metadata().values.find("psd.depth");
+        depth != opened.metadata().values.end() && depth->second != "8") {
+      force_import_notices_popup = true;
     }
     if (const auto notice = unsupported_blend_if_import_notice(opened); !notice.isEmpty()) {
       import_notices.push_back(notice);
@@ -1121,7 +1130,35 @@ OpenDocumentResult load_document_from_path(QString path) {
   } else {
     opened.clear_active_layer();
   }
-  return OpenDocumentResult{std::move(opened), info.fileName(), extension, std::move(import_notices), {}, {}};
+  return OpenDocumentResult{std::move(opened),         info.fileName(), extension, std::move(import_notices),
+                            force_import_notices_popup, {},              {}};
+}
+
+// The consolidated Import Notes box, one bullet per note. Import notes ride the status
+// bar by default; this popup is opt-in through the preference that also gates the PSD
+// compatibility report (Seth: do not annoy people with info popups). A data-loss note
+// (`forced`: a 16/32-bit source converted to 8-bit, GitHub issue 52) shows regardless,
+// as a warning. The object name is shared so tests find either form.
+void show_import_notices_popup(QWidget* parent, const QString& file_name, const QStringList& notices,
+                               bool forced) {
+  const bool popup_preference =
+      app_settings().value(QStringLiteral("imports/showPsdWarningsAndInfo"), false).toBool();
+  if (notices.isEmpty() || (!popup_preference && !forced)) {
+    return;
+  }
+  QStringList bullets;
+  bullets.reserve(notices.size());
+  for (const auto& notice : notices) {
+    bullets.push_back(QStringLiteral("• ") + notice);
+  }
+  const auto text = QObject::tr("%1 opened with notes:\n\n%2").arg(file_name, bullets.join(QLatin1Char('\n')));
+  const auto object_name = QStringLiteral("importNoticesMessageBox");
+  if (forced) {
+    (void)show_warning_message(parent, QObject::tr("Import Notes"), text, QMessageBox::Ok, QMessageBox::Ok,
+                               object_name);
+  } else {
+    show_information_message(parent, QObject::tr("Import Notes"), text, object_name);
+  }
 }
 
 // Shows the open-failure box. Browser HEIC errors get a capability-focused message.
@@ -1252,8 +1289,13 @@ std::optional<OpenDocumentResult> load_document_interactive(QWidget* parent, con
     for (const auto& notice : outcome->notices) {
       notices.push_back(QString::fromStdString(notice));
     }
-    OpenDocumentResult loaded{std::move(outcome->document), info.fileName(), extension, std::move(notices),
-                              std::move(outcome->document_title), std::move(outcome->extra_documents)};
+    OpenDocumentResult loaded{std::move(outcome->document),
+                              info.fileName(),
+                              extension,
+                              std::move(notices),
+                              false,
+                              std::move(outcome->document_title),
+                              std::move(outcome->extra_documents)};
     if (const auto default_layer_id = default_non_group_layer_id(loaded.document.layers());
         default_layer_id.has_value()) {
       loaded.document.set_active_layer(*default_layer_id);
@@ -1491,6 +1533,11 @@ int MainWindow::open_folder_path(const QString& directory) {
       add_document_session(std::move(loaded->document), loaded->file_name, path, tr("Open"),
                            SessionActivation::Background);
       ++opened;
+      // Background files drop their ordinary notes (no status bar of their own), but a
+      // data-loss note must not go unseen just because the file was not first.
+      if (loaded->force_import_notices_popup && !unattended_automation()) {
+        show_import_notices_popup(this, loaded->file_name, loaded->import_notices, true);
+      }
     } catch (const std::exception& error) {
       failed.push_back(QFileInfo(path).fileName());
       if (unattended_automation()) {
@@ -2142,26 +2189,17 @@ void MainWindow::open_document_path(QString path) {
     if (loaded->import_notices.isEmpty()) {
       statusBar()->showMessage(tr("Opened %1").arg(browser_transfer ? loaded_file_name : path));
     } else {
-      // Import notes ride the status bar by default; the consolidated popup is
-      // opt-in via the same preference that gates the PSD compatibility report
-      // (Seth: do not annoy people with info popups).
+      // Import notes ride the status bar by default; the consolidated popup is opt-in
+      // (see show_import_notices_popup) unless the notes describe data loss.
       auto status_notes = loaded->import_notices.front();
       if (loaded->import_notices.size() > 1) {
         status_notes +=
             tr(" (+%n more import note(s))", nullptr, static_cast<int>(loaded->import_notices.size()) - 1);
       }
       statusBar()->showMessage(tr("Opened %1. %2").arg(loaded_file_name, status_notes));
-      if (!unattended_automation() &&
-          app_settings().value(QStringLiteral("imports/showPsdWarningsAndInfo"), false).toBool()) {
-        QStringList bullets;
-        bullets.reserve(loaded->import_notices.size());
-        for (const auto& notice : loaded->import_notices) {
-          bullets.push_back(QStringLiteral("• ") + notice);
-        }
-        show_information_message(this, tr("Import Notes"),
-                                 tr("%1 opened with notes:\n\n%2")
-                                      .arg(loaded_file_name, bullets.join(QLatin1Char('\n'))),
-                                 QStringLiteral("importNoticesMessageBox"));
+      if (!unattended_automation()) {
+        show_import_notices_popup(this, loaded_file_name, loaded->import_notices,
+                                  loaded->force_import_notices_popup);
       }
     }
 #ifdef Q_OS_WASM

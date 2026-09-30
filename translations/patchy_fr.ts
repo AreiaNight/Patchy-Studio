@@ -8584,6 +8584,30 @@ RVB : %2, %3, %4</translation>
         <source>Keep the layers clipped to this one under its interior effects; turn this off together with Blend Interior Effects as Group to draw them over the overlays instead</source>
         <translation>Garde les calques écrêtés sur celui-ci sous ses effets intérieurs ; désactivez-le avec Fusionner les effets intérieurs en groupe pour les dessiner par-dessus les incrustations</translation>
     </message>
+    <message>
+        <source>This file is 32-bit per channel (HDR). Patchy converted it to 8-bit for editing: precision and dynamic range beyond 8-bit were lost, and saving writes an 8-bit file. Keep the original if you need the 32-bit data.</source>
+        <translation>Ce fichier est en 32 bits par couche (HDR). Patchy l'a converti en 8 bits pour la modification : la précision et la plage dynamique au-delà de 8 bits sont perdues, et l'enregistrement écrit un fichier 8 bits. Conservez l'original si vous avez besoin des données 32 bits.</translation>
+    </message>
+    <message>
+        <source>This file is 16-bit per channel. Patchy converted it to 8-bit for editing: some precision was lost, and saving writes an 8-bit file. Keep the original if you need the 16-bit data.</source>
+        <translation>Ce fichier est en 16 bits par couche. Patchy l'a converti en 8 bits pour la modification : un peu de précision est perdue, et l'enregistrement écrit un fichier 8 bits. Conservez l'original si vous avez besoin des données 16 bits.</translation>
+    </message>
+    <message>
+        <source>The source is %1 bits per channel; Patchy converted it to 8-bit for editing and saves an 8-bit file. Keep the original if you need the deeper data.</source>
+        <translation>La source est en %1 bits par couche ; Patchy l'a convertie en 8 bits pour la modification et enregistre un fichier 8 bits. Conservez l'original si vous avez besoin des données de plus grande profondeur.</translation>
+    </message>
+    <message>
+        <source>%1 opened with notes:
+
+%2</source>
+        <translation>%1 ouvert avec des notes :
+
+%2</translation>
+    </message>
+    <message>
+        <source>Import Notes</source>
+        <translation>Notes d&apos;importation</translation>
+    </message>
 </context>
 <context>
     <name>ScannerImport</name>
@@ -13242,18 +13266,6 @@ Rect : -</translation>
     <message>
         <source>Opened %1. %2</source>
         <translation>%1 ouvert. %2</translation>
-    </message>
-    <message>
-        <source>Import Notes</source>
-        <translation>Notes d&apos;importation</translation>
-    </message>
-    <message>
-        <source>%1 opened with notes:
-
-%2</source>
-        <translation>%1 ouvert avec des notes :
-
-%2</translation>
     </message>
     <message>
         <source>File is missing</source>

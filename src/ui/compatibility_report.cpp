@@ -196,6 +196,12 @@ QStringList compatibility_warnings_for_document(const Document& document) {
                        .arg(QString::fromStdString(color_mode->second));
     }
   }
+  if (const auto depth = document.metadata().values.find("psd.depth");
+      depth != document.metadata().values.end() && depth->second != "8") {
+    warnings << QObject::tr("The source is %1 bits per channel; Patchy converted it to 8-bit for editing and "
+                            "saves an 8-bit file. Keep the original if you need the deeper data.")
+                    .arg(QString::fromStdString(depth->second));
+  }
   if (!document.metadata().unknown_psd_resources.empty()) {
     warnings << QObject::tr("The document preserves %1 unknown PSD image resource(s).")
                      .arg(document.metadata().unknown_psd_resources.size());

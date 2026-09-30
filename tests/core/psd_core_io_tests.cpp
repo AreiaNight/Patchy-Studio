@@ -1762,6 +1762,8 @@ void psd_16_bit_flat_raw_composite_converts_to_8_bit() {
   CHECK(std::any_of(notices.begin(), notices.end(), [](const std::string& notice) {
     return notice.find("16-bit") != std::string::npos;
   }));
+  // The UI forces the Import Notes popup from this value (GitHub issue 52).
+  CHECK(read.metadata().values.at("psd.depth") == "16");
 }
 
 void psd_16_bit_flat_rle_composite_converts_to_8_bit() {
@@ -1979,6 +1981,7 @@ void psd_32_bit_flat_raw_composite_converts_to_8_bit() {
   CHECK(std::any_of(notices.begin(), notices.end(), [](const std::string& notice) {
     return notice.find("32-bit") != std::string::npos;
   }));
+  CHECK(read.metadata().values.at("psd.depth") == "32");
 }
 
 void psd_32_bit_lr32_zip_prediction_layer_converts() {
@@ -2399,6 +2402,7 @@ void psd_flat_raw_gray8_imports_as_rgb() {
   CHECK(read.format() == patchy::PixelFormat::rgb8());
   CHECK(read.layers().size() == 1);
   CHECK(read.metadata().values.at("psd.color_mode") == "Grayscale");
+  CHECK(read.metadata().values.at("psd.depth") == "8");
   const auto* px0 = read.layers().front().pixels().pixel(0, 0);
   const auto* px1 = read.layers().front().pixels().pixel(1, 0);
   CHECK(px0[0] == 0 && px0[1] == 0 && px0[2] == 0);

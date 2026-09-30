@@ -1181,11 +1181,20 @@ Document DocumentIo::read(std::span<const std::uint8_t> bytes, ReadOptions optio
     }
   }
   const auto format = format_from_header(header);
-  if (header.depth != 8 && options.notices != nullptr) {
-    options.notices->push_back(header.depth == 32
-                                   ? "Converted 32-bit (HDR) color to 8-bit; precision and dynamic "
-                                     "range beyond the 8-bit gamut were lost."
-                                   : "Converted 16-bit color to 8-bit; some precision was lost.");
+  // The depth conversion is permanent data loss once the document is saved (every writer
+  // emits 8-bit), so the UI forces the Import Notes popup for these two notes regardless of
+  // the popup preference; it recognizes them through the "psd.depth" metadata value below.
+  if (header.depth == 32 && options.notices != nullptr) {
+    options.notices->push_back(PATCHY_TRANSLATE_NOOP(
+        "QObject",
+        "This file is 32-bit per channel (HDR). Patchy converted it to 8-bit for editing: precision and "
+        "dynamic range beyond 8-bit were lost, and saving writes an 8-bit file. Keep the original if you "
+        "need the 32-bit data."));
+  } else if (header.depth != 8 && options.notices != nullptr) {
+    options.notices->push_back(PATCHY_TRANSLATE_NOOP(
+        "QObject",
+        "This file is 16-bit per channel. Patchy converted it to 8-bit for editing: some precision was "
+        "lost, and saving writes an 8-bit file. Keep the original if you need the 16-bit data."));
   }
 
   skip_length_block(reader, "color mode data");
@@ -1194,6 +1203,9 @@ Document DocumentIo::read(std::span<const std::uint8_t> bytes, ReadOptions optio
 
   Document document(static_cast<std::int32_t>(header.width), static_cast<std::int32_t>(header.height), format);
   document.metadata().raw_psd_image_resources = image_resources;
+  // Source bits per channel ("8", "16", "32"). Set here so both the flat-composite and the
+  // layered paths carry it; the flat path moves metadata() across its document swap.
+  document.metadata().values["psd.depth"] = std::to_string(header.depth);
   if (auto icc_profile = find_image_resource_payload(image_resources, kImageResourceIccProfile);
       header.color_mode == kColorModeRgb && icc_profile.has_value()) {
     document.color_state().embedded_icc_profile = std::move(*icc_profile);
