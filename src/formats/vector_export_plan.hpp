@@ -64,7 +64,8 @@ struct Unit {
 
 // Gradient geometry inverted from the import mapping: Patchy's calibrated span is
 // the center chord of the fill's aligned bounds (docs/vector-tools.md "GdFl
-// gradient fill geometry"); an empty path means a full-canvas fill layer.
+// gradient fill geometry"); an empty path means a full-canvas fill layer, and a
+// gradient that is not aligned with the layer is measured against the canvas too.
 struct GradientExportGeometry {
   double center_x{0.0};
   double center_y{0.0};

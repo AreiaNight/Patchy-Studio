@@ -1033,6 +1033,15 @@ struct PaintResolution {
   double alpha{1.0};
 };
 
+// What a paint server needs from the element it paints: the whole user space ->
+// document transform (viewBox mapping, ancestor groups, the element's own), and the
+// element's bounding box in its own user space, which objectBoundingBox units
+// resolve against.
+struct PaintSpace {
+  Affine transform{};
+  std::optional<VectorPathBounds> local_bounds{};
+};
+
 struct Importer {
   const XmlNode& root;
   std::vector<std::string>* notices{};
@@ -1040,6 +1049,10 @@ struct Importer {
   std::unordered_map<std::string, const XmlNode*> ids{};
   Document document{1, 1, PixelFormat::rgba8()};
   Rect canvas{};
+  // The outermost viewport in user units (the viewBox size, else the canvas): what a
+  // percentage resolves against in userSpaceOnUse paint-server coordinates.
+  double user_viewport_width{300.0};
+  double user_viewport_height{150.0};
   std::size_t drawables{0};
   std::map<std::string, int, std::less<>> name_counters{};
   std::set<std::string> use_stack{};
@@ -1104,7 +1117,7 @@ struct Importer {
 
   // --- gradients ---
 
-  VectorFill gradient_fill(const XmlNode& original, const VectorPath& path) {
+  VectorFill gradient_fill(const XmlNode& original, const VectorPath& path, const PaintSpace& space) {
     // href template inheritance: attributes and stops come from the nearest
     // node in the chain that defines them (the Illustrator/Inkscape pattern).
     std::vector<const XmlNode*> chain;
@@ -1193,8 +1206,16 @@ struct Importer {
 
     // Geometry: map the SVG gradient vector onto Patchy's calibrated model
     // (span = center chord of the aligned bounds; docs/vector-tools.md "GdFl
-    // gradient fill geometry"). objectBoundingBox coordinates resolve against
-    // the path bounds, userSpaceOnUse against the canvas.
+    // gradient fill geometry"). The attributes are read in GRADIENT space and
+    // carried to the document by one matrix, the way the spec composes it:
+    //   userSpaceOnUse:     element transform x gradientTransform
+    //   objectBoundingBox:  element transform x (unit square -> the element's
+    //                       own bounding box) x gradientTransform
+    // The element transform is the whole chain (viewBox mapping, ancestor
+    // groups, the element's own transform): the shape's path went through it,
+    // so the gradient has to as well. Skipping it left userSpaceOnUse ramps in
+    // raw user units, which misplaced them under any viewBox scale or group
+    // translate (September 2026).
     const auto bounds = path.bounds();
     const bool user_space = lower_ascii(attribute("gradientUnits", "objectBoundingBox")) == "userspaceonuse";
     gradient.align_with_layer = !user_space;
@@ -1206,52 +1227,74 @@ struct Importer {
     const double ref_y = user_space ? canvas.y : bounds_top;
     const double ref_w = std::max(1.0, user_space ? static_cast<double>(canvas.width) : bounds_width);
     const double ref_h = std::max(1.0, user_space ? static_cast<double>(canvas.height) : bounds_height);
-    const auto gradient_transform = parse_transform(attribute("gradientTransform", ""));
-    const auto coordinate = [&](const std::string& text, double origin, double size, double fallback) {
-      if (text.empty()) {
-        return fallback;
+    Affine to_document = space.transform;
+    if (!user_space) {
+      if (space.local_bounds.has_value()) {
+        const double local_width = space.local_bounds->right - space.local_bounds->left;
+        const double local_height = space.local_bounds->bottom - space.local_bounds->top;
+        to_document = detail::multiply(space.transform,
+                                       Affine{local_width > 0.0 ? local_width : 1.0, 0.0, 0.0,
+                                              local_height > 0.0 ? local_height : 1.0, space.local_bounds->left,
+                                              space.local_bounds->top});
+      } else {
+        // No element box to resolve against: the document-space bounds stand in.
+        to_document = Affine{bounds_width, 0.0, 0.0, bounds_height, bounds_left, bounds_top};
       }
-      std::string t = text;
-      const bool percent = t.ends_with('%');
-      if (percent) {
-        t.pop_back();
+    }
+    to_document = detail::multiply(to_document, parse_transform(attribute("gradientTransform", "")));
+    // A number is a user unit or a fraction of the bounding box; a percentage
+    // is a share of the viewport (user space) or of the box (where 100% = 1).
+    const auto coordinate = [&](std::string_view name, double viewport_size, double fallback_percent) {
+      std::string text = attribute(name, "");
+      double value = fallback_percent;
+      bool percent = true;
+      if (!text.empty()) {
+        percent = text.ends_with('%');
+        if (percent) {
+          text.pop_back();
+        }
+        value = number_or(text, percent ? fallback_percent : 0.0);
       }
-      const double v = number_or(t, fallback);
-      if (percent) {
-        return origin + v * size / 100.0;
+      if (!percent) {
+        return value;
       }
-      return user_space ? v : origin + v * size;
+      return value / 100.0 * (user_space ? viewport_size : 1.0);
     };
     if (gradient.type == LayerStyleGradientType::Linear) {
-      const double x1 = coordinate(attribute("x1", ""), bounds_left, bounds_width, bounds_left);
-      const double y1 = coordinate(attribute("y1", ""), bounds_top, bounds_height, bounds_top);
-      const double x2 = coordinate(attribute("x2", ""), bounds_left, bounds_width, bounds_left + bounds_width);
-      const double y2 = coordinate(attribute("y2", ""), bounds_top, bounds_height, bounds_top);
-      const auto p1 = detail::map_point(gradient_transform, x1, y1);
-      const auto p2 = detail::map_point(gradient_transform, x2, y2);
+      const double x1 = coordinate("x1", user_viewport_width, 0.0);
+      const double y1 = coordinate("y1", user_viewport_height, 0.0);
+      const double x2 = coordinate("x2", user_viewport_width, 100.0);
+      const double y2 = coordinate("y2", user_viewport_height, 0.0);
+      const auto p1 = detail::map_point(to_document, x1, y1);
+      auto p2 = detail::map_point(to_document, x2, y2);
+      // Color is constant along the lines perpendicular to the vector IN
+      // GRADIENT SPACE. A non-uniform matrix (a diagonal ramp on a non-square
+      // bounding box, a skewed gradientTransform) tilts those lines, and the
+      // model's ramp always runs perpendicular to its own stripes: keep the
+      // mapped stripes and measure the ramp across them.
+      const double stripe_x = to_document.a * -(y2 - y1) + to_document.c * (x2 - x1);
+      const double stripe_y = to_document.b * -(y2 - y1) + to_document.d * (x2 - x1);
+      if (const double stripe_length = std::hypot(stripe_x, stripe_y); stripe_length > 1e-12) {
+        const double normal_x = stripe_y / stripe_length;
+        const double normal_y = -stripe_x / stripe_length;
+        const double across = (p2[0] - p1[0]) * normal_x + (p2[1] - p1[1]) * normal_y;
+        p2 = {p1[0] + normal_x * across, p1[1] + normal_y * across};
+      }
       // The geometry math moved to formats/gradient_placement.hpp when the PDF
       // reader needed the identical mapping for axial shadings.
       formats::place_linear_gradient(gradient, {ref_x, ref_y, ref_w, ref_h}, p1[0], p1[1], p2[0], p2[1]);
     } else {
-      const double cx = coordinate(attribute("cx", ""), bounds_left, bounds_width, bounds_left + bounds_width / 2.0);
-      const double cy = coordinate(attribute("cy", ""), bounds_top, bounds_height, bounds_top + bounds_height / 2.0);
-      const double radius_fallback = std::max(bounds_width, bounds_height) / 2.0;
-      const double r = [&] {
-        const auto text = attribute("r", "");
-        if (text.empty()) {
-          return radius_fallback;
-        }
-        std::string t = text;
-        const bool percent = t.ends_with('%');
-        if (percent) {
-          t.pop_back();
-        }
-        const double v = number_or(t, radius_fallback);
-        return percent ? v * std::max(bounds_width, bounds_height) / 100.0
-                       : (user_space ? v : v * std::max(bounds_width, bounds_height));
-      }();
-      const auto center = detail::map_point(gradient_transform, cx, cy);
-      formats::place_radial_gradient(gradient, {ref_x, ref_y, ref_w, ref_h}, center[0], center[1], r);
+      const double cx = coordinate("cx", user_viewport_width, 50.0);
+      const double cy = coordinate("cy", user_viewport_height, 50.0);
+      // A percentage radius in user space is a share of the normalized diagonal.
+      const double r = coordinate(
+          "r", std::hypot(user_viewport_width, user_viewport_height) / std::numbers::sqrt2, 50.0);
+      const auto center = detail::map_point(to_document, cx, cy);
+      // The model's radial is a circle: a matrix that scales the axes
+      // differently (a non-square bounding box) keeps the larger radius.
+      const double radius = std::max(std::hypot(to_document.a * r, to_document.b * r),
+                                     std::hypot(to_document.c * r, to_document.d * r));
+      formats::place_radial_gradient(gradient, {ref_x, ref_y, ref_w, ref_h}, center[0], center[1], radius);
       if (attribute("fx", "") != "" || attribute("fy", "") != "") {
         notice(PATCHY_TRANSLATE_NOOP("QObject", "SVG radial-gradient focal points are not supported; the center was used"));
       }
@@ -1357,8 +1400,9 @@ struct Importer {
       if (const auto* transform_text = child.attribute("transform")) {
         child_transform = detail::multiply(content_transform, parse_transform(*transform_text));
       }
+      const PaintSpace paint_space{child_transform, parsed->path.bounds()};
       transform_path(parsed->path, child_transform);
-      const auto paint = resolve_paint(style.fill, style, parsed->path);
+      const auto paint = resolve_paint(style.fill, style, parsed->path, paint_space);
       if (paint.fill.kind == VectorFillKind::Pattern) {
         notice(PATCHY_TRANSLATE_NOOP("QObject", "Nested SVG patterns are not supported"));
         return std::nullopt;
@@ -1432,7 +1476,8 @@ struct Importer {
 
   // --- paint dispatch ---
 
-  PaintResolution resolve_paint(const std::string& raw_paint, const Style& style, const VectorPath& path) {
+  PaintResolution resolve_paint(const std::string& raw_paint, const Style& style, const VectorPath& path,
+                                const PaintSpace& space) {
     const auto keyword = lower_ascii(trimmed(raw_paint));
     if (keyword.empty() || keyword == "none") {
       return {VectorFill{.kind = VectorFillKind::None}, 1.0};
@@ -1449,14 +1494,14 @@ struct Importer {
         if (close != std::string::npos) {
           const auto fallback = trimmed(std::string_view(paint).substr(close + 1));
           if (!fallback.empty()) {
-            return resolve_paint(std::string(fallback), style, path);
+            return resolve_paint(std::string(fallback), style, path, space);
           }
         }
         notice(PATCHY_TRANSLATE_NOOP("QObject", "An SVG paint reference could not be resolved and was replaced with gray"));
         return {VectorFill{.kind = VectorFillKind::Solid, .color = {128, 128, 128}}, 1.0};
       }
       if (referenced->name == "linearGradient" || referenced->name == "radialGradient") {
-        return {gradient_fill(*referenced, path), 1.0};
+        return {gradient_fill(*referenced, path, space), 1.0};
       }
       if (referenced->name == "pattern") {
         if (auto pattern = pattern_fill(*referenced, path); pattern.has_value()) {
@@ -1730,12 +1775,13 @@ struct Importer {
         populate_live_shape_box_corners(*live);
       }
     }
+    const PaintSpace paint_space{transform, geometry->path.bounds()};
     transform_path(geometry->path, transform);
 
     VectorShapeContent content;
     content.path = std::move(geometry->path);
-    const auto fill_paint = resolve_paint(style.fill, style, content.path);
-    const auto stroke_paint = resolve_paint(style.stroke, style, content.path);
+    const auto fill_paint = resolve_paint(style.fill, style, content.path, paint_space);
+    const auto stroke_paint = resolve_paint(style.stroke, style, content.path, paint_space);
     content.fill = fill_paint.fill;
 
     auto& stroke = content.stroke;
@@ -2195,6 +2241,9 @@ struct Importer {
     document.print_settings().horizontal_ppi = physical ? 96.0 : 72.0;
     document.print_settings().vertical_ppi = physical ? 96.0 : 72.0;
     canvas = Rect::from_size(document.width(), document.height());
+    const bool has_view_box = view.size() == 4 && view[2] > 0.0 && view[3] > 0.0;
+    user_viewport_width = has_view_box ? view[2] : *width / scale_clamp;
+    user_viewport_height = has_view_box ? view[3] : *height / scale_clamp;
 
     // viewBox -> viewport mapping with the full preserveAspectRatio grammar
     // (default xMidYMid meet).

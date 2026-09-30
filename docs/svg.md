@@ -85,6 +85,17 @@ post-open passes (below), `MainWindow::define_custom_shape_from_svg_*`
   and userSpaceOnUse units, gradientTransform, stop-opacity. Geometry maps
   onto the calibrated GdFl model (span = center chord; docs/vector-tools.md);
   smoothness = 0 so stops interpolate linearly, matching SVG.
+  Coordinates are read in gradient space and carried to the document by one
+  matrix: element transform x gradientTransform for userSpaceOnUse, element
+  transform x (unit square -> the element's own pre-transform box) x
+  gradientTransform for objectBoundingBox. The element transform is the whole
+  chain (viewBox mapping, ancestor groups, the element's own), passed to the
+  paint servers as `PaintSpace`; a paint server that skips it misplaces the
+  ramp under any viewBox scale or group transform. A non-uniform matrix keeps
+  the mapped stripes and measures the ramp across them (a diagonal ramp on a
+  non-square box); a radial keeps the larger radius. userSpaceOnUse sets
+  align_with_layer off (placed against the canvas) and resolves percentages
+  against the outermost viewport in user units.
   spreadMethod=reflect -> Reflected (scale doubles; the export halves it
   back). Focal points and repeat spreads are approximated with a notice.
 - **Patterns**: shape-only `<pattern>` content rasterizes once into a
@@ -129,7 +140,8 @@ emit native `<rect>`/`<ellipse>`/`<line>` (round-trips back to live).
   restores the true alignment and width (the reader also skips the trick clip
   rather than importing it as a vector mask). Dashes convert width-multiples
   -> absolute user units.
-- Gradients invert the import mapping (center-chord span math); plain ramps
+- Gradients invert the import mapping (center-chord span math, against the
+  path bounds, or the canvas when align_with_layer is off); plain ramps
   emit their real stops (merged ascending union of color+alpha locations,
   reverse via 1-x), while Classic easing (smoothness > 0), non-50% midpoints,
   and noise gradients resample into 65 dense stops. Angle/Diamond -> rasterize.
@@ -182,7 +194,8 @@ emit native `<rect>`/`<ellipse>`/`<line>` (round-trips back to live).
 ## Tests and fixtures
 
 - tests/core/svg_tests.cpp - XML parser edge cases, d-grammar, cascade,
-  gradients, fill-rule decomposition, clip/mask, units/PPI, svgz (gzip built
+  gradients (placement under viewBox scale, group and element transforms, and
+  the canvas-anchored re-export), fill-rule decomposition, clip/mask, units/PPI, svgz (gzip built
   in-test), the 2000-element fallback, export determinism/round-trip/raster
   chunking. tests/ui/svg_ui_tests.cpp - editable open, a QSvgRenderer
   cross-check (independent renderer, mean-delta tolerance), the text

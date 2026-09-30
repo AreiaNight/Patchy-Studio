@@ -6,6 +6,7 @@
 #include "formats/miniz/miniz.h"
 #include "formats/svg_document_io.hpp"
 #include "formats/svg_xml.hpp"
+#include "formats/vector_export_plan.hpp"
 
 #include "local_psd_fixtures.hpp"
 #include "test_harness.hpp"
@@ -276,6 +277,116 @@ void svg_import_gradients() {
   CHECK(radial.gradient.type == patchy::LayerStyleGradientType::Radial);
   const auto& mirrored = document.layers()[2].vector_shape()->fill;
   CHECK(mirrored.gradient.type == patchy::LayerStyleGradientType::Reflected);
+}
+
+// Where an imported gradient actually lands, in document pixels: the model (angle,
+// scale, offsets against the canvas or the path bounds) read back through the
+// export geometry, which is the import mapping inverted.
+const Layer* find_layer_named(const std::vector<Layer>& layers, std::string_view name) {
+  for (const auto& layer : layers) {
+    if (layer.name() == name) {
+      return &layer;
+    }
+    if (const auto* child = find_layer_named(layer.children(), name); child != nullptr) {
+      return child;
+    }
+  }
+  return nullptr;
+}
+
+patchy::vector_export::GradientExportGeometry gradient_geometry(const Document& document, std::string_view name) {
+  const auto* layer = find_layer_named(document.layers(), name);
+  CHECK(layer != nullptr && layer->vector_shape() != nullptr);
+  if (layer == nullptr || layer->vector_shape() == nullptr) {
+    return {};
+  }
+  const auto& shape = *layer->vector_shape();
+  CHECK(shape.fill.kind == VectorFillKind::Gradient);
+  return patchy::vector_export::gradient_export_geometry(shape.fill.gradient, shape.path, document.width(),
+                                                         document.height());
+}
+
+bool ramp_runs(const patchy::vector_export::GradientExportGeometry& geometry, double x1, double y1, double x2,
+               double y2) {
+  constexpr double tolerance = 0.5;  // the model stores float angles and percentages
+  return std::abs(geometry.x1 - x1) < tolerance && std::abs(geometry.y1 - y1) < tolerance &&
+         std::abs(geometry.x2 - x2) < tolerance && std::abs(geometry.y2 - y2) < tolerance;
+}
+
+// userSpaceOnUse coordinates live in the painted element's user space, so they take
+// the same viewBox mapping and ancestor transforms as its path. They used to stay in
+// raw user units: a 2x viewBox halved the ramp and a translated group lost it.
+constexpr std::string_view kUserSpaceGradientSvg =
+    "<svg width=\"800\" height=\"400\" viewBox=\"0 0 400 200\">"
+    "<defs>"
+    "<linearGradient id=\"across\" gradientUnits=\"userSpaceOnUse\" x1=\"20\" y1=\"0\" x2=\"80\" y2=\"0\">"
+    "<stop offset=\"0\" stop-color=\"#000000\"/><stop offset=\"1\" stop-color=\"#ffffff\"/></linearGradient>"
+    "<linearGradient id=\"diagonal\" gradientUnits=\"userSpaceOnUse\" x1=\"320\" y1=\"120\" x2=\"360\" y2=\"160\">"
+    "<stop offset=\"0\" stop-color=\"#000000\"/><stop offset=\"1\" stop-color=\"#ffffff\"/></linearGradient>"
+    "<linearGradient id=\"percent\" gradientUnits=\"userSpaceOnUse\" x1=\"0%\" y1=\"50%\" x2=\"50%\" y2=\"50%\">"
+    "<stop offset=\"0\" stop-color=\"#000000\"/><stop offset=\"1\" stop-color=\"#ffffff\"/></linearGradient>"
+    "<radialGradient id=\"spot\" gradientUnits=\"userSpaceOnUse\" cx=\"50\" cy=\"150\" r=\"20\">"
+    "<stop offset=\"0\" stop-color=\"#ffffff\"/><stop offset=\"1\" stop-color=\"#000000\"/></radialGradient>"
+    "</defs>"
+    "<rect id=\"Scaled\" x=\"20\" y=\"20\" width=\"60\" height=\"60\" fill=\"url(#across)\"/>"
+    "<g transform=\"translate(200 0)\"><rect id=\"Moved\" x=\"20\" y=\"20\" width=\"60\" height=\"60\" fill=\"url(#across)\"/></g>"
+    "<rect id=\"Diagonal\" x=\"320\" y=\"120\" width=\"60\" height=\"60\" fill=\"url(#diagonal)\"/>"
+    "<rect id=\"Percent\" x=\"0\" y=\"90\" width=\"400\" height=\"20\" fill=\"url(#percent)\"/>"
+    "<g transform=\"translate(10 0)\"><circle id=\"Spot\" cx=\"50\" cy=\"150\" r=\"30\" fill=\"url(#spot)\"/></g>"
+    "</svg>";
+
+void check_user_space_gradient_geometry(const Document& document) {
+  CHECK(document.width() == 800 && document.height() == 400);
+  CHECK(!find_layer_named(document.layers(), "Scaled")->vector_shape()->fill.gradient.align_with_layer);
+  CHECK(ramp_runs(gradient_geometry(document, "Scaled"), 40.0, 0.0, 160.0, 0.0));     // the viewBox scale
+  CHECK(ramp_runs(gradient_geometry(document, "Moved"), 440.0, 0.0, 560.0, 0.0));     // plus the group translate
+  CHECK(ramp_runs(gradient_geometry(document, "Diagonal"), 640.0, 240.0, 720.0, 320.0));
+  CHECK(ramp_runs(gradient_geometry(document, "Percent"), 0.0, 200.0, 400.0, 200.0));  // shares of the viewport
+  const auto spot = gradient_geometry(document, "Spot");
+  CHECK(std::abs(spot.center_x - 120.0) < 0.5 && std::abs(spot.center_y - 300.0) < 0.5);
+  CHECK(std::abs(spot.radius - 40.0) < 0.5);
+}
+
+void svg_import_user_space_gradients_follow_the_element_transform() {
+  check_user_space_gradient_geometry(read_svg(kUserSpaceGradientSvg));
+}
+
+// objectBoundingBox coordinates resolve in the unit square of the element's own box:
+// gradientTransform applies there, a diagonal ramp's stripes tilt with a non-square
+// box, and a rotated element carries its ramp around with it.
+void svg_import_bounding_box_gradients_resolve_in_the_element_box() {
+  const auto document = read_svg(
+      "<svg width=\"300\" height=\"260\">"
+      "<defs>"
+      "<linearGradient id=\"corner\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\">"
+      "<stop offset=\"0\" stop-color=\"#000000\"/><stop offset=\"1\" stop-color=\"#ffffff\"/></linearGradient>"
+      "<linearGradient id=\"turned\" gradientTransform=\"rotate(90 0.5 0.5)\">"
+      "<stop offset=\"0\" stop-color=\"#000000\"/><stop offset=\"1\" stop-color=\"#ffffff\"/></linearGradient>"
+      "<linearGradient id=\"plain\">"
+      "<stop offset=\"0\" stop-color=\"#000000\"/><stop offset=\"1\" stop-color=\"#ffffff\"/></linearGradient>"
+      "</defs>"
+      "<rect id=\"Corner\" x=\"50\" y=\"50\" width=\"200\" height=\"100\" fill=\"url(#corner)\"/>"
+      "<rect id=\"Turned\" x=\"50\" y=\"50\" width=\"200\" height=\"100\" fill=\"url(#turned)\"/>"
+      "<rect id=\"Rotated\" x=\"50\" y=\"180\" width=\"100\" height=\"40\" transform=\"rotate(90 100 200)\" "
+      "fill=\"url(#plain)\"/>"
+      "</svg>");
+  CHECK(find_layer_named(document.layers(), "Corner")->vector_shape()->fill.gradient.align_with_layer);
+  // The stripes stay parallel to the box's other diagonal; the ramp across them is
+  // what a browser draws for (0,0) -> (1,1) on a 2:1 box.
+  CHECK(ramp_runs(gradient_geometry(document, "Corner"), 50.0, 50.0, 130.0, 210.0));
+  // rotate(90) about the box center turns the top edge into the right edge: top-to-bottom.
+  CHECK(ramp_runs(gradient_geometry(document, "Turned"), 250.0, 50.0, 250.0, 150.0));
+  // The element's own rotation: its left-to-right ramp runs down the document.
+  CHECK(ramp_runs(gradient_geometry(document, "Rotated"), 120.0, 150.0, 120.0, 250.0));
+}
+
+// A canvas-anchored gradient (align_with_layer off) exports against the canvas, the
+// box the renderer uses, so the file re-imports to the same ramps.
+void svg_export_reimport_keeps_user_space_gradients() {
+  const auto document = read_svg(kUserSpaceGradientSvg);
+  const auto text = write_svg(document);
+  CHECK(text.find("<image") == std::string::npos);  // still vector
+  check_user_space_gradient_geometry(read_svg(text));
 }
 
 // --- fill rules --------------------------------------------------------------
@@ -602,6 +713,11 @@ std::vector<patchy::test::TestCase> svg_tests() {
       {"svg_import_opacity_and_blend", svg_import_opacity_and_blend},
       {"svg_import_live_shapes_and_transform_gating", svg_import_live_shapes_and_transform_gating},
       {"svg_import_gradients", svg_import_gradients},
+      {"svg_import_user_space_gradients_follow_the_element_transform",
+       svg_import_user_space_gradients_follow_the_element_transform},
+      {"svg_import_bounding_box_gradients_resolve_in_the_element_box",
+       svg_import_bounding_box_gradients_resolve_in_the_element_box},
+      {"svg_export_reimport_keeps_user_space_gradients", svg_export_reimport_keeps_user_space_gradients},
       {"svg_import_fill_rules", svg_import_fill_rules},
       {"svg_import_clip_and_mask", svg_import_clip_and_mask},
       {"svg_import_units_and_ppi", svg_import_units_and_ppi},

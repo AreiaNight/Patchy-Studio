@@ -248,7 +248,10 @@ bool unit_is_barrier(const std::vector<Layer>& siblings, const Unit& unit,
 GradientExportGeometry gradient_export_geometry(const LayerStyleGradient& gradient, const VectorPath& path,
                                                 std::int32_t document_width, std::int32_t document_height) {
   GradientExportGeometry geometry;
-  const auto path_bounds = path.bounds();
+  // The renderer's reference box: the path bounds when the gradient is aligned with
+  // the layer, the canvas otherwise (page-anchored ramps, which is what an imported
+  // userSpaceOnUse gradient or PDF shading is).
+  const auto path_bounds = gradient.align_with_layer ? path.bounds() : std::nullopt;
   const double left = path_bounds.has_value() ? path_bounds->left : 0.0;
   const double top = path_bounds.has_value() ? path_bounds->top : 0.0;
   const double width =
