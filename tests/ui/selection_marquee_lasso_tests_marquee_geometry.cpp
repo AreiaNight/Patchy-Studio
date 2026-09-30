@@ -1935,7 +1935,7 @@ void ui_canvas_aid_preferences_and_guide_dialogs_work() {
     CHECK(tabs->count() == 5);
 #endif
     CHECK(tabs->tabText(1) == QStringLiteral("Pen"));
-    CHECK(tabs->tabText(2) == QStringLiteral("Grid and Guides"));
+    CHECK(tabs->tabText(2) == QStringLiteral("Units && Grids"));
     CHECK(tabs->tabText(3) == QStringLiteral("Snapping"));
     CHECK(tabs->tabText(4) == QStringLiteral("Hotkeys"));
     auto* grid_color_button = dialog->findChild<QPushButton*>(QStringLiteral("preferencesGridColorButton"));

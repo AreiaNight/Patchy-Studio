@@ -2556,6 +2556,7 @@ void MainWindow::refresh_options_bar() {
     }
   }
   refresh_vector_tool_options_visibility();
+  refresh_vector_stroke_controls();
   if (options_flow_container_ != nullptr) {
     // Visibility changes alter how many controls there are, so recompute the
     // wrapped height and let the toolbar grow or shrink accordingly.

@@ -2435,19 +2435,6 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   vector_shape_mode_option_widgets_.push_back(vector_fill_swatch_button_);
   connect(vector_fill_swatch_button_, &QToolButton::clicked, this,
           [this] { show_vector_paint_menu(false); });
-  // The full appearance editor for the active shape layer; the badge and the
-  // row double-click reach it too, this button makes it discoverable.
-  vector_appearance_button_ = new QPushButton(tr("Appearance..."), toolbar);
-  vector_appearance_button_->setObjectName(QStringLiteral("vectorAppearanceButton"));
-  bind_widget_text(vector_appearance_button_, QT_TR_NOOP("Appearance..."));
-  bind_tooltip(vector_appearance_button_, QT_TR_NOOP("Edit the active shape layer's fill, stroke, opacity, and edge"));
-  vector_appearance_button_->setProperty("optionsBarButton", true);
-  vector_appearance_button_->setMinimumHeight(24);
-  vector_appearance_button_->setMaximumHeight(26);
-  add_option_widget(vector_appearance_button_, vector_appearance_tools);
-  vector_shape_mode_option_widgets_.push_back(vector_appearance_button_);
-  connect(vector_appearance_button_, &QPushButton::clicked, this, [this] { edit_active_shape_appearance(); });
-
   auto* vector_stroke_check = new CheckGlyphBox(tr("Stroke"), toolbar);
 
   bind_widget_text(vector_stroke_check, QT_TR_NOOP("Stroke"));
@@ -2458,6 +2445,7 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   vector_shape_mode_option_widgets_.push_back(vector_stroke_check);
   connect(vector_stroke_check, &QCheckBox::toggled, this, [this](bool checked) {
     current_vector_stroke_enabled_ = checked;
+    refresh_vector_stroke_controls();
     schedule_save_tool_settings();
     apply_options_bar_appearance_to_active_shape();
   });
@@ -2478,6 +2466,9 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
     context.percent_reference_pixels = 0.0;
     return context;
   };
+  auto* vector_stroke_width_label = add_option_label(QT_TR_NOOP("Stroke width:"), vector_appearance_tools);
+  vector_stroke_width_label->setObjectName(QStringLiteral("vectorStrokeWidthLabel"));
+  vector_shape_mode_option_widgets_.push_back(vector_stroke_width_label);
   auto* vector_stroke_width = new UnitSpinBox(SpinUnit::Pixels, toolbar);
   vector_stroke_width->setObjectName(QStringLiteral("vectorStrokeWidthSpin"));
   vector_stroke_width->setRange(0.1, 1000.0);
@@ -2804,6 +2795,18 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
     apply_shape_style_settings();
   });
   apply_shape_style_settings();
+
+  // Extra settings follow every shape-specific control at the end of the row.
+  vector_appearance_button_ = new QPushButton(tr("Appearance..."), toolbar);
+  vector_appearance_button_->setObjectName(QStringLiteral("vectorAppearanceButton"));
+  bind_widget_text(vector_appearance_button_, QT_TR_NOOP("Appearance..."));
+  bind_tooltip(vector_appearance_button_, QT_TR_NOOP("Edit the active shape layer's fill, stroke, opacity, and edge"));
+  vector_appearance_button_->setProperty("optionsBarButton", true);
+  vector_appearance_button_->setMinimumHeight(24);
+  vector_appearance_button_->setMaximumHeight(26);
+  add_option_widget(vector_appearance_button_, vector_appearance_tools);
+  vector_shape_mode_option_widgets_.push_back(vector_appearance_button_);
+  connect(vector_appearance_button_, &QPushButton::clicked, this, [this] { edit_active_shape_appearance(); });
 
   // Fill tool / Fill hotkey settings (independent of the brush; default 100% opacity, 0 softness).
   add_option_label(QT_TR_NOOP("Opacity:"), {CanvasTool::Fill});

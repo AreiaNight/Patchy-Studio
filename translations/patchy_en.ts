@@ -16008,10 +16008,6 @@ Y: %2
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Ruler units:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Default visibility:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16037,10 +16033,6 @@ Y: %2
     </message>
     <message>
         <source>Overlay preview:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Grid and Guides</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -18064,6 +18056,18 @@ Y: %2
     </message>
     <message>
         <source>Zoom until the image fills the window (View &gt; Fill Screen)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stroke width:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Default units:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Units &amp;&amp; Grids</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -96,7 +96,7 @@ at startup.
 ## Rulers and the units preference
 
 `view/rulerUnits` (settings token px/in/cm/mm/pt/percent) is the app-wide ruler unit,
-surfaced in Preferences > Grid and Guides and via right-click on a ruler (Photoshop's
+surfaced as Default units in Preferences > Units & Grids and via right-click on a ruler (Photoshop's
 gesture; CanvasWidget shows the menu and reports through
 `set_ruler_unit_change_requested_callback`, MainWindow owns the preference and pushes it
 to every canvas in `apply_canvas_aid_settings`). `CanvasWidget::draw_rulers` picks 1-2-5

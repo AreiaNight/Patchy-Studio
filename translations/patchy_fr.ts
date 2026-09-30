@@ -8586,15 +8586,15 @@ RVB : %2, %3, %4</translation>
     </message>
     <message>
         <source>This file is 32-bit per channel (HDR). Patchy converted it to 8-bit for editing: precision and dynamic range beyond 8-bit were lost, and saving writes an 8-bit file. Keep the original if you need the 32-bit data.</source>
-        <translation>Ce fichier est en 32 bits par couche (HDR). Patchy l'a converti en 8 bits pour la modification : la précision et la plage dynamique au-delà de 8 bits sont perdues, et l'enregistrement écrit un fichier 8 bits. Conservez l'original si vous avez besoin des données 32 bits.</translation>
+        <translation>Ce fichier est en 32 bits par couche (HDR). Patchy l&apos;a converti en 8 bits pour la modification : la précision et la plage dynamique au-delà de 8 bits sont perdues, et l&apos;enregistrement écrit un fichier 8 bits. Conservez l&apos;original si vous avez besoin des données 32 bits.</translation>
     </message>
     <message>
         <source>This file is 16-bit per channel. Patchy converted it to 8-bit for editing: some precision was lost, and saving writes an 8-bit file. Keep the original if you need the 16-bit data.</source>
-        <translation>Ce fichier est en 16 bits par couche. Patchy l'a converti en 8 bits pour la modification : un peu de précision est perdue, et l'enregistrement écrit un fichier 8 bits. Conservez l'original si vous avez besoin des données 16 bits.</translation>
+        <translation>Ce fichier est en 16 bits par couche. Patchy l&apos;a converti en 8 bits pour la modification : un peu de précision est perdue, et l&apos;enregistrement écrit un fichier 8 bits. Conservez l&apos;original si vous avez besoin des données 16 bits.</translation>
     </message>
     <message>
         <source>The source is %1 bits per channel; Patchy converted it to 8-bit for editing and saves an 8-bit file. Keep the original if you need the deeper data.</source>
-        <translation>La source est en %1 bits par couche ; Patchy l'a convertie en 8 bits pour la modification et enregistre un fichier 8 bits. Conservez l'original si vous avez besoin des données de plus grande profondeur.</translation>
+        <translation>La source est en %1 bits par couche ; Patchy l&apos;a convertie en 8 bits pour la modification et enregistre un fichier 8 bits. Conservez l&apos;original si vous avez besoin des données de plus grande profondeur.</translation>
     </message>
     <message>
         <source>%1 opened with notes:
@@ -16048,10 +16048,6 @@ Y : %2
         <translation>Limites et centre de la sélection</translation>
     </message>
     <message>
-        <source>Ruler units:</source>
-        <translation>Unités des règles :</translation>
-    </message>
-    <message>
         <source>Default visibility:</source>
         <translation>Visibilité par défaut :</translation>
     </message>
@@ -16078,10 +16074,6 @@ Y : %2
     <message>
         <source>Overlay preview:</source>
         <translation>Aperçu de l&apos;incrustation :</translation>
-    </message>
-    <message>
-        <source>Grid and Guides</source>
-        <translation>Grille et repères</translation>
     </message>
     <message>
         <source>Snap:</source>
@@ -18086,11 +18078,11 @@ Y : %2
     </message>
     <message>
         <source>Fill Screen</source>
-        <translation>Remplir l'écran</translation>
+        <translation>Remplir l&apos;écran</translation>
     </message>
     <message>
         <source>Fi&amp;ll Screen</source>
-        <translation>Remp&amp;lir l'écran</translation>
+        <translation>Remp&amp;lir l&apos;écran</translation>
     </message>
     <message>
         <source>Zoom In</source>
@@ -18102,15 +18094,27 @@ Y : %2
     </message>
     <message>
         <source>Show the image at actual pixels (View &gt; Actual Pixels)</source>
-        <translation>Afficher l'image en pixels réels (Affichage &gt; Pixels réels)</translation>
+        <translation>Afficher l&apos;image en pixels réels (Affichage &gt; Pixels réels)</translation>
     </message>
     <message>
         <source>Fit the whole image in the window (View &gt; Fit on Screen)</source>
-        <translation>Afficher l'image entière dans la fenêtre (Affichage &gt; Taille écran)</translation>
+        <translation>Afficher l&apos;image entière dans la fenêtre (Affichage &gt; Taille écran)</translation>
     </message>
     <message>
         <source>Zoom until the image fills the window (View &gt; Fill Screen)</source>
-        <translation>Zoomer jusqu'à ce que l'image remplisse la fenêtre (Affichage &gt; Remplir l'écran)</translation>
+        <translation>Zoomer jusqu&apos;à ce que l&apos;image remplisse la fenêtre (Affichage &gt; Remplir l&apos;écran)</translation>
+    </message>
+    <message>
+        <source>Stroke width:</source>
+        <translation>Épaisseur du contour:</translation>
+    </message>
+    <message>
+        <source>Default units:</source>
+        <translation>Unités par défaut:</translation>
+    </message>
+    <message>
+        <source>Units &amp;&amp; Grids</source>
+        <translation>Unités &amp;&amp; grilles</translation>
     </message>
 </context>
 <context>

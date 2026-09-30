@@ -16009,10 +16009,6 @@ Y：%2
         <translation>選取範圍邊界和中心</translation>
     </message>
     <message>
-        <source>Ruler units:</source>
-        <translation>尺標單位:</translation>
-    </message>
-    <message>
         <source>Default visibility:</source>
         <translation>預設顯示狀態:</translation>
     </message>
@@ -16039,10 +16035,6 @@ Y：%2
     <message>
         <source>Overlay preview:</source>
         <translation>覆疊預視:</translation>
-    </message>
-    <message>
-        <source>Grid and Guides</source>
-        <translation>格點和參考線</translation>
     </message>
     <message>
         <source>Snap:</source>
@@ -18059,6 +18051,18 @@ Y：%2
     <message>
         <source>Zoom until the image fills the window (View &gt; Fill Screen)</source>
         <translation>縮放直到影像填滿視窗 (檢視 &gt; 填滿螢幕)</translation>
+    </message>
+    <message>
+        <source>Stroke width:</source>
+        <translation>筆畫寬度:</translation>
+    </message>
+    <message>
+        <source>Default units:</source>
+        <translation>預設單位:</translation>
+    </message>
+    <message>
+        <source>Units &amp;&amp; Grids</source>
+        <translation>單位 &amp;&amp; 格線</translation>
     </message>
 </context>
 <context>

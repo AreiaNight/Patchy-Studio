@@ -16048,10 +16048,6 @@ Y: %2
         <translation>Auswahlgrenzen und -mitte</translation>
     </message>
     <message>
-        <source>Ruler units:</source>
-        <translation>Linealeinheiten:</translation>
-    </message>
-    <message>
         <source>Default visibility:</source>
         <translation>Standardsichtbarkeit:</translation>
     </message>
@@ -16078,10 +16074,6 @@ Y: %2
     <message>
         <source>Overlay preview:</source>
         <translation>Overlay-Vorschau:</translation>
-    </message>
-    <message>
-        <source>Grid and Guides</source>
-        <translation>Raster und Hilfslinien</translation>
     </message>
     <message>
         <source>Snap:</source>
@@ -18111,6 +18103,18 @@ Y: %2
     <message>
         <source>Zoom until the image fills the window (View &gt; Fill Screen)</source>
         <translation>So weit zoomen, dass das Bild das Fenster füllt (Ansicht &gt; Bildschirm füllen)</translation>
+    </message>
+    <message>
+        <source>Stroke width:</source>
+        <translation>Konturbreite:</translation>
+    </message>
+    <message>
+        <source>Default units:</source>
+        <translation>Standardeinheiten:</translation>
+    </message>
+    <message>
+        <source>Units &amp;&amp; Grids</source>
+        <translation>Einheiten &amp;&amp; Raster</translation>
     </message>
 </context>
 <context>

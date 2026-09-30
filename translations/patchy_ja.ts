@@ -14453,10 +14453,6 @@ Y: %2
         <translation>選択範囲の境界と中心</translation>
     </message>
     <message>
-        <source>Ruler units:</source>
-        <translation>定規の単位:</translation>
-    </message>
-    <message>
         <source>Default visibility:</source>
         <translation>既定の表示:</translation>
     </message>
@@ -14483,10 +14479,6 @@ Y: %2
     <message>
         <source>Overlay preview:</source>
         <translation>オーバーレイプレビュー:</translation>
-    </message>
-    <message>
-        <source>Grid and Guides</source>
-        <translation>グリッドとガイド</translation>
     </message>
     <message>
         <source>Snap:</source>
@@ -18059,6 +18051,18 @@ Clipped to the layer below</source>
     <message>
         <source>Zoom until the image fills the window (View &gt; Fill Screen)</source>
         <translation>画像がウィンドウいっぱいになるまでズームします (表示 &gt; 画面全体に広げる)</translation>
+    </message>
+    <message>
+        <source>Stroke width:</source>
+        <translation>線の幅:</translation>
+    </message>
+    <message>
+        <source>Default units:</source>
+        <translation>既定の単位:</translation>
+    </message>
+    <message>
+        <source>Units &amp;&amp; Grids</source>
+        <translation>単位 &amp;&amp; グリッド</translation>
     </message>
 </context>
 <context>

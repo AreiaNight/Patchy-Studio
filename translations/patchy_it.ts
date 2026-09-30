@@ -8586,15 +8586,15 @@ RGB: %2, %3, %4</translation>
     </message>
     <message>
         <source>This file is 32-bit per channel (HDR). Patchy converted it to 8-bit for editing: precision and dynamic range beyond 8-bit were lost, and saving writes an 8-bit file. Keep the original if you need the 32-bit data.</source>
-        <translation>Questo file è a 32 bit per canale (HDR). Patchy lo ha convertito a 8 bit per la modifica: la precisione e la gamma dinamica oltre gli 8 bit sono andate perse, e il salvataggio scrive un file a 8 bit. Conserva l'originale se ti servono i dati a 32 bit.</translation>
+        <translation>Questo file è a 32 bit per canale (HDR). Patchy lo ha convertito a 8 bit per la modifica: la precisione e la gamma dinamica oltre gli 8 bit sono andate perse, e il salvataggio scrive un file a 8 bit. Conserva l&apos;originale se ti servono i dati a 32 bit.</translation>
     </message>
     <message>
         <source>This file is 16-bit per channel. Patchy converted it to 8-bit for editing: some precision was lost, and saving writes an 8-bit file. Keep the original if you need the 16-bit data.</source>
-        <translation>Questo file è a 16 bit per canale. Patchy lo ha convertito a 8 bit per la modifica: parte della precisione è andata persa, e il salvataggio scrive un file a 8 bit. Conserva l'originale se ti servono i dati a 16 bit.</translation>
+        <translation>Questo file è a 16 bit per canale. Patchy lo ha convertito a 8 bit per la modifica: parte della precisione è andata persa, e il salvataggio scrive un file a 8 bit. Conserva l&apos;originale se ti servono i dati a 16 bit.</translation>
     </message>
     <message>
         <source>The source is %1 bits per channel; Patchy converted it to 8-bit for editing and saves an 8-bit file. Keep the original if you need the deeper data.</source>
-        <translation>La sorgente è a %1 bit per canale; Patchy l'ha convertita a 8 bit per la modifica e salva un file a 8 bit. Conserva l'originale se ti servono i dati a profondità maggiore.</translation>
+        <translation>La sorgente è a %1 bit per canale; Patchy l&apos;ha convertita a 8 bit per la modifica e salva un file a 8 bit. Conserva l&apos;originale se ti servono i dati a profondità maggiore.</translation>
     </message>
     <message>
         <source>%1 opened with notes:
@@ -16048,10 +16048,6 @@ Y: %2
         <translation>Limiti e centro della selezione</translation>
     </message>
     <message>
-        <source>Ruler units:</source>
-        <translation>Unità righelli:</translation>
-    </message>
-    <message>
         <source>Default visibility:</source>
         <translation>Visibilità predefinita:</translation>
     </message>
@@ -16078,10 +16074,6 @@ Y: %2
     <message>
         <source>Overlay preview:</source>
         <translation>Anteprima sovrapposizione:</translation>
-    </message>
-    <message>
-        <source>Grid and Guides</source>
-        <translation>Griglia e guide</translation>
     </message>
     <message>
         <source>Snap:</source>
@@ -18102,15 +18094,27 @@ Y: %2
     </message>
     <message>
         <source>Show the image at actual pixels (View &gt; Actual Pixels)</source>
-        <translation>Mostra l'immagine a pixel reali (Vista &gt; Pixel reali)</translation>
+        <translation>Mostra l&apos;immagine a pixel reali (Vista &gt; Pixel reali)</translation>
     </message>
     <message>
         <source>Fit the whole image in the window (View &gt; Fit on Screen)</source>
-        <translation>Adatta l'intera immagine alla finestra (Vista &gt; Adatta allo schermo)</translation>
+        <translation>Adatta l&apos;intera immagine alla finestra (Vista &gt; Adatta allo schermo)</translation>
     </message>
     <message>
         <source>Zoom until the image fills the window (View &gt; Fill Screen)</source>
-        <translation>Ingrandisci finché l'immagine riempie la finestra (Vista &gt; Riempi schermo)</translation>
+        <translation>Ingrandisci finché l&apos;immagine riempie la finestra (Vista &gt; Riempi schermo)</translation>
+    </message>
+    <message>
+        <source>Stroke width:</source>
+        <translation>Spessore traccia:</translation>
+    </message>
+    <message>
+        <source>Default units:</source>
+        <translation>Unità predefinite:</translation>
+    </message>
+    <message>
+        <source>Units &amp;&amp; Grids</source>
+        <translation>Unità &amp;&amp; griglie</translation>
     </message>
 </context>
 <context>

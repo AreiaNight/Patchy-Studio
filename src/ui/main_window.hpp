@@ -1156,6 +1156,7 @@ private:
   [[nodiscard]] std::optional<patchy::PatternResource> resolve_vector_pattern_resource(
       const std::string& pattern_id);
   void sync_shape_appearance_options_from_active_layer();
+  void refresh_vector_stroke_controls();
   bool apply_options_bar_appearance_to_active_shape();
   void schedule_vector_appearance_apply();
   // Options-bar W / H of the active shape layer (Photoshop's readouts): the

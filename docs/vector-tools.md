@@ -8,17 +8,15 @@ docs/legal-constraints.md.
 
 ## Shape tools (Line / Rectangle / Ellipse)
 
-Draw tools carry a Shape | Path | Pixels combo (persisted
-`tools/vectorToolMode`, default Shape). Shape-mode drags preview the actual
-options-bar fill and stroke read at draw time; only the Content edit target
-previews this way, and mask/channel/quick-mask targets always take the
-raster path. Release creates a shape layer: live-shape parameters (rect,
-rounded rect via Radius, ellipse, line with Weight) generate the path; the
-options-bar paints become the appearance (stroke alignment defaults to
-Inside, PS's default). The Combine option (New Layer / Add / Subtract /
-Intersect / Exclude) instead appends the drag to the active shape layer as a
-new shape group with that op. Path mode appends the same subpaths to the
-work path; Pixels mode is the legacy raster commit, byte-identical.
+Shape | Path | Pixels persists as `tools/vectorToolMode` (default Shape).
+Shape drags preview options-bar fill/stroke at draw time
+for the Content target; mask/channel/quick-mask targets always rasterize.
+Release creates a shape layer from live parameters (rect, rounded rect via
+Radius, ellipse, line with Weight) and the options-bar paints. Stroke
+alignment defaults to Inside, like PS. Combine (New Layer / Add / Subtract /
+Intersect / Exclude) appends a group with that op to the active shape layer.
+Path mode appends the same subpaths to the work path; Pixels keeps the legacy
+raster commit byte-identical.
 
 The Fill and Stroke swatches are popup pickers (No Fill / Solid / Gradient /
 Pattern) backed by app-wide `VectorFill` mirrors. Gradient picks resolve the
@@ -29,6 +27,9 @@ vectorFill*/vectorStrokePaint* keys; gradient/pattern PLACEMENT resets each
 launch. Selecting an editable shape layer syncs the controls (also for Path
 Select / Direct Select); edits apply live (one "Shape appearance" undo per
 gesture, width spin debounced) and stick as next-shape defaults.
+Stroke precedes its swatch and scrub-enabled Stroke width label/field;
+turning it off disables all three without clearing their values.
+Appearance... ends the shape options row.
 
 A bare click (no drag) with Rectangle, Ellipse, Polygon, or Custom Shape
 opens the Create <Shape> dialog (shape_create_dialog.cpp): Width, Height,

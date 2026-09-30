@@ -16048,10 +16048,6 @@ Y: %2
         <translation>Límites y centro de la selección</translation>
     </message>
     <message>
-        <source>Ruler units:</source>
-        <translation>Unidades de regla:</translation>
-    </message>
-    <message>
         <source>Default visibility:</source>
         <translation>Visibilidad predeterminada:</translation>
     </message>
@@ -16078,10 +16074,6 @@ Y: %2
     <message>
         <source>Overlay preview:</source>
         <translation>Previsualización de superposición:</translation>
-    </message>
-    <message>
-        <source>Grid and Guides</source>
-        <translation>Cuadrícula y guías</translation>
     </message>
     <message>
         <source>Snap:</source>
@@ -18111,6 +18103,18 @@ Y: %2
     <message>
         <source>Zoom until the image fills the window (View &gt; Fill Screen)</source>
         <translation>Ampliar hasta que la imagen llene la ventana (Vista &gt; Llenar pantalla)</translation>
+    </message>
+    <message>
+        <source>Stroke width:</source>
+        <translation>Ancho del trazo:</translation>
+    </message>
+    <message>
+        <source>Default units:</source>
+        <translation>Unidades predeterminadas:</translation>
+    </message>
+    <message>
+        <source>Units &amp;&amp; Grids</source>
+        <translation>Unidades &amp;&amp; cuadrículas</translation>
     </message>
 </context>
 <context>

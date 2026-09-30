@@ -16009,10 +16009,6 @@ Y: %2
         <translation>选区边界和中心</translation>
     </message>
     <message>
-        <source>Ruler units:</source>
-        <translation>标尺单位:</translation>
-    </message>
-    <message>
         <source>Default visibility:</source>
         <translation>默认可见性:</translation>
     </message>
@@ -16039,10 +16035,6 @@ Y: %2
     <message>
         <source>Overlay preview:</source>
         <translation>叠加预览:</translation>
-    </message>
-    <message>
-        <source>Grid and Guides</source>
-        <translation>网格和参考线</translation>
     </message>
     <message>
         <source>Snap:</source>
@@ -18059,6 +18051,18 @@ Y: %2
     <message>
         <source>Zoom until the image fills the window (View &gt; Fill Screen)</source>
         <translation>缩放直到图像填满窗口 (视图 &gt; 填充屏幕)</translation>
+    </message>
+    <message>
+        <source>Stroke width:</source>
+        <translation>描边宽度:</translation>
+    </message>
+    <message>
+        <source>Default units:</source>
+        <translation>默认单位:</translation>
+    </message>
+    <message>
+        <source>Units &amp;&amp; Grids</source>
+        <translation>单位 &amp;&amp; 网格</translation>
     </message>
 </context>
 <context>

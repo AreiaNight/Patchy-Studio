@@ -1301,7 +1301,7 @@ void MainWindow::show_preferences() {
   snap_targets_layout->addWidget(snap_layers_check, 2, 0, 1, 2);
   snap_targets_layout->addWidget(snap_selection_check, 3, 0, 1, 2);
 
-  view_form->addRow(tr("Ruler units:"), ruler_units_combo);
+  view_form->addRow(tr("Default units:"), ruler_units_combo);
   view_form->addRow(tr("Default visibility:"), visibility_row);
   view_form->addRow(tr("Grid spacing:"), grid_spacing_spin);
   view_form->addRow(tr("Grid subdivisions:"), grid_subdivisions_spin);
@@ -1320,7 +1320,7 @@ void MainWindow::show_preferences() {
   view_form->addRow(tr("Overlay preview:"), overlay_preview);
   view_layout->addWidget(view_group);
   view_layout->addStretch(1);
-  tabs->addTab(view_page, tr("Grid and Guides"));
+  tabs->addTab(view_page, tr("Units && Grids"));
 
   auto [snapping_page, snapping_layout] = make_tab_page(tabs);
   auto* snapping_group = new QFrame(snapping_page);

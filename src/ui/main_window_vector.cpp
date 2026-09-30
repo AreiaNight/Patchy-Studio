@@ -1557,6 +1557,15 @@ bool MainWindow::vector_appearance_controls_live() const {
   return effective_mode == VectorToolMode::Shape;
 }
 
+void MainWindow::refresh_vector_stroke_controls() {
+  const bool enabled = has_active_document() && !preview_dialog_edit_locked() && current_vector_stroke_enabled_;
+  for (const char* name : {"vectorStrokeSwatchButton", "vectorStrokeWidthLabel", "vectorStrokeWidthSpin"}) {
+    if (auto* widget = findChild<QWidget*>(QLatin1String(name)); widget != nullptr) {
+      widget->setEnabled(enabled);
+    }
+  }
+}
+
 void MainWindow::sync_shape_appearance_options_from_active_layer() {
   // A pending debounced user edit outranks a passive sync; without this guard
   // a refresh between the spin edit and the apply would revert the mirror and
@@ -1576,6 +1585,7 @@ void MainWindow::sync_shape_appearance_options_from_active_layer() {
   current_vector_stroke_enabled_ = content->stroke.enabled;
   current_vector_stroke_width_ = std::clamp(content->stroke.width, 0.1, 1000.0);
   current_vector_stroke_paint_ = content->stroke.content;
+  refresh_vector_stroke_controls();
   if (auto* stroke_check = findChild<QCheckBox*>(QStringLiteral("vectorStrokeCheck"));
       stroke_check != nullptr) {
     QSignalBlocker blocker(stroke_check);
