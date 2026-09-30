@@ -5,7 +5,7 @@
 ## Photoshop documents and non-destructive editing
 
 - Open and save layered PSD and PSB files with groups, masks, clipping masks, saved alpha and spot channels, text objects, Fill Opacity, the full Photoshop blend mode set, layer styles and more
-- Import 16-bit and 32-bit PSD/PSB files with their layers, converting to 8-bit for editing; CMYK and grayscale Photoshop documents convert to RGB
+- Import 16-bit and 32-bit PSD/PSB files with their layers, converting to 8-bit for editing (a warning explains that saves are 8-bit); CMYK and grayscale Photoshop documents convert to RGB
 - Non-destructive adjustment layers (Levels, Curves, Hue/Saturation, Color Balance, Brightness/Contrast, Invert, Posterize, Threshold) with live preview, editable settings, native Photoshop PSD data, and .acv Curves preset import and export
 - Smart Objects: place or convert layers to embedded or linked smart objects, edit or replace their contents, transform them non-destructively, and build editable native Smart Filter stacks (13 filter types) with paintable shared masks and per-filter blending
 - Photoshop-compatible layer style, pattern, and gradient preset libraries, including .asl, .pat, and .grd import/export, 39 built-in styles, and 20 bundled CC0 photo textures

@@ -8557,6 +8557,30 @@ Mixed selection</source>
         <source>Keep the layers clipped to this one under its interior effects; turn this off together with Blend Interior Effects as Group to draw them over the overlays instead</source>
         <translation>このレイヤーにクリップされたレイヤーを内側の効果の下に置きます。「内側の効果をグループとして描画」と一緒にオフにすると、オーバーレイの上に描画されます</translation>
     </message>
+    <message>
+        <source>This file is 32-bit per channel (HDR). Patchy converted it to 8-bit for editing: precision and dynamic range beyond 8-bit were lost, and saving writes an 8-bit file. Keep the original if you need the 32-bit data.</source>
+        <translation>このファイルはチャンネルあたり 32 ビット (HDR) です。Patchy は編集用に 8 ビットへ変換しました。8 ビットを超える精度とダイナミックレンジは失われ、保存すると 8 ビットのファイルになります。32 ビットのデータが必要な場合は元のファイルを残してください。</translation>
+    </message>
+    <message>
+        <source>This file is 16-bit per channel. Patchy converted it to 8-bit for editing: some precision was lost, and saving writes an 8-bit file. Keep the original if you need the 16-bit data.</source>
+        <translation>このファイルはチャンネルあたり 16 ビットです。Patchy は編集用に 8 ビットへ変換しました。一部の精度が失われ、保存すると 8 ビットのファイルになります。16 ビットのデータが必要な場合は元のファイルを残してください。</translation>
+    </message>
+    <message>
+        <source>The source is %1 bits per channel; Patchy converted it to 8-bit for editing and saves an 8-bit file. Keep the original if you need the deeper data.</source>
+        <translation>元のファイルはチャンネルあたり %1 ビットです。Patchy は編集用に 8 ビットへ変換し、8 ビットのファイルとして保存します。より深いビット深度のデータが必要な場合は元のファイルを残してください。</translation>
+    </message>
+    <message>
+        <source>%1 opened with notes:
+
+%2</source>
+        <translation>%1 を開きましたが、次の注意があります:
+
+%2</translation>
+    </message>
+    <message>
+        <source>Import Notes</source>
+        <translation>読み込みに関する注意</translation>
+    </message>
 </context>
 <context>
     <name>ScannerImport</name>
@@ -10350,10 +10374,6 @@ Mixed selection</source>
         <translation>シェイプレイヤーをグループに入れ、そのグループにベクトルマスクを適用してください。</translation>
     </message>
     <message>
-        <source>Import Notes</source>
-        <translation>読み込みに関する注意</translation>
-    </message>
-    <message>
         <source>I&amp;mport</source>
         <translation>読み込み(&amp;M)</translation>
     </message>
@@ -10576,14 +10596,6 @@ Mixed selection</source>
     <message>
         <source>Seamless &amp;Tile Preview</source>
         <translation>シームレスタイル プレビュー(&amp;T)</translation>
-    </message>
-    <message>
-        <source>%1 opened with notes:
-
-%2</source>
-        <translation>%1 を開きましたが、次の注意があります:
-
-%2</translation>
     </message>
     <message>
         <source>Development</source>

@@ -8557,6 +8557,30 @@ RGB：%2, %3, %4</translation>
         <source>Keep the layers clipped to this one under its interior effects; turn this off together with Blend Interior Effects as Group to draw them over the overlays instead</source>
         <translation>將剪裁到此圖層的圖層保持在其內部效果之下；與「將內部效果混合成群組」一起關閉時，改為繪製在覆蓋之上</translation>
     </message>
+    <message>
+        <source>This file is 32-bit per channel (HDR). Patchy converted it to 8-bit for editing: precision and dynamic range beyond 8-bit were lost, and saving writes an 8-bit file. Keep the original if you need the 32-bit data.</source>
+        <translation>此檔案為每色版 32 位元 (HDR)。Patchy 已將其轉換為 8 位元以供編輯：超出 8 位元的精度與動態範圍已遺失，儲存時會寫入 8 位元檔案。如需 32 位元資料，請保留原始檔案。</translation>
+    </message>
+    <message>
+        <source>This file is 16-bit per channel. Patchy converted it to 8-bit for editing: some precision was lost, and saving writes an 8-bit file. Keep the original if you need the 16-bit data.</source>
+        <translation>此檔案為每色版 16 位元。Patchy 已將其轉換為 8 位元以供編輯：部分精度已遺失，儲存時會寫入 8 位元檔案。如需 16 位元資料，請保留原始檔案。</translation>
+    </message>
+    <message>
+        <source>The source is %1 bits per channel; Patchy converted it to 8-bit for editing and saves an 8-bit file. Keep the original if you need the deeper data.</source>
+        <translation>來源為每色版 %1 位元；Patchy 已將其轉換為 8 位元以供編輯，並儲存為 8 位元檔案。如需更高位元深度的資料，請保留原始檔案。</translation>
+    </message>
+    <message>
+        <source>%1 opened with notes:
+
+%2</source>
+        <translation>%1 已開啟，並含有下列備註：
+
+%2</translation>
+    </message>
+    <message>
+        <source>Import Notes</source>
+        <translation>匯入備註</translation>
+    </message>
 </context>
 <context>
     <name>ScannerImport</name>
@@ -13213,18 +13237,6 @@ RGB: -
     <message>
         <source>Opened %1. %2</source>
         <translation>已開啟 %1。%2</translation>
-    </message>
-    <message>
-        <source>Import Notes</source>
-        <translation>匯入備註</translation>
-    </message>
-    <message>
-        <source>%1 opened with notes:
-
-%2</source>
-        <translation>%1 已開啟，並含有下列備註：
-
-%2</translation>
     </message>
     <message>
         <source>File is missing</source>
