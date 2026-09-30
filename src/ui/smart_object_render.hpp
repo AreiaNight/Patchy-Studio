@@ -9,6 +9,9 @@
 #include <QString>
 
 #include <optional>
+#include <string>
+
+class QFileInfo;
 
 // Decoding embedded smart-object sources and re-rendering layer previews through the
 // placement quad (M2). Decode fidelity note: PSD/PSB sources render from the child
@@ -61,6 +64,51 @@ enum class SmartObjectContentsFormat {
 // exist (the caller offers Relink to File...).
 [[nodiscard]] std::optional<QString> resolve_smart_object_external_path(const SmartObjectSource& source,
                                                                         const QString& parent_document_dir);
+
+// The link-element filetype OSType for a file extension (lower case, no dot), pinned
+// from Photoshop 2026 captures: "8BPB", "8BPS", "JPEG", "TIFF", "BMP ", "SVG ", and
+// "png " for everything else.
+[[nodiscard]] std::string smart_object_filetype_for_extension(const QString& extension);
+
+// Linked-file bookkeeping (docs/smart-objects.md, "Place Linked ground truth").
+//
+// Photoshop stamps a link with the file's modification time in UTC, truncated to
+// whole seconds, plus its byte size, and compares both to decide the link changed.
+void stamp_smart_object_link(SmartObjectSource& source, const QFileInfo& file);
+// True when the file on disk no longer matches the stored stamp. A stamp written in
+// local time (Patchy before October 2026) still counts as unchanged.
+[[nodiscard]] bool smart_object_link_changed_on_disk(const SmartObjectSource& source, const QFileInfo& file);
+// Points an ExternalFile source at `file`: name, filetype, the file:// URI, the native
+// absolute path, the path relative to `document_dir` (the bare file name while the
+// document has no folder yet), and a fresh stamp. Marks the source dirty.
+void set_smart_object_link_target(SmartObjectSource& source, const QFileInfo& file, const QString& document_dir);
+// Photoshop computes each link's relative path against the document's folder when it
+// saves, so a document that had no folder at placement time, or is saved somewhere
+// else, still finds files that travel with it. Every link that resolves from
+// `current_document_dir` gets its path relative to `saved_document_dir`; unresolved
+// links and unchanged paths are left alone (clean elements keep their bytes).
+// Returns true when any link changed.
+bool refresh_smart_object_link_relative_paths(SmartObjectStore& store, const QString& current_document_dir,
+                                              const QString& saved_document_dir);
+// The linked source in `store` whose file resolves to `file` (the same file on disk),
+// or nullptr. Several layers placing one file share that element, so one Update
+// Smart Object Content refreshes all of them.
+[[nodiscard]] SmartObjectSource* find_smart_object_link_for_file(SmartObjectStore& store, const QFileInfo& file,
+                                                                const QString& document_dir);
+// Reads `path` into an Embedded-kind probe (the decode helpers only read embedded
+// bytes) named and typed after the file. Returns nullopt when the file cannot be
+// read or is empty.
+[[nodiscard]] std::optional<SmartObjectSource> load_smart_object_file_probe(const QString& path);
+
+// True when the contents are vector artwork (SVG) that rasterizes at any size.
+[[nodiscard]] bool smart_object_contents_are_vector(const SmartObjectSource& source);
+// Rasterizes vector contents at the placement's own scale, so a placement larger or
+// smaller than the artwork's natural size stays sharp (Photoshop re-renders vector
+// smart objects the same way). The image covers the whole artwork and maps onto the
+// placement quad like the natural-size image does. Returns nullopt for raster
+// contents, a degenerate quad, or a decode failure; callers then use the natural image.
+[[nodiscard]] std::optional<QImage> render_smart_object_vector_contents(const SmartObjectSource& source,
+                                                                        const SmartObjectPlacement& placement);
 
 // Resamples `source_image` through the placement quad (full image rect -> Trnf
 // corners). Returns nullopt when the quad cannot be mapped.

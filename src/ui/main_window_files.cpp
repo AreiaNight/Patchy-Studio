@@ -1030,18 +1030,7 @@ OpenDocumentResult load_document_from_path(QString path) {
           link_notices.push_back(QObject::tr("Linked file %1 was not found").arg(file_name));
           continue;
         }
-        const QFileInfo linked_info(*resolved);
-        const auto modified = linked_info.lastModified();
-        const bool size_changed = source.external_file_size != 0U &&
-                                  static_cast<std::uint64_t>(linked_info.size()) != source.external_file_size;
-        const bool date_changed =
-            source.external_mod_year != 0 &&
-            (modified.date().year() != source.external_mod_year ||
-             modified.date().month() != source.external_mod_month ||
-             modified.date().day() != source.external_mod_day ||
-             modified.time().hour() != source.external_mod_hour ||
-             modified.time().minute() != source.external_mod_minute);
-        if (size_changed || date_changed) {
+        if (smart_object_link_changed_on_disk(source, QFileInfo(*resolved))) {
           link_notices.push_back(
               QObject::tr("Linked file %1 has changed on disk; use Update Smart Object Content")
                   .arg(file_name));
@@ -3588,6 +3577,13 @@ bool MainWindow::save_document_to_path(QString path, std::optional<ImageSaveOpti
 
     QString export_notes_suffix;
     if (is_photoshop_document_extension(extension)) {
+      // Linked smart objects store their path relative to the document's folder, which
+      // is only known here (a never-saved document has none, and Save As can move it).
+      // Writer bookkeeping like Photoshop's own: no undo step.
+      refresh_smart_object_link_relative_paths(
+          document().metadata().smart_objects,
+          session().path.isEmpty() ? QString() : QFileInfo(session().path).absolutePath(),
+          QFileInfo(path).absolutePath());
       psd::DocumentIo::write_layered_rgb8_file(document(), to_filesystem_path(path),
                                                psd::WriteOptions{extension == QStringLiteral("psb")});
     } else if (extension == QStringLiteral("aseprite") || extension == QStringLiteral("ase")) {

@@ -18141,6 +18141,26 @@ Y: %2
         <source>Applied %1 (%2 undoes it)</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Place &amp;Linked...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>This layer is not a linked smart object</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Place Linked</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Placed %1 as a linked smart object</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The placed position or size is out of range</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -19542,6 +19562,14 @@ Y: %2
     </message>
     <message>
         <source>Plug-in %1 failed: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>addSmartObject needs a file path.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>addSmartObject: %1 must be a finite number.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

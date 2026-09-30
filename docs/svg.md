@@ -218,9 +218,12 @@ emit native `<rect>`/`<ellipse>`/`<line>` (round-trips back to live).
   text (the Illustrator/Figma/Inkscape convention); the internal layer
   clipboard is dropped so Paste reads it back in place. Notices ride the
   status message. Test: `ui_svg_copy_as_svg_round_trips_shape_layer`.
-- File > Place Embedded accepts svg: it becomes an embedded smart object
-  (classified ReadOnly, rendered through the qsvg plugin like other
-  Qt-decodable sources).
+- File > Place Embedded, Place Linked, Relink to File and `doc.addSmartObject`
+  accept svg: it becomes a smart object with Photoshop's `SVG ` filetype and
+  Type 1 (vector) placement, classified ReadOnly for editing and rasterized
+  through the qsvg plugin at the placement's own scale, so every size stays
+  sharp (`render_smart_object_vector_contents`; see
+  [smart-object-editing.md](smart-object-editing.md)).
 
 ## Tests and fixtures
 

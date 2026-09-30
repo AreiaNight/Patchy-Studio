@@ -18,6 +18,7 @@
 
 #include "core/layer_metadata.hpp"
 #include "core/pixel_grid.hpp"
+#include "core/smart_object.hpp"
 #include "formats/document_flatten.hpp"
 #include "formats/palette_io.hpp"
 #include "core/layer_render_utils.hpp"
@@ -496,6 +497,53 @@ bool ScriptLayerObject::is_group() const {
 bool ScriptLayerObject::is_text() const {
   const ScriptApiCall api_call(host_);
   return host_.layer_is_text_layer(session_id_, layer_id_);
+}
+
+bool ScriptLayerObject::is_smart_object() const {
+  const ScriptApiCall api_call(host_);
+  const auto* layer = read_layer();
+  return layer != nullptr && layer_is_smart_object(*layer);
+}
+
+QJSValue ScriptLayerObject::getSmartObject() const {
+  const ScriptApiCall api_call(host_);
+  if (read_layer() == nullptr) {
+    return QJSValue();
+  }
+  const auto info = host_.smart_object_info(session_id_, layer_id_);
+  if (!info.has_value()) {
+    return QJSValue(QJSValue::NullValue);
+  }
+  auto object = host_.engine()->newObject();
+  object.setProperty(QStringLiteral("linked"), info->linked);
+  object.setProperty(QStringLiteral("fileName"), info->file_name);
+  object.setProperty(QStringLiteral("path"), info->path);
+  object.setProperty(QStringLiteral("relativePath"), info->relative_path);
+  object.setProperty(QStringLiteral("missing"), info->missing);
+  object.setProperty(QStringLiteral("changed"), info->changed);
+  object.setProperty(QStringLiteral("sourceId"), info->source_id);
+  object.setProperty(QStringLiteral("width"), info->width);
+  object.setProperty(QStringLiteral("height"), info->height);
+  object.setProperty(QStringLiteral("resolution"), info->resolution);
+  auto quad = host_.engine()->newArray(static_cast<quint32>(info->quad.size()));
+  for (quint32 i = 0; i < info->quad.size(); ++i) {
+    quad.setProperty(i, info->quad[i]);
+  }
+  object.setProperty(QStringLiteral("quad"), quad);
+  return object;
+}
+
+int ScriptLayerObject::updateSmartObject() {
+  const ScriptApiCall api_call(host_);
+  if (read_layer() == nullptr) {
+    return 0;
+  }
+  QString error;
+  const auto updated = host_.update_smart_object(session_id_, layer_id_, &error);
+  if (updated == 0 && !error.isEmpty()) {
+    host_.throw_js_error(error);
+  }
+  return updated;
 }
 
 QJSValue ScriptLayerObject::children() const {
@@ -1716,6 +1764,61 @@ QJSValue ScriptDocumentObject::importFilesAsLayers(const QJSValue& paths) {
     result.setProperty(index++, make_layer_value(host_, session_id_, *it));
   }
   return result;
+}
+
+QJSValue ScriptDocumentObject::addSmartObject(const QString& path, const QJSValue& options) {
+  const ScriptApiCall api_call(host_);
+  if (read_document() == nullptr) {
+    return QJSValue();
+  }
+  if (path.isEmpty()) {
+    host_.throw_js_error(ScriptEngineHost::tr("addSmartObject needs a file path."));
+    return QJSValue();
+  }
+  ScriptEngineHost::SmartObjectParams params;
+  if (options.isObject()) {
+    QJSValueIterator it(options);
+    while (it.hasNext()) {
+      it.next();
+      const auto key = it.name();
+      const auto value = it.value();
+      std::optional<double>* number = key == QLatin1String("x")        ? &params.x
+                                      : key == QLatin1String("y")      ? &params.y
+                                      : key == QLatin1String("width")  ? &params.width
+                                      : key == QLatin1String("height") ? &params.height
+                                      : key == QLatin1String("scale")  ? &params.scale
+                                                                       : nullptr;
+      if (number != nullptr) {
+        // Range checks belong to the placement itself; a non-number is a script bug.
+        if (!value.isNumber() || !std::isfinite(value.toNumber())) {
+          host_.throw_js_error(ScriptEngineHost::tr("addSmartObject: %1 must be a finite number.").arg(key));
+          return QJSValue();
+        }
+        *number = value.toNumber();
+      } else if (key == QLatin1String("linked")) {
+        params.linked = value.toBool();
+      } else if (key == QLatin1String("name")) {
+        params.name = value.toString();
+      } else {
+        host_.throw_js_error(
+            ScriptEngineHost::tr("%1: unknown option %2.").arg(QStringLiteral("addSmartObject"), key));
+        return QJSValue();
+      }
+    }
+  } else if (!options.isUndefined() && !options.isNull()) {
+    host_.throw_js_error(ScriptEngineHost::tr("%1: unknown option %2.")
+                             .arg(QStringLiteral("addSmartObject"), options.toString()));
+    return QJSValue();
+  }
+  QString error;
+  const auto placed = host_.add_smart_object(session_id_, path, params, &error);
+  if (!placed.has_value()) {
+    if (!error.isEmpty()) {
+      host_.throw_js_error(error);
+    }
+    return QJSValue();
+  }
+  return make_layer_value(host_, session_id_, *placed);
 }
 
 QJSValue ScriptDocumentObject::addTextLayer(const QJSValue& text, const QJSValue& options) {

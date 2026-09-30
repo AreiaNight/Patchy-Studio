@@ -25,6 +25,7 @@
 #include <QString>
 #include <QStringList>
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -200,6 +201,40 @@ public:
   // cannot be read leaves the document untouched with *error set. Returns the
   // new root ids top to bottom; the mutation rides this run's snapshot.
   std::vector<LayerId> import_files_as_layers(std::int64_t session_id, const QStringList& paths, QString* error);
+  // doc.addSmartObject(path, options): the file becomes a smart-object layer on
+  // top (MainWindow::place_file_as_smart_object), embedded or linked. nullopt with
+  // *error set on refusal (an empty *error means the run was stopped). The
+  // mutation rides this run's snapshot.
+  struct SmartObjectParams {
+    bool linked{false};
+    std::optional<double> x;
+    std::optional<double> y;
+    std::optional<double> width;
+    std::optional<double> height;
+    std::optional<double> scale;
+    QString name;
+  };
+  std::optional<LayerId> add_smart_object(std::int64_t session_id, const QString& path,
+                                          const SmartObjectParams& params, QString* error);
+  // layer.updateSmartObject(): Update Smart Object Content for a linked layer.
+  // Returns how many layers were re-rendered (every layer sharing the source); 0
+  // with *error set on refusal.
+  int update_smart_object(std::int64_t session_id, LayerId layer_id, QString* error);
+  // layer.getSmartObject(): nullopt for layers that are not smart objects.
+  struct SmartObjectInfo {
+    bool linked{false};
+    QString file_name;
+    QString path;           // linked: the resolved file, or the stored absolute path when missing
+    QString relative_path;  // linked: the stored path relative to the document's folder
+    bool missing{false};
+    bool changed{false};
+    QString source_id;
+    double width{0.0};
+    double height{0.0};
+    double resolution{72.0};
+    std::array<double, 8> quad{};
+  };
+  [[nodiscard]] std::optional<SmartObjectInfo> smart_object_info(std::int64_t session_id, LayerId layer_id) const;
 
   // Undo integration: the FIRST mutation a run makes to a session pushes one
   // "Script: <name>" snapshot; later mutations in the same run ride it, so the

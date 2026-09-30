@@ -47,7 +47,7 @@ inline constexpr const char* kSmartObjectRasterStatusPatchy = "patchy_raster";
 
 enum class SmartObjectSourceKind {
   Embedded,      // 'liFD': the file bytes are inside the document
-  ExternalFile,  // 'liFE': a path reference (workflows deferred; recognized + preserved)
+  ExternalFile,  // 'liFE': a linked file on disk (Place Linked, Update, Relink, Embed Linked)
   Alias          // 'liFA'
 };
 
@@ -112,6 +112,11 @@ struct SmartObjectStore {
   // likewise only valid until the next store mutation.
   SmartObjectSource& add_embedded(std::string uuid, std::string filename, std::string filetype,
                                   std::shared_ptr<const std::vector<std::uint8_t>> bytes);
+  // Adds a linked ('liFE') source to the first parsed 'lnkE' block, creating one if
+  // needed (Place Linked, Relink to File). `source` must already be an ExternalFile
+  // with its uuid and link fields set; it is stored dirty so the block regenerates.
+  // Invalidates earlier find() results like add_embedded.
+  SmartObjectSource& add_external(SmartObjectSource source);
   // Inserts a copy of `source` unless its uuid is already present (cross-document
   // paste; matching uuids reuse the existing source, Photoshop's shared-source rule).
   void adopt(const SmartObjectSource& source);

@@ -1737,7 +1737,15 @@ std::vector<std::uint8_t> serialize_external_element(const SmartObjectSource& so
   write_ostype(std::string_view{}, '\0');
   body.write_u64(0);  // datasize: external elements embed no bytes
   body.write_u8(1);   // open descriptor present
-  {
+  if (source.filetype == "SVG ") {
+    // Vector contents carry no layer comps: Photoshop 2026 writes an empty descriptor
+    // named "Open" of class 'Opn ' for a placed SVG (September 2026 captures).
+    DescriptorObject open_descriptor;
+    open_descriptor.name = "Open";
+    open_descriptor.class_id = "Opn ";
+    body.write_u32(16);
+    write_descriptor(body, open_descriptor);
+  } else {
     DescriptorObject open_descriptor;
     open_descriptor.class_id = "null";
     auto comp_info = DescriptorValue{};
@@ -1932,6 +1940,12 @@ std::optional<std::vector<std::uint8_t>> regenerate_placed_layer_payload(
           resolution != nullptr && resolution->type == DescriptorValue::Type::UnitFloat) {
         resolution->double_value = placement.resolution;
       }
+      // Relink to File can swap raster contents for vector ones (or back); the
+      // parsed value round-trips otherwise.
+      if (auto* type = const_cast<DescriptorValue*>(descriptor_value(descriptor, "Type"));
+          type != nullptr && type->type == DescriptorValue::Type::Integer) {
+        type->integer_value = placement.placed_type;
+      }
       const auto set_warp_bounds = [](DescriptorObject& bounds, double top, double left, double bottom,
                                       double right) {
         const auto set_bound = [&bounds](const char* bound_key, double bound_value) {
@@ -2033,11 +2047,15 @@ std::optional<std::vector<std::uint8_t>> regenerate_placed_layer_payload(
         } else {
           // Unwarped placements keep their warp bounds as the CONTENT rect
           // (0,0,height,width): the E5 captures show Photoshop rewriting them to the
-          // new content size on replace, never to document coordinates.
+          // new content size on replace, never to document coordinates. Vector
+          // contents (Type 1: SVG) are the exception: their bounds are the artwork's
+          // unscaled placement rectangle in document space, which Photoshop leaves
+          // alone through scale, rotate, and relink (September 2026 captures).
           const auto* style = descriptor_value(*warp_object, "warpStyle");
           const bool warp_none = style != nullptr && style->type == DescriptorValue::Type::Enum &&
                                  style->enum_value == "warpNone";
-          if (warp_none) {
+          const bool vector_contents = static_cast<int>(descriptor_number(descriptor, "Type", 2.0)) == 1;
+          if (warp_none && !vector_contents) {
             if (auto* bounds = const_cast<DescriptorObject*>(descriptor_object(*warp_object, "bounds"));
                 bounds != nullptr) {
               set_warp_bounds(*bounds, 0.0, 0.0, placement.height, placement.width);
@@ -2104,7 +2122,8 @@ std::optional<std::vector<std::uint8_t>> regenerate_placed_layer_payload(
 
 std::vector<std::uint8_t> author_placed_layer_sold_payload(const SmartObjectPlacement& placement,
                                                            std::string_view placed_uuid,
-                                                           const SmartFilterStack* smart_filters) {
+                                                           const SmartFilterStack* smart_filters,
+                                                           const std::array<double, 4>* vector_bounds) {
   const auto text = [](std::string value) {
     DescriptorValue result;
     result.type = DescriptorValue::Type::String;
@@ -2185,11 +2204,25 @@ std::vector<std::uint8_t> author_placed_layer_sold_payload(const SmartObjectPlac
   add(*warp.object_value, "warpPerspective", true, number(0.0));
   add(*warp.object_value, "warpPerspectiveOther", true, number(0.0));
   add(*warp.object_value, "warpRotate", true, make_enum("Ornt", false, "Hrzn", false));
+  // Raster contents: the content rectangle. Vector contents (Type 1): Photoshop stores
+  // the artwork's unscaled placement rectangle in DOCUMENT space and never rewrites it
+  // (September 2026 linked/embedded SVG captures, docs/smart-objects.md).
+  const bool vector_contents = placement.placed_type == 1;
+  std::array<double, 4> bounds_rect{0.0, 0.0, placement.width, placement.height};  // left, top, right, bottom
+  if (vector_contents) {
+    if (vector_bounds != nullptr) {
+      bounds_rect = *vector_bounds;
+    } else {
+      const auto& quad = placement.transform;
+      bounds_rect = {std::min({quad[0], quad[2], quad[4], quad[6]}), std::min({quad[1], quad[3], quad[5], quad[7]}),
+                     std::max({quad[0], quad[2], quad[4], quad[6]}), std::max({quad[1], quad[3], quad[5], quad[7]})};
+    }
+  }
   auto warp_bounds = make_object("classFloatRect", true);
-  add(*warp_bounds.object_value, "Top ", false, number(0.0));
-  add(*warp_bounds.object_value, "Left", false, number(0.0));
-  add(*warp_bounds.object_value, "Btom", false, number(placement.height));
-  add(*warp_bounds.object_value, "Rght", false, number(placement.width));
+  add(*warp_bounds.object_value, "Top ", false, number(bounds_rect[1]));
+  add(*warp_bounds.object_value, "Left", false, number(bounds_rect[0]));
+  add(*warp_bounds.object_value, "Btom", false, number(bounds_rect[3]));
+  add(*warp_bounds.object_value, "Rght", false, number(bounds_rect[2]));
   add(*warp.object_value, "bounds", true, std::move(warp_bounds));
   add(*warp.object_value, "uOrder", true, integer(4));
   add(*warp.object_value, "vOrder", true, integer(4));
@@ -2211,10 +2244,13 @@ std::vector<std::uint8_t> author_placed_layer_sold_payload(const SmartObjectPlac
     add(root, "filterFX", true, std::move(*filter_fx));
   }
   add(root, "comp", false, integer(-1));
-  auto comp_info = make_object("null", false);
-  add(*comp_info.object_value, "compID", true, integer(-1));
-  add(*comp_info.object_value, "originalCompID", true, integer(-1));
-  add(root, "compInfo", true, std::move(comp_info));
+  if (!vector_contents) {
+    // Layer-comp selection belongs to raster contents; Photoshop's SVG placements omit it.
+    auto comp_info = make_object("null", false);
+    add(*comp_info.object_value, "compID", true, integer(-1));
+    add(*comp_info.object_value, "originalCompID", true, integer(-1));
+    add(root, "compInfo", true, std::move(comp_info));
+  }
   auto color_management = make_object("ClMg", false);
   add(*color_management.object_value, "placedLayerOCIOConversion", true,
       make_enum("placedLayerOCIOConversion", true, "placedLayerOCIOConvertEmbedded", true));

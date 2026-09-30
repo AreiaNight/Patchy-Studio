@@ -56,6 +56,7 @@
 #include "test_harness.hpp"
 #include "local_psd_fixtures.hpp"
 #include "synthetic_dng.hpp"
+#include "unicode_path_names.hpp"
 
 #include <algorithm>
 #include <array>
@@ -1554,6 +1555,320 @@ void smart_object_external_element_round_trips_if_available() {
   CHECK(round_tripped.asset_lock_state == original.asset_lock_state);
 }
 
+// The placed-layer descriptor's keys in file order, each with its id form ('+' for a
+// stringID, '-' for a charID), plus the warp bounds rectangle.
+struct PlacedDescriptorShape {
+  std::string keys;
+  int type{0};
+  std::array<double, 4> bounds{};  // left, top, right, bottom
+};
+
+PlacedDescriptorShape placed_descriptor_shape(std::span<const std::uint8_t> payload) {
+  patchy::psd::BigEndianReader reader(payload);
+  (void)patchy::psd::read_signature(reader);
+  (void)reader.read_u32();
+  (void)reader.read_u32();
+  const auto descriptor = patchy::psd::read_descriptor(reader);
+  PlacedDescriptorShape shape;
+  for (const auto& entry : descriptor.key_order) {
+    shape.keys += entry.key;
+    shape.keys += entry.long_form ? "+" : "-";
+    shape.keys += '|';
+  }
+  shape.type = static_cast<int>(patchy::psd::descriptor_number(descriptor, "Type", -1.0));
+  const auto* warp = patchy::psd::descriptor_object(descriptor, "warp");
+  const auto* bounds = warp != nullptr ? patchy::psd::descriptor_object(*warp, "bounds") : nullptr;
+  if (bounds != nullptr) {
+    shape.bounds = {patchy::psd::descriptor_number(*bounds, "Left"), patchy::psd::descriptor_number(*bounds, "Top "),
+                    patchy::psd::descriptor_number(*bounds, "Rght"), patchy::psd::descriptor_number(*bounds, "Btom")};
+  }
+  return shape;
+}
+
+std::vector<std::uint8_t> placed_block_payload(const patchy::Layer& layer, std::string_view key) {
+  for (const auto& block : layer.unknown_psd_blocks()) {
+    if (block.key == key) {
+      return block.payload;
+    }
+  }
+  return {};
+}
+
+// Vector contents (Type 1: a placed SVG) follow Photoshop's vector shape: no
+// compInfo, and warp bounds that hold the artwork's unscaled placement rectangle in
+// document space, which no later move or scale rewrites (September 2026 captures).
+void smart_object_authored_vector_sold_matches_photoshop_shape() {
+  patchy::SmartObjectPlacement placement;
+  placement.uuid = "11111111-2222-4333-8444-555555555555";
+  placement.transform = {100.0, 100.0, 500.0, 100.0, 500.0, 500.0, 100.0, 500.0};
+  placement.width = 1024.0;
+  placement.height = 1024.0;
+  placement.resolution = 72.0;
+  placement.placed_type = 1;
+  const std::array<double, 4> base_rect{200.0, 0.0, 1000.0, 800.0};
+  const auto payload = patchy::psd::author_placed_layer_sold_payload(placement, "aaaa-bbbb", nullptr, &base_rect);
+  const auto shape = placed_descriptor_shape(payload);
+  CHECK(shape.keys ==
+        "Idnt-|placed+|PgNm-|totalPages+|Crop-|frameStep+|duration+|frameCount+|Annt-|Type-|Trnf-|"
+        "nonAffineTransform+|warp+|Sz  -|Rslt-|comp-|ClMg-|");
+  CHECK(shape.type == 1);
+  CHECK(shape.bounds == base_rect);
+  const auto parsed = patchy::psd::parse_placed_layer_block("SoLE", payload);
+  CHECK(parsed.has_value());
+  CHECK(parsed->placement.placed_type == 1);
+  CHECK(parsed->placement.transform == placement.transform);
+  CHECK(parsed->lock_reason.empty());
+  CHECK(!parsed->warp.has_value());
+
+  // Without an explicit rectangle the quad's own bounding box stands in.
+  const auto fallback = placed_descriptor_shape(patchy::psd::author_placed_layer_sold_payload(placement, "aaaa-bbbb"));
+  CHECK((fallback.bounds == std::array<double, 4>{100.0, 100.0, 500.0, 500.0}));
+
+  // A move or scale patches the quad and leaves the vector bounds alone.
+  auto moved = placement;
+  for (std::size_t i = 0; i < moved.transform.size(); ++i) {
+    moved.transform[i] = moved.transform[i] * 0.5 + 30.0;
+  }
+  const auto regenerated = patchy::psd::regenerate_placed_layer_payload("SoLE", payload, moved);
+  CHECK(regenerated.has_value());
+  const auto moved_shape = placed_descriptor_shape(*regenerated);
+  CHECK(moved_shape.bounds == base_rect);
+  CHECK(moved_shape.type == 1);
+  const auto reparsed = patchy::psd::parse_placed_layer_block("SoLE", *regenerated);
+  CHECK(reparsed.has_value() && reparsed->placement.transform == moved.transform);
+
+  // Raster contents keep the content rectangle, the compInfo object, and Type 2.
+  auto raster = placement;
+  raster.placed_type = 2;
+  const auto raster_shape = placed_descriptor_shape(patchy::psd::author_placed_layer_sold_payload(raster, "aaaa-bbbb"));
+  CHECK(raster_shape.type == 2);
+  CHECK(raster_shape.keys.find("compInfo+|") != std::string::npos);
+  CHECK((raster_shape.bounds == std::array<double, 4>{0.0, 0.0, 1024.0, 1024.0}));
+
+  // Relink to File can swap the contents' kind: the regenerated block follows.
+  const auto retyped = patchy::psd::regenerate_placed_layer_payload("SoLE", payload, raster);
+  CHECK(retyped.has_value());
+  CHECK(placed_descriptor_shape(*retyped).type == 2);
+}
+
+// Place Linked authors a 'lnkE' element and a 'SoLE' layer block from scratch. Both
+// must come back from a save as written, a non-ASCII file name included, and a
+// second save must keep them.
+void psd_smart_object_authored_link_round_trips() {
+  const auto name = patchy::test::utf8_string(u8"caf\u00E9 \u30ED\u30B4 #1.svg");
+  patchy::SmartObjectSource link;
+  link.kind = patchy::SmartObjectSourceKind::ExternalFile;
+  link.uuid = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+  link.filename = name;
+  link.filetype = "SVG ";
+  link.creator = std::string(4, '\0');
+  link.external_full_path = "file:///D:/art work/" + name;
+  link.external_original_path = "D:\\art work\\" + name;
+  link.external_rel_path = "../" + name;
+  link.external_mod_year = 2026;
+  link.external_mod_month = 9;
+  link.external_mod_day = 30;
+  link.external_mod_hour = 13;
+  link.external_mod_minute = 3;
+  link.external_mod_seconds = 5.0;
+  link.external_file_size = 670U;
+
+  patchy::SmartObjectPlacement placement;
+  placement.uuid = link.uuid;
+  placement.transform = {8.0, 4.0, 40.0, 4.0, 40.0, 36.0, 8.0, 36.0};
+  placement.width = 1024.0;
+  placement.height = 1024.0;
+  placement.resolution = 72.0;
+  placement.placed_type = 1;
+  const std::array<double, 4> base_rect{8.0, 0.0, 56.0, 48.0};
+  const std::string placed_uuid = "12345678-aaaa-4bbb-8ccc-dddddddddddd";
+
+  patchy::Document document(64, 48, patchy::PixelFormat::rgb8());
+  document.add_pixel_layer("base", solid_rgb(64, 48, 200, 200, 200));
+  auto& stored = document.metadata().smart_objects.add_external(link);
+  CHECK(stored.dirty && stored.kind == patchy::SmartObjectSourceKind::ExternalFile);
+  CHECK(document.metadata().smart_objects.blocks.size() == 1U);
+  CHECK(document.metadata().smart_objects.blocks.front().key == "lnkE");
+  patchy::Layer logo(document.allocate_layer_id(), "logo", solid_rgb(32, 32, 250, 180, 30));
+  logo.set_bounds(patchy::Rect{8, 4, 32, 32});
+  patchy::set_layer_smart_object_metadata(logo, placement, placed_uuid, "SoLE", "external",
+                                          patchy::kSmartObjectRasterStatusPatchy);
+  logo.unknown_psd_blocks().push_back(patchy::UnknownPsdBlock{
+      "SoLE", patchy::psd::author_placed_layer_sold_payload(placement, placed_uuid, nullptr, &base_rect)});
+  document.add_layer(std::move(logo));
+
+  const auto check_link = [&](const patchy::Document& read) {
+    const auto* layer = find_layer_named(read.layers(), "logo");
+    CHECK(layer != nullptr);
+    CHECK(patchy::layer_is_smart_object(*layer));
+    CHECK(patchy::smart_object_lock_reason(*layer) == "external");
+    CHECK(patchy::smart_object_placed_uuid(*layer) == placed_uuid);
+    CHECK(!placed_block_payload(*layer, "SoLE").empty());
+    CHECK(placed_block_payload(*layer, "SoLd").empty());
+    CHECK(placed_block_payload(*layer, "PlLd").empty());
+    const auto read_placement = patchy::smart_object_placement_from_layer(*layer);
+    CHECK(read_placement.has_value());
+    CHECK(read_placement->transform == placement.transform);
+    CHECK(read_placement->placed_type == 1);
+    CHECK(read_placement->width == 1024.0 && read_placement->height == 1024.0);
+    const auto& store = read.metadata().smart_objects;
+    CHECK(store.blocks.size() == 1U);
+    CHECK(store.blocks.front().key == "lnkE" && !store.blocks.front().opaque);
+    const auto* source = store.find(link.uuid);
+    CHECK(source != nullptr);
+    CHECK(source->kind == patchy::SmartObjectSourceKind::ExternalFile);
+    CHECK(source->file_bytes == nullptr);
+    CHECK(source->filename == name);
+    CHECK(source->filetype == "SVG ");
+    CHECK(source->external_full_path == link.external_full_path);
+    CHECK(source->external_original_path == link.external_original_path);
+    CHECK(source->external_rel_path == link.external_rel_path);
+    CHECK(source->external_link_desc_version == 2);
+    CHECK(source->external_mod_year == 2026 && source->external_mod_month == 9 && source->external_mod_day == 30);
+    CHECK(source->external_mod_hour == 13 && source->external_mod_minute == 3);
+    CHECK(source->external_mod_seconds == 5.0);
+    CHECK(source->external_file_size == 670U);
+  };
+  const auto bytes = patchy::psd::DocumentIo::write_layered_rgb8(document);
+  const auto reread = patchy::psd::DocumentIo::read(bytes);
+  check_link(reread);
+  const auto* reread_layer = find_layer_named(reread.layers(), "logo");
+  CHECK(placed_block_payload(*reread_layer, "SoLE") ==
+        patchy::psd::author_placed_layer_sold_payload(placement, placed_uuid, nullptr, &base_rect));
+  // Untouched, the parsed element and block re-emit verbatim.
+  const auto again = patchy::psd::DocumentIo::read(patchy::psd::DocumentIo::write_layered_rgb8(reread));
+  check_link(again);
+  CHECK(placed_block_payload(*find_layer_named(again.layers(), "logo"), "SoLE") ==
+        placed_block_payload(*reread_layer, "SoLE"));
+  const auto& first_block = reread.metadata().smart_objects.blocks.front();
+  const auto& second_block = again.metadata().smart_objects.blocks.front();
+  CHECK(first_block.original_payload != nullptr && second_block.original_payload != nullptr);
+  CHECK(*first_block.original_payload == *second_block.original_payload);
+
+  // A raster link carries its own filetype and the layer-comp open descriptor; both
+  // element shapes parse back through the shared reader.
+  auto raster = link;
+  raster.uuid = "bbbbbbbb-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+  raster.filename = "art.png";
+  raster.filetype = "png ";
+  patchy::SmartObjectLinkBlock block;
+  block.key = "lnkE";
+  block.sources = {link, raster};
+  const auto parsed = patchy::psd::parse_linked_layer_block(patchy::psd::serialize_linked_layer_block(block));
+  CHECK(parsed.has_value() && parsed->size() == 2U);
+  CHECK((*parsed)[0].filetype == "SVG " && (*parsed)[0].filename == name);
+  CHECK((*parsed)[1].filetype == "png " && (*parsed)[1].external_rel_path == link.external_rel_path);
+}
+
+// Photoshop 2026's own linked and embedded placements (scripts\dev\smart-objects\
+// ps-capture-linked.ps1): the authored placed-layer block must equal Photoshop's
+// byte for byte, for a linked SVG, an embedded SVG, and a linked PNG.
+void psd_photoshop_linked_captures_match_authored_blocks_if_available() {
+  struct Capture {
+    const char* file;
+    const char* key;
+    bool vector;
+  };
+  for (const auto& capture : {Capture{"ps2026_linked/linked_svg.psd", "SoLE", true},
+                              Capture{"ps2026_linked/embedded_svg.psd", "SoLd", true},
+                              Capture{"ps2026_linked/linked_png.psd", "SoLE", false},
+                              Capture{"ps2026_linked/embedded_png.psd", "SoLd", false}}) {
+    const auto path = patchy::test::local_psd_fixture_path(capture.file);
+    if (!std::filesystem::exists(path)) {
+      std::cout << "[SKIP] ps2026_linked capture missing: " << path.string() << '\n';
+      return;
+    }
+    const auto document = patchy::psd::DocumentIo::read_file(path);
+    const auto* layer = find_layer_named(document.layers(), "logo");
+    CHECK(layer != nullptr);
+    const auto payload = placed_block_payload(*layer, capture.key);
+    CHECK(!payload.empty());
+    const auto info = patchy::psd::parse_placed_layer_block(capture.key, payload);
+    CHECK(info.has_value());
+    const auto shape = placed_descriptor_shape(payload);
+    CHECK(shape.type == (capture.vector ? 1 : 2));
+    CHECK(info->placement.placed_type == shape.type);
+    const auto authored = patchy::psd::author_placed_layer_sold_payload(
+        info->placement, info->placed_uuid, nullptr, capture.vector ? &shape.bounds : nullptr);
+    CHECK(authored == payload);
+    // A linked layer reads back preview-locked as external; an embedded one editable.
+    const bool linked = std::string_view(capture.key) == "SoLE";
+    CHECK(patchy::smart_object_lock_reason(*layer) == (linked ? "external" : ""));
+  }
+}
+
+// What Photoshop 2026 writes into the link element itself: the SVG filetype, the
+// paths (a file beside the document, one folder up, and a non-ASCII name stored
+// without percent-encoding), whole-second stamps, and one shared element after
+// Update All Modified Content.
+void psd_photoshop_linked_elements_parse_if_available() {
+  const auto beside_path = patchy::test::local_psd_fixture_path("ps2026_linked/linked_svg.psd");
+  if (!std::filesystem::exists(beside_path)) {
+    std::cout << "[SKIP] ps2026_linked capture missing: " << beside_path.string() << '\n';
+    return;
+  }
+  const auto only_link = [](const patchy::Document& document) -> const patchy::SmartObjectSource* {
+    const patchy::SmartObjectSource* found = nullptr;
+    std::size_t count = 0;
+    for (const auto& block : document.metadata().smart_objects.blocks) {
+      for (const auto& source : block.sources) {
+        if (source.kind == patchy::SmartObjectSourceKind::ExternalFile) {
+          CHECK(block.key == "lnkE");
+          found = &source;
+          ++count;
+        }
+      }
+    }
+    CHECK(count == 1U);
+    return found;
+  };
+  const auto ends_with = [](const std::string& text, std::string_view suffix) {
+    return text.size() >= suffix.size() && text.compare(text.size() - suffix.size(), suffix.size(), suffix) == 0;
+  };
+  const auto beside = patchy::psd::DocumentIo::read_file(beside_path);
+  const auto* svg = only_link(beside);
+  CHECK(svg->filename == "logo.svg");
+  CHECK(svg->filetype == "SVG ");
+  CHECK(svg->external_rel_path == "logo.svg");
+  CHECK(svg->external_full_path.rfind("file:///", 0) == 0);
+  CHECK(ends_with(svg->external_full_path, "/ps2026_linked/logo.svg"));
+  CHECK(svg->external_link_desc_version == 2);
+  CHECK(svg->external_file_size > 0U);
+  CHECK(svg->external_mod_year >= 2026);
+  CHECK(svg->external_mod_seconds == std::floor(svg->external_mod_seconds));
+
+  const auto png = patchy::psd::DocumentIo::read_file(
+      patchy::test::local_psd_fixture_path("ps2026_linked/linked_png.psd"));
+  CHECK(only_link(png)->filetype == "png ");
+
+  const auto parent = patchy::psd::DocumentIo::read_file(
+      patchy::test::local_psd_fixture_path("ps2026_linked/sub/linked_svg_parent.psd"));
+  CHECK(only_link(parent)->external_rel_path == "../logo.svg");
+
+  const auto unicode = patchy::psd::DocumentIo::read_file(
+      patchy::test::local_psd_fixture_path("ps2026_linked/linked_svg_unicode.psd"));
+  const auto unicode_name = patchy::test::utf8_string(u8"logo \u00FCn\u00EF \u65E5\u672C.svg");
+  const auto* unicode_link = only_link(unicode);
+  CHECK(unicode_link->filename == unicode_name);
+  CHECK(unicode_link->external_rel_path == unicode_name);
+  CHECK(ends_with(unicode_link->external_full_path, "/ps2026_linked/" + unicode_name));
+  CHECK(unicode_link->external_full_path.find('%') == std::string::npos);
+
+  // Two placements of one file, then Update All Modified Content: one element, and
+  // both layers point at it.
+  const auto updated = patchy::psd::DocumentIo::read_file(
+      patchy::test::local_psd_fixture_path("ps2026_linked/linked_svg_update.psd"));
+  const auto* shared = only_link(updated);
+  std::size_t sharing = 0;
+  for (const auto& layer : updated.layers()) {
+    if (patchy::layer_is_smart_object(layer)) {
+      CHECK(patchy::smart_object_source_uuid(layer) == shared->uuid);
+      ++sharing;
+    }
+  }
+  CHECK(sharing == 2U);
+}
+
 void psd_descriptor_writer_round_trips_sold() {
   const auto document = patchy::psd::DocumentIo::read_file(
       patchy::test::committed_psd_fixture_path("photoshop-place-embedded-png.psd"));
@@ -1782,6 +2097,27 @@ void psd_writer_omits_unreferenced_smart_object_sources() {
   unknown.metadata().smart_objects.add_embedded("orphan", "o.psb", "8BPB", embed);
   CHECK(contains_lnk2(patchy::psd::DocumentIo::write_layered_rgb8(unknown)));
 
+  // A linked element (lnkE) is pruned the same way: Photoshop refuses an orphaned
+  // liFE element too (September 30, 2026 probe).
+  patchy::Document linked(4, 2, patchy::PixelFormat::rgb8());
+  auto& linked_layer = linked.add_pixel_layer("Linked", solid_rgb(4, 2, 10, 20, 30));
+  linked_layer.unknown_psd_blocks().push_back(patchy::UnknownPsdBlock{"SoLE", {5, 6, 7, 8}});
+  linked_layer.metadata()[patchy::kLayerMetadataSmartObject] = "kept";
+  patchy::SmartObjectSource kept_link;
+  kept_link.uuid = "kept";
+  kept_link.filename = "kept.svg";
+  kept_link.filetype = "SVG ";
+  kept_link.external_rel_path = "kept.svg";
+  patchy::SmartObjectSource orphan_link = kept_link;
+  orphan_link.uuid = "orphan-link";
+  orphan_link.filename = "orphan.svg";
+  linked.metadata().smart_objects.add_external(kept_link);
+  linked.metadata().smart_objects.add_external(orphan_link);
+  const auto linked_reread = patchy::psd::DocumentIo::read(patchy::psd::DocumentIo::write_layered_rgb8(linked));
+  CHECK(linked_reread.metadata().smart_objects.find("kept") != nullptr);
+  CHECK(linked_reread.metadata().smart_objects.find("orphan-link") == nullptr);
+  CHECK(linked.metadata().smart_objects.find("orphan-link") != nullptr);
+
   // Photoshop's own element goes too once its only layer is rasterized: Photoshop
   // refuses that orphan as well, and drops it itself when it saves.
   auto placed = patchy::psd::DocumentIo::read_file(
@@ -1934,6 +2270,12 @@ std::vector<patchy::test::TestCase> smart_objects_warp_tests() {
       {"psb_life_trailer_fields_parse_if_available", psb_life_trailer_fields_parse_if_available},
       {"smart_object_external_element_round_trips_if_available",
        smart_object_external_element_round_trips_if_available},
+      {"smart_object_authored_vector_sold_matches_photoshop_shape",
+       smart_object_authored_vector_sold_matches_photoshop_shape},
+      {"psd_smart_object_authored_link_round_trips", psd_smart_object_authored_link_round_trips},
+      {"psd_photoshop_linked_captures_match_authored_blocks_if_available",
+       psd_photoshop_linked_captures_match_authored_blocks_if_available},
+      {"psd_photoshop_linked_elements_parse_if_available", psd_photoshop_linked_elements_parse_if_available},
       {"psd_descriptor_writer_round_trips_sold", psd_descriptor_writer_round_trips_sold},
       {"psd_descriptor_writer_round_trips_smart_filter_sold_if_available",
        psd_descriptor_writer_round_trips_smart_filter_sold_if_available},

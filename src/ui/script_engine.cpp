@@ -11,6 +11,7 @@
 #include "core/layer_render_utils.hpp"
 #include "core/layer_tree.hpp"
 #include "core/palette.hpp"
+#include "core/smart_object.hpp"
 #include "ui/canvas_widget.hpp"
 #include "ui/color_panel.hpp"
 #include "ui/dialog_utils.hpp"
@@ -23,6 +24,7 @@
 #include "ui/script_api.hpp"
 #include "ui/script_canvas_window.hpp"
 #include "ui/script_folders.hpp"
+#include "ui/smart_object_render.hpp"
 #include "ui/sound_effects.hpp"
 #include "ui/text_layout.hpp"
 #include "ui/theme_qss.hpp"
@@ -1192,6 +1194,86 @@ std::vector<LayerId> ScriptEngineHost::import_files_as_layers(std::int64_t sessi
   }
   note_structure_changed(session_id);
   return result.added_root_ids_top_to_bottom;
+}
+
+std::optional<LayerId> ScriptEngineHost::add_smart_object(std::int64_t session_id, const QString& path,
+                                                          const SmartObjectParams& params, QString* error) {
+  pump_progress_indicator();
+  auto* session = window_.session_with_id(session_id);
+  if (session == nullptr) {
+    if (error != nullptr) {
+      *error = tr("The document is no longer open.");
+    }
+    return std::nullopt;
+  }
+  MainWindow::SmartObjectPlaceOptions options;
+  options.linked = params.linked;
+  options.x = params.x;
+  options.y = params.y;
+  options.width = params.width;
+  options.height = params.height;
+  options.scale = params.scale;
+  options.name = params.name;
+  const auto placed = window_.place_file_as_smart_object(
+      *session, path, options, [this, session_id] { return prepare_mutation(session_id); }, error);
+  if (placed.has_value()) {
+    note_structure_changed(session_id);
+  }
+  return placed;
+}
+
+int ScriptEngineHost::update_smart_object(std::int64_t session_id, LayerId layer_id, QString* error) {
+  pump_progress_indicator();
+  auto* session = window_.session_with_id(session_id);
+  if (session == nullptr) {
+    if (error != nullptr) {
+      *error = tr("The document is no longer open.");
+    }
+    return 0;
+  }
+  const auto updated = window_.update_linked_smart_object(
+      *session, layer_id, [this, session_id] { return prepare_mutation(session_id); }, error);
+  if (updated > 0) {
+    note_structure_changed(session_id);
+  }
+  return updated;
+}
+
+std::optional<ScriptEngineHost::SmartObjectInfo> ScriptEngineHost::smart_object_info(std::int64_t session_id,
+                                                                                    LayerId layer_id) const {
+  const auto* session = window_.session_with_id(session_id);
+  const auto* layer = session != nullptr ? std::as_const(session->document).find_layer(layer_id) : nullptr;
+  if (layer == nullptr || !layer_is_smart_object(*layer)) {
+    return std::nullopt;
+  }
+  SmartObjectInfo info;
+  info.source_id = QString::fromStdString(smart_object_source_uuid(*layer));
+  if (const auto placement = smart_object_placement_from_layer(*layer); placement.has_value()) {
+    info.width = placement->width;
+    info.height = placement->height;
+    info.resolution = placement->resolution;
+    info.quad = placement->transform;
+  }
+  const auto* source =
+      std::as_const(session->document).metadata().smart_objects.find(smart_object_source_uuid(*layer));
+  if (source == nullptr) {
+    return info;  // an unparsed placement: the source is unknown
+  }
+  info.file_name = QString::fromStdString(source->filename);
+  if (source->kind != SmartObjectSourceKind::ExternalFile) {
+    return info;
+  }
+  info.linked = true;
+  info.relative_path = QString::fromStdString(source->external_rel_path);
+  const auto document_dir = session->path.isEmpty() ? QString() : QFileInfo(session->path).absolutePath();
+  if (const auto resolved = resolve_smart_object_external_path(*source, document_dir); resolved.has_value()) {
+    info.path = *resolved;
+    info.changed = smart_object_link_changed_on_disk(*source, QFileInfo(*resolved));
+  } else {
+    info.path = QDir::fromNativeSeparators(QString::fromStdString(source->external_original_path));
+    info.missing = true;
+  }
+  return info;
 }
 
 bool ScriptEngineHost::undo_enabled() const noexcept {

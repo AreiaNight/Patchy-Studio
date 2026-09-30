@@ -1728,16 +1728,17 @@ std::vector<std::uint8_t> DocumentIo::write_layered_rgb8(const Document& documen
   {
     const auto& store = document.metadata().smart_objects;
     const auto& filter_store = document.metadata().smart_filter_effects;
-    // Photoshop 2026 refuses to open a file whose embedded link block carries an
-    // element no layer references ("program error"), whether Patchy or Photoshop
-    // wrote the element, and drops such elements itself when it saves (September
-    // 2026 probes, docs/smart-objects.md). Rasterize, Delete, and Convert to
-    // Layers leave them in the store (Undo needs them), so the writer leaves them
-    // out: a block with an orphan regenerates from its remaining elements (each
-    // keeps its own verbatim bytes), and an emptied block is not written at all.
-    // Fully referenced blocks stay verbatim. Any placed layer whose source is
-    // unknown (an unparsed SoLd, or a placed block that never became metadata)
-    // turns the pruning off, since it might reference any element.
+    // Photoshop 2026 refuses to open a file whose link block carries an element no
+    // layer references ("program error"), whether Patchy or Photoshop wrote the
+    // element, for embedded (lnk2) and linked (lnkE) elements alike, and drops
+    // such elements itself when it saves (September 2026 probes,
+    // docs/smart-objects.md). Rasterize, Delete, and Convert to Layers leave them
+    // in the store (Undo needs them), so the writer leaves them out: a block with
+    // an orphan regenerates from its remaining elements (each keeps its own
+    // verbatim bytes), and an emptied block is not written at all. Fully
+    // referenced blocks stay verbatim. Any placed layer whose source is unknown
+    // (an unparsed SoLd, or a placed block that never became metadata) turns the
+    // pruning off, since it might reference any element.
     std::set<std::string> referenced_sources;
     bool sources_fully_known = true;
     const auto collect_sources = [&](const std::vector<Layer>& layers, const auto& recurse) -> void {
@@ -1763,11 +1764,12 @@ std::vector<std::uint8_t> DocumentIo::write_layered_rgb8(const Document& documen
     std::vector<std::vector<std::uint8_t>> link_payloads(store.blocks.size());
     for (std::size_t i = 0; i < store.blocks.size(); ++i) {
       const auto& block = store.blocks[i];
-      const bool embedded_block = block.key == "lnk2" || block.key == "lnkD" || block.key == "lnk3";
+      const bool link_block =
+          block.key == "lnk2" || block.key == "lnkD" || block.key == "lnk3" || block.key == "lnkE";
       const auto orphan = [&referenced_sources](const SmartObjectSource& source) {
         return !referenced_sources.contains(source.uuid);
       };
-      if (sources_fully_known && embedded_block && !block.opaque &&
+      if (sources_fully_known && link_block && !block.opaque &&
           std::any_of(block.sources.begin(), block.sources.end(), orphan)) {
         auto pruned = block;
         pruned.original_payload.reset();  // the element list changed; regenerate

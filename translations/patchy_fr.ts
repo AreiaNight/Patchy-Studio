@@ -18187,6 +18187,26 @@ Y : %2
         <source>Applied %1 (%2 undoes it)</source>
         <translation>%1 appliqué (%2 pour annuler)</translation>
     </message>
+    <message>
+        <source>Place &amp;Linked...</source>
+        <translation>Importer et &amp;lier...</translation>
+    </message>
+    <message>
+        <source>This layer is not a linked smart object</source>
+        <translation>Ce calque n&apos;est pas un objet dynamique lié</translation>
+    </message>
+    <message>
+        <source>Place Linked</source>
+        <translation>Importer et lier</translation>
+    </message>
+    <message>
+        <source>Placed %1 as a linked smart object</source>
+        <translation>%1 importé comme objet dynamique lié</translation>
+    </message>
+    <message>
+        <source>The placed position or size is out of range</source>
+        <translation>La position ou la taille de l&apos;importation est hors limites</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -19589,6 +19609,14 @@ Y : %2
     <message>
         <source>Plug-in %1 failed: %2</source>
         <translation>Le module externe %1 a échoué : %2</translation>
+    </message>
+    <message>
+        <source>addSmartObject needs a file path.</source>
+        <translation>addSmartObject requiert un chemin de fichier.</translation>
+    </message>
+    <message>
+        <source>addSmartObject: %1 must be a finite number.</source>
+        <translation>addSmartObject : %1 doit être un nombre fini.</translation>
     </message>
 </context>
 <context>

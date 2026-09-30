@@ -96,6 +96,28 @@ SmartObjectSource& SmartObjectStore::add_embedded(std::string uuid, std::string 
   return target->sources.back();
 }
 
+SmartObjectSource& SmartObjectStore::add_external(SmartObjectSource source) {
+  SmartObjectLinkBlock* target = nullptr;
+  for (auto& block : blocks) {
+    if (block.key == "lnkE" && !block.opaque) {
+      target = &block;
+      break;
+    }
+  }
+  if (target == nullptr) {
+    blocks.push_back(SmartObjectLinkBlock{});
+    target = &blocks.back();
+    target->key = "lnkE";
+  }
+  target->original_payload.reset();  // the block's element list changes; regenerate on save
+  source.kind = SmartObjectSourceKind::ExternalFile;
+  source.file_bytes = nullptr;
+  source.original_element_bytes = nullptr;
+  source.dirty = true;
+  target->sources.push_back(std::move(source));
+  return target->sources.back();
+}
+
 bool SmartObjectStore::remove(std::string_view uuid) {
   for (auto& block : blocks) {
     const auto found = std::find_if(block.sources.begin(), block.sources.end(),

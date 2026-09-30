@@ -18135,6 +18135,26 @@ Y：%2
         <source>Applied %1 (%2 undoes it)</source>
         <translation>已套用 %1（按 %2 可還原）</translation>
     </message>
+    <message>
+        <source>Place &amp;Linked...</source>
+        <translation>置入連結的物件(&amp;L)...</translation>
+    </message>
+    <message>
+        <source>This layer is not a linked smart object</source>
+        <translation>此圖層不是連結的智慧型物件</translation>
+    </message>
+    <message>
+        <source>Place Linked</source>
+        <translation>置入連結的物件</translation>
+    </message>
+    <message>
+        <source>Placed %1 as a linked smart object</source>
+        <translation>已將 %1 置入為連結的智慧型物件</translation>
+    </message>
+    <message>
+        <source>The placed position or size is out of range</source>
+        <translation>置入的位置或大小超出範圍</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -19536,6 +19556,14 @@ Y：%2
     <message>
         <source>Plug-in %1 failed: %2</source>
         <translation>外掛程式 %1 失敗：%2</translation>
+    </message>
+    <message>
+        <source>addSmartObject needs a file path.</source>
+        <translation>addSmartObject 需要一個檔案路徑。</translation>
+    </message>
+    <message>
+        <source>addSmartObject: %1 must be a finite number.</source>
+        <translation>addSmartObject：%1 必須是有限的數值。</translation>
     </message>
 </context>
 <context>

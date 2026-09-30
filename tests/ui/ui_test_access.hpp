@@ -183,6 +183,11 @@ public:
     window.place_embedded_file_with_path(path);
   }
 
+  // File > Place Linked without the file dialog (docs/smart-object-editing.md).
+  static void place_linked_file_with_path(MainWindow& window, const QString& path) {
+    window.place_linked_file_with_path(path);
+  }
+
   // File > Import > Files as Layers without the file dialog (docs/import.md).
   static void import_files_as_layers_with_paths(MainWindow& window, const QStringList& paths) {
     window.import_files_as_layers_with_paths(paths);

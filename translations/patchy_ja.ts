@@ -18135,6 +18135,26 @@ Clipped to the layer below</source>
         <source>Applied %1 (%2 undoes it)</source>
         <translation>%1 を適用しました (%2 で取り消せます)</translation>
     </message>
+    <message>
+        <source>Place &amp;Linked...</source>
+        <translation>リンクを配置(&amp;L)...</translation>
+    </message>
+    <message>
+        <source>This layer is not a linked smart object</source>
+        <translation>このレイヤーはリンクされたスマートオブジェクトではありません</translation>
+    </message>
+    <message>
+        <source>Place Linked</source>
+        <translation>リンクを配置</translation>
+    </message>
+    <message>
+        <source>Placed %1 as a linked smart object</source>
+        <translation>%1 をリンクされたスマートオブジェクトとして配置しました</translation>
+    </message>
+    <message>
+        <source>The placed position or size is out of range</source>
+        <translation>配置位置またはサイズが範囲外です</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -19536,6 +19556,14 @@ Clipped to the layer below</source>
     <message>
         <source>Plug-in %1 failed: %2</source>
         <translation>プラグイン %1 が失敗しました: %2</translation>
+    </message>
+    <message>
+        <source>addSmartObject needs a file path.</source>
+        <translation>addSmartObject にはファイルパスが必要です。</translation>
+    </message>
+    <message>
+        <source>addSmartObject: %1 must be a finite number.</source>
+        <translation>addSmartObject: %1 は有限の数値にしてください。</translation>
     </message>
 </context>
 <context>

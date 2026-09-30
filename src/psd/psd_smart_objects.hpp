@@ -3,6 +3,7 @@
 #include "core/smart_filter.hpp"
 #include "core/smart_object.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -85,8 +86,13 @@ struct SmartFilterDescriptorEdit {
 // Place, M3), mirroring Photoshop 2026's exact field order and id forms (E1 captures,
 // see docs/smart-objects.md). The caller stores it in the layer's unknown blocks so the normal
 // preserve-unless-edited machinery emits it (and later edits patch it in place).
-[[nodiscard]] std::vector<std::uint8_t> author_placed_layer_sold_payload(const SmartObjectPlacement& placement,
-                                                                         std::string_view placed_uuid,
-                                                                         const SmartFilterStack* smart_filters = nullptr);
+// A linked placement stores this same payload under the 'SoLE' key. Vector contents
+// (placement.placed_type 1: SVG) follow Photoshop's vector shape instead: no compInfo,
+// and the warp bounds hold `vector_bounds` (left, top, right, bottom), the artwork's
+// unscaled placement rectangle in document space (the quad's own bounding box when
+// null). See "Place Linked ground truth" in docs/smart-objects.md.
+[[nodiscard]] std::vector<std::uint8_t> author_placed_layer_sold_payload(
+    const SmartObjectPlacement& placement, std::string_view placed_uuid,
+    const SmartFilterStack* smart_filters = nullptr, const std::array<double, 4>* vector_bounds = nullptr);
 
 }  // namespace patchy::psd

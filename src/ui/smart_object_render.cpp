@@ -10,6 +10,7 @@
 
 #include <QBuffer>
 #include <QByteArray>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -22,6 +23,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
 #include <limits>
 #include <span>
 #include <string>
@@ -271,7 +273,22 @@ std::optional<QString> resolve_smart_object_external_path(const SmartObjectSourc
     return found;
   }
   if (!source.external_full_path.empty()) {
-    const auto url = QUrl(QString::fromStdString(source.external_full_path));
+    // Photoshop stores the URI undecorated (no percent-encoding), so the text after
+    // "file://" is the path itself; a name holding '#' or '%' would not survive a
+    // QUrl parse. Encoded URIs from other writers take the QUrl route below.
+    const auto uri = QString::fromStdString(source.external_full_path);
+    if (uri.startsWith(QStringLiteral("file://"))) {
+      auto literal = uri.mid(7);
+      if (literal.size() > 2 && literal.at(0) == QLatin1Char('/') && literal.at(2) == QLatin1Char(':')) {
+        literal.remove(0, 1);  // "/D:/art" is the Windows drive path "D:/art"
+      }
+      if (QDir::isAbsolutePath(literal)) {
+        if (auto found = existing(literal)) {
+          return found;
+        }
+      }
+    }
+    const auto url = QUrl(uri);
     if (url.isLocalFile()) {
       if (auto found = existing(url.toLocalFile())) {
         return found;
@@ -279,6 +296,186 @@ std::optional<QString> resolve_smart_object_external_path(const SmartObjectSourc
     }
   }
   return std::nullopt;
+}
+
+std::string smart_object_filetype_for_extension(const QString& extension) {
+  if (extension == QStringLiteral("psb")) {
+    return "8BPB";
+  }
+  if (extension == QStringLiteral("psd")) {
+    return "8BPS";
+  }
+  if (extension == QStringLiteral("jpg") || extension == QStringLiteral("jpeg")) {
+    return "JPEG";
+  }
+  if (extension == QStringLiteral("tif") || extension == QStringLiteral("tiff")) {
+    return "TIFF";
+  }
+  if (extension == QStringLiteral("bmp")) {
+    return "BMP ";
+  }
+  if (extension == QStringLiteral("svg") || extension == QStringLiteral("svgz")) {
+    return "SVG ";
+  }
+  return "png ";
+}
+
+void stamp_smart_object_link(SmartObjectSource& source, const QFileInfo& file) {
+  const auto modified = file.lastModified().toUTC();
+  source.external_mod_year = modified.date().year();
+  source.external_mod_month = static_cast<std::uint8_t>(modified.date().month());
+  source.external_mod_day = static_cast<std::uint8_t>(modified.date().day());
+  source.external_mod_hour = static_cast<std::uint8_t>(modified.time().hour());
+  source.external_mod_minute = static_cast<std::uint8_t>(modified.time().minute());
+  source.external_mod_seconds = static_cast<double>(modified.time().second());
+  source.external_file_size = static_cast<std::uint64_t>(file.size());
+}
+
+bool smart_object_link_changed_on_disk(const SmartObjectSource& source, const QFileInfo& file) {
+  if (source.external_file_size != 0U && static_cast<std::uint64_t>(file.size()) != source.external_file_size) {
+    return true;
+  }
+  if (source.external_mod_year == 0) {
+    return false;  // no stamp recorded
+  }
+  const auto matches = [&source](const QDateTime& when) {
+    return when.date().year() == source.external_mod_year && when.date().month() == source.external_mod_month &&
+           when.date().day() == source.external_mod_day && when.time().hour() == source.external_mod_hour &&
+           when.time().minute() == source.external_mod_minute &&
+           when.time().second() == static_cast<int>(source.external_mod_seconds);
+  };
+  const auto modified = file.lastModified();
+  return !matches(modified.toUTC()) && !matches(modified.toLocalTime());
+}
+
+void set_smart_object_link_target(SmartObjectSource& source, const QFileInfo& file, const QString& document_dir) {
+  const auto absolute = file.absoluteFilePath();
+  source.filename = file.fileName().toStdString();
+  source.filetype = smart_object_filetype_for_extension(file.suffix().toLower());
+  // Photoshop stores the URI undecorated: forward slashes, no percent-encoding, spaces
+  // and non-ASCII characters as they are ("file:///D:/art/logo one.svg").
+  source.external_full_path =
+      (absolute.startsWith(QStringLiteral("//")) ? QUrl::fromLocalFile(absolute).toString()
+                                                 : QStringLiteral("file://") +
+                                                       (absolute.startsWith(QLatin1Char('/')) ? QString()
+                                                                                              : QStringLiteral("/")) +
+                                                       absolute)
+          .toStdString();
+  source.external_original_path = QDir::toNativeSeparators(absolute).toStdString();
+  source.external_rel_path =
+      (document_dir.isEmpty() ? file.fileName() : QDir(document_dir).relativeFilePath(absolute)).toStdString();
+  stamp_smart_object_link(source, file);
+  source.dirty = true;
+}
+
+bool refresh_smart_object_link_relative_paths(SmartObjectStore& store, const QString& current_document_dir,
+                                              const QString& saved_document_dir) {
+  if (saved_document_dir.isEmpty()) {
+    return false;
+  }
+  bool changed = false;
+  for (auto& block : store.blocks) {
+    for (auto& source : block.sources) {
+      if (source.kind != SmartObjectSourceKind::ExternalFile) {
+        continue;
+      }
+      const auto resolved = resolve_smart_object_external_path(source, current_document_dir);
+      if (!resolved.has_value()) {
+        continue;
+      }
+      auto relative = QDir(saved_document_dir).relativeFilePath(*resolved).toStdString();
+      if (relative == source.external_rel_path) {
+        continue;
+      }
+      source.external_rel_path = std::move(relative);
+      source.dirty = true;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+SmartObjectSource* find_smart_object_link_for_file(SmartObjectStore& store, const QFileInfo& file,
+                                                   const QString& document_dir) {
+  for (auto& block : store.blocks) {
+    for (auto& source : block.sources) {
+      if (source.kind != SmartObjectSourceKind::ExternalFile) {
+        continue;
+      }
+      const auto resolved = resolve_smart_object_external_path(source, document_dir);
+      if (resolved.has_value() && QFileInfo(*resolved) == file) {
+        return &source;
+      }
+    }
+  }
+  return nullptr;
+}
+
+std::optional<SmartObjectSource> load_smart_object_file_probe(const QString& path) {
+  QFile file(path);
+  if (!file.open(QIODevice::ReadOnly)) {
+    return std::nullopt;
+  }
+  const auto raw = file.readAll();
+  if (raw.isEmpty()) {
+    return std::nullopt;
+  }
+  const QFileInfo info(path);
+  SmartObjectSource probe;
+  probe.kind = SmartObjectSourceKind::Embedded;
+  probe.filename = info.fileName().toStdString();
+  probe.filetype = smart_object_filetype_for_extension(info.suffix().toLower());
+  probe.file_bytes = std::make_shared<const std::vector<std::uint8_t>>(raw.begin(), raw.end());
+  return probe;
+}
+
+bool smart_object_contents_are_vector(const SmartObjectSource& source) {
+  const auto bytes = source_bytes(source);
+  if (bytes.empty() || bytes.size() > static_cast<std::size_t>(std::numeric_limits<int>::max()) ||
+      psd::DocumentIo::can_read(bytes)) {
+    return false;
+  }
+  QByteArray raw = QByteArray::fromRawData(reinterpret_cast<const char*>(bytes.data()),
+                                           static_cast<qsizetype>(bytes.size()));
+  QBuffer buffer(&raw);
+  buffer.open(QIODevice::ReadOnly);
+  const auto format = QImageReader(&buffer).format();
+  return format == "svg" || format == "svgz";
+}
+
+std::optional<QImage> render_smart_object_vector_contents(const SmartObjectSource& source,
+                                                          const SmartObjectPlacement& placement) {
+  if (!smart_object_contents_are_vector(source)) {
+    return std::nullopt;
+  }
+  // The quad's own edge lengths: the top edge carries the artwork's width, the left
+  // edge its height, whatever the rotation.
+  const auto& quad = placement.transform;
+  const double width = std::hypot(quad[2] - quad[0], quad[3] - quad[1]);
+  const double height = std::hypot(quad[6] - quad[0], quad[7] - quad[1]);
+  if (!std::isfinite(width) || !std::isfinite(height) || width < 0.5 || height < 0.5) {
+    return std::nullopt;
+  }
+  // A side that is a whole number of pixels renders at exactly that size (an
+  // axis-aligned placement on whole pixels then needs no resampling at all).
+  const auto side = [](double length) {
+    constexpr double kMaxSide = 16384.0;
+    const double limited = length < kMaxSide ? length : kMaxSide;
+    const double rounded = std::round(limited);
+    return static_cast<int>(std::abs(limited - rounded) < 1e-6 ? rounded : std::ceil(limited));
+  };
+  const auto bytes = source_bytes(source);
+  QByteArray raw = QByteArray::fromRawData(reinterpret_cast<const char*>(bytes.data()),
+                                           static_cast<qsizetype>(bytes.size()));
+  QBuffer buffer(&raw);
+  buffer.open(QIODevice::ReadOnly);
+  QImageReader reader(&buffer);
+  reader.setScaledSize(QSize(side(width), side(height)));
+  auto image = reader.read();
+  if (image.isNull()) {
+    return std::nullopt;
+  }
+  return image.convertToFormat(QImage::Format_RGBA8888);
 }
 
 double smart_object_source_dpi(const SmartObjectSource& source) {
@@ -406,13 +603,34 @@ std::optional<FilterRenderResult> render_smart_object_unfiltered_layer_preview(
   if (source == nullptr) {
     return std::nullopt;
   }
-  const auto image = decode_smart_object_source_image(
-      *source, parent_document_dir);
+  // Linked contents live on disk: read them once so the vector pass has the bytes.
+  std::optional<SmartObjectSource> linked_contents;
+  const SmartObjectSource* contents = source;
+  if (source->kind == SmartObjectSourceKind::ExternalFile) {
+    const auto path = resolve_smart_object_external_path(*source, parent_document_dir);
+    if (!path.has_value()) {
+      return std::nullopt;
+    }
+    linked_contents = load_smart_object_file_probe(*path);
+    if (!linked_contents.has_value()) {
+      return std::nullopt;
+    }
+    contents = &*linked_contents;
+  }
+  auto image = decode_smart_object_source_image(*contents);
   if (!image.has_value()) {
     return std::nullopt;
   }
+  const auto warp = smart_object_warp_from_layer(layer);
+  if (!warp.has_value() || warp->mesh_xs.empty()) {
+    // Vector artwork rasterizes at the placement's scale; the warp grid is built
+    // for the natural size, so warped placements keep the natural image.
+    if (auto vector = render_smart_object_vector_contents(*contents, *placement); vector.has_value()) {
+      image = std::move(vector);
+    }
+  }
   const auto rendered = render_smart_object_pixels(
-      *image, *placement, smart_object_warp_from_layer(layer), interpolation);
+      *image, *placement, warp, interpolation);
   if (!rendered.has_value()) {
     return std::nullopt;
   }

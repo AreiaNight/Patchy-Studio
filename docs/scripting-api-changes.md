@@ -1,5 +1,14 @@
 # Scripting API compatibility
 
+2026-09-30 (API 1): smart objects. `doc.addSmartObject(path, {linked?, x?, y?, width?,
+height?, scale?, name?})` places a file as an embedded or linked smart-object layer
+(the core behind File > Place Embedded and the new File > Place Linked); a linked
+placement of a file the document already links shares that source. Layers expose
+`isSmartObject`, `getSmartObject()` (`{linked, fileName, path, relativePath, missing,
+changed, sourceId, width, height, resolution, quad}` or null) and `updateSmartObject()`
+(Update Smart Object Content for every layer sharing the source; returns the count).
+Additive; apiVersion unchanged. See [smart-object-editing.md](smart-object-editing.md).
+
 2026-09-28 (API 1): `patchy.plugins.folder` (the plug-ins folder next to the application,
 created with its README on read; "" off Windows) and the `captureDialog` option of
 `layer.applyPlugin` (a PNG of the plug-in's own dialog while it is up). Additive;

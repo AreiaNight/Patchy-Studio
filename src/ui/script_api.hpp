@@ -45,6 +45,7 @@ class ScriptLayerObject : public QObject {
   Q_PROPERTY(bool isGroup READ is_group)
   Q_PROPERTY(bool isText READ is_text)
   Q_PROPERTY(bool isShape READ is_shape)
+  Q_PROPERTY(bool isSmartObject READ is_smart_object)
   Q_PROPERTY(QJSValue children READ children)
   Q_PROPERTY(QString text READ text WRITE set_text)
   Q_PROPERTY(QString textOrientation READ text_orientation WRITE set_text_orientation)
@@ -78,6 +79,14 @@ public:
   [[nodiscard]] bool is_group() const;
   [[nodiscard]] bool is_text() const;
   [[nodiscard]] bool is_shape() const;
+  [[nodiscard]] bool is_smart_object() const;
+  // Smart objects: {linked, fileName, path, relativePath, missing, changed,
+  // sourceId, width, height, resolution, quad}; null for other layers.
+  Q_INVOKABLE QJSValue getSmartObject() const;
+  // Update Smart Object Content: re-reads this linked layer's file and re-renders
+  // every layer sharing its source. Returns the number of layers re-rendered;
+  // throws for an embedded smart object, a missing file, or an unreadable one.
+  Q_INVOKABLE int updateSmartObject();
   Q_INVOKABLE QJSValue getShape() const;
   Q_INVOKABLE void updateShape(const QJSValue& changes);
   Q_INVOKABLE void transformShape(const QJSValue& matrix, const QJSValue& options = QJSValue());
@@ -239,6 +248,9 @@ public:
   // multi-layer file becomes a folder named after it. Throws, adding nothing,
   // when a file cannot be read. Returns the new layers in argument order.
   Q_INVOKABLE QJSValue importFilesAsLayers(const QJSValue& paths);
+  // Place Embedded / Place Linked: the file becomes a smart-object layer on top.
+  // Options {linked, x, y, width, height, scale, name}; unknown options throw.
+  Q_INVOKABLE QJSValue addSmartObject(const QString& path, const QJSValue& options = QJSValue());
   Q_INVOKABLE QJSValue findLayer(const QString& name);
   // Combine Shapes: merges the shape layers (siblings) into the bottom-most
   // one with op "unite" | "subtract" | "intersect" | "exclude"; returns it.

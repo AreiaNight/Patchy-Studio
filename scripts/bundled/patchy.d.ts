@@ -220,6 +220,30 @@ interface PatchyTextRunInfo {
   text: string; font: string; style: string; size: number; bold: boolean; italic: boolean; color: string;
 }
 
+/** What a smart-object layer holds (see PatchyLayer.getSmartObject). */
+interface PatchySmartObjectState {
+  /** true: the layer references a file on disk (Place Linked); false: the contents are stored in the document. */
+  linked: boolean;
+  /** The source file's name, e.g. "logo.svg". */
+  fileName: string;
+  /** Linked: the file the link resolves to right now ("/" separators), or the stored absolute path when it is missing. "" for embedded contents. */
+  path: string;
+  /** Linked: the stored path relative to the document's folder (what makes the PSD portable). "" for embedded contents. */
+  relativePath: string;
+  /** Linked: the file could not be found. */
+  missing: boolean;
+  /** Linked: the file on disk differs from the copy the layer was rendered from; updateSmartObject() refreshes it. */
+  changed: boolean;
+  /** Identity of the shared source element. Layers with the same sourceId show the same contents, and one update refreshes all of them. */
+  sourceId: string;
+  /** The contents' own size in pixels and their pixels per inch. */
+  width: number;
+  height: number;
+  resolution: number;
+  /** The placement quad in document pixels: top-left, top-right, bottom-right, bottom-left as [x0, y0, x1, y1, x2, y2, x3, y3]. */
+  quad: number[];
+}
+
 interface PatchyLayer {
   /** Decimal string identity, scoped to this open document. Re-query after undo/reopen. */
   readonly id: string;
@@ -239,6 +263,16 @@ interface PatchyLayer {
   readonly isGroup: boolean;
   readonly isText: boolean;
   readonly isShape: boolean;
+  readonly isSmartObject: boolean;
+  /** The smart object's state, or null for other layers. */
+  getSmartObject(): PatchySmartObjectState | null;
+  /**
+   * Update Smart Object Content: re-reads this linked layer's file from disk and
+   * re-renders every layer that shares its source, as one undo step. Returns the
+   * number of layers re-rendered. Throws for an embedded smart object, a plain
+   * layer, or a linked file that is missing or cannot be decoded.
+   */
+  updateSmartObject(): number;
   getShape(): PatchyShapeState | null;
   /** Partial update. geometry and path are mutually exclusive; group targets one existing shape group. */
   updateShape(changes: {geometry?: PatchyVectorGeometry; group?: number; path?: PatchyVectorPath;
@@ -574,6 +608,28 @@ interface PatchyDocument {
    * top-level layers in argument order.
    */
   importFilesAsLayers(paths: string | string[]): PatchyLayer[];
+  /**
+   * Place Embedded / Place Linked: adds the file (PSD, PSB, PNG, JPEG, TIFF, BMP,
+   * SVG, ...) as a smart-object layer on top and makes it active. Embedded
+   * (default) stores a copy of the file in the document; `linked: true` stores a
+   * reference to the file, so editing the file and calling updateSmartObject()
+   * refreshes the layer, and placing the same file linked again shares that
+   * reference (one update refreshes every layer placed from it). Without a
+   * position or size the file lands at its physical size (its pixels scaled by
+   * the document's resolution over the file's), centered, and scaled down to fit
+   * a smaller canvas, like the menu commands. `x`/`y` place the top-left corner
+   * (an omitted axis centers); `width`/`height` set the placed size in document
+   * pixels, one of them alone keeping the aspect ratio; `scale` multiplies the
+   * physical size (1 = 100%) and is ignored when a size is given. SVG contents
+   * render sharp at any size. `name` overrides the layer name (default: the
+   * file's base name). Throws, adding nothing, for a file that cannot be read or
+   * decoded, a size outside 1..30000 pixels, or an unknown option. The linked
+   * file's path is stored relative to the document's folder when the document is
+   * saved as PSD/PSB; until then an absolute path keeps the link working.
+   */
+  addSmartObject(path: string, options?: {
+    linked?: boolean; x?: number; y?: number; width?: number; height?: number; scale?: number; name?: string;
+  }): PatchyLayer;
   /** First layer (depth-first) with this exact name, or undefined. */
   findLayer(name: string): PatchyLayer | undefined;
   /**

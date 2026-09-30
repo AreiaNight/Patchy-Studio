@@ -1263,16 +1263,27 @@ private:
   bool commit_smart_object_child_session(DocumentSession& child_session);
   void refresh_external_smart_object_after_save(DocumentSession& child_session);
   void update_smart_object_content();
+  // The Update Smart Object Content core, shared with layer.updateSmartObject():
+  // re-reads the linked file behind `layer_id`, stamps the link, and re-renders
+  // every layer sharing that source in `target`. before_mutation runs once, right
+  // before the document changes (the caller's undo snapshot); returning false
+  // abandons the update. Returns how many layers were re-rendered, or 0 with
+  // *error set. No refresh or status message: callers own those.
+  int update_linked_smart_object(DocumentSession& target, LayerId layer_id,
+                                 const std::function<bool()>& before_mutation, QString* error);
   void relink_smart_object_contents();
   void relink_smart_object_contents_with_path(const QString& path);
   void embed_linked_smart_object();
+  // `vector_contents` (a source carrying the file bytes) lets each layer rasterize
+  // vector artwork at its own placement scale instead of resampling `rendered_image`.
   bool refresh_smart_object_layers_for_source(Document& target_document,
                                               const std::string& source_uuid,
                                               const QImage& rendered_image,
                                               double content_dpi,
                                               bool include_external_locked,
                                               bool rekey_placed_instances = false,
-                                              std::string_view replacement_source_uuid = {});
+                                              std::string_view replacement_source_uuid = {},
+                                              const SmartObjectSource* vector_contents = nullptr);
   void replace_smart_object_contents();
   void replace_smart_object_contents_with_path(const QString& path);
   void convert_to_smart_object();
@@ -1287,6 +1298,34 @@ private:
   void convert_smart_object_to_layers();
   void place_embedded_file();
   void place_embedded_file_with_path(const QString& path);
+  // File > Place Linked: the smart object references the file on disk instead of
+  // holding a copy (docs/smart-object-editing.md, "Place Linked").
+  void place_linked_file();
+  void place_linked_file_with_path(const QString& path);
+  // Where and how large a placed file lands. With nothing set the file lands at its
+  // physical size, centered, scaled down to fit a smaller canvas (Photoshop's rule).
+  struct SmartObjectPlaceOptions {
+    bool linked{false};
+    // Top-left corner of the placed rectangle in document pixels; an unset axis centers.
+    std::optional<double> x;
+    std::optional<double> y;
+    // Placed size in document pixels; one of them alone keeps the aspect ratio.
+    std::optional<double> width;
+    std::optional<double> height;
+    // Uniform scale of the physical size (1 = 100%); ignored when a size is given.
+    std::optional<double> scale;
+    // Layer name; the file's base name when empty.
+    QString name;
+  };
+  // The Place Embedded / Place Linked core, shared with doc.addSmartObject: adds
+  // `path` to `target` as a smart-object layer on top and makes it active. A linked
+  // placement of a file the document already links shares that element. before_mutation
+  // runs once, right before the document changes (the caller's undo snapshot);
+  // returning false abandons the placement. Returns the new layer's id, or nullopt
+  // with *error set. No refresh or status message: callers own those.
+  std::optional<LayerId> place_file_as_smart_object(DocumentSession& target, const QString& path,
+                                                    const SmartObjectPlaceOptions& options,
+                                                    const std::function<bool()>& before_mutation, QString* error);
   void delete_active_layer();
   void delete_layers(std::vector<LayerId> ids);
   void move_active_layer(int direction);

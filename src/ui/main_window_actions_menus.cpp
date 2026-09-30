@@ -381,6 +381,13 @@ void MainWindow::build_menu_bar_actions(ActionBuildContext& ctx) {
   register_hotkey(place_embedded_action, "file.place_embedded");
   connect(place_embedded_action, &QAction::triggered, this, [this] { place_embedded_file(); });
   register_document_action(place_embedded_action);
+  auto* place_linked_action = file_menu->addAction(tr("Place &Linked..."));
+  bind_action_text(place_linked_action, QT_TR_NOOP("Place &Linked..."));
+  place_linked_action->setObjectName(QStringLiteral("filePlaceLinkedAction"));
+  place_linked_action->setMenuRole(QAction::NoRole);
+  register_hotkey(place_linked_action, "file.place_linked");
+  connect(place_linked_action, &QAction::triggered, this, [this] { place_linked_file(); });
+  register_document_action(place_linked_action);
   auto* save_action = file_menu->addAction(tr("&Save"));
   auto* save_as_action = file_menu->addAction(tr("Save &As..."));
   // The export commands sit in their own submenu, the way Import does: the verb
@@ -437,6 +444,8 @@ void MainWindow::build_menu_bar_actions(ActionBuildContext& ctx) {
   export_image_sequence_action->setVisible(false);
   // A browser pick is a MEMFS transfer path that only open_document_path releases.
   import_files_as_layers_action->setVisible(false);
+  // A link needs a host file to point at; the browser only hands over a copy.
+  place_linked_action->setVisible(false);
   export_documents_folder_action->setVisible(false);
   open_folder_action->setVisible(false);
   page_setup_action->setVisible(false);
