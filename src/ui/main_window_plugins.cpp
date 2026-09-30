@@ -20,6 +20,7 @@
 #include "ui/localization.hpp"
 #include "ui/qt_geometry.hpp"
 #ifdef Q_OS_WIN
+#include "ui/legacy_plugin_run_dialog.hpp"
 #include "ui/legacy_plugin_runner.hpp"
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -39,11 +40,11 @@
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QKeySequence>
 #include <QMenu>
 #include <QMessageBox>
 #include <QMetaObject>
 #include <QPointer>
-#include <QProgressDialog>
 #include <QRegion>
 #include <QScopeGuard>
 #include <QScreen>
@@ -64,6 +65,16 @@
 namespace patchy::ui {
 
 namespace {
+
+// A PiPL name may end in Photoshop's menu ellipsis ("Kaleidoscope 2.1..."),
+// which belongs in the menu item, not in a sentence or a window title.
+QString legacy_plugin_sentence_name(const std::string& display_name) {
+  auto name = QString::fromStdString(display_name).trimmed();
+  while (name.endsWith(QLatin1Char('.')) || name.endsWith(QChar(0x2026))) {
+    name.chop(1);
+  }
+  return name.trimmed();
+}
 
 std::string legacy_plugin_kind_name(LegacyPhotoshopPluginKind kind) {
   switch (kind) {
@@ -337,6 +348,7 @@ void MainWindow::rebuild_legacy_plugins_menu() {
                                                       : QStringLiteral("legacyPluginsEmptyNote"));
     note->setProperty(kLegacyPluginMenuEntryProperty, true);
     note->setEnabled(false);
+    update_legacy_plugin_repeat_actions();  // the last plug-in may be gone with its folder
     return;
   }
   std::sort(supported.begin(), supported.end(), [](const LegacyPluginEntry* a, const LegacyPluginEntry* b) {
@@ -390,7 +402,7 @@ void MainWindow::rebuild_legacy_plugins_menu() {
     action->setObjectName(QStringLiteral("legacyPluginAction"));
     action->setProperty(kLegacyPluginMenuEntryProperty, true);
     action->setProperty("patchy.channelViewBlocked", true);
-    action->setStatusTip(tr("Run the %1 plug-in on the active layer").arg(QString::fromStdString(entry->probe.display_name)));
+    action->setStatusTip(tr("Run the %1 plug-in on the active layer").arg(legacy_plugin_sentence_name(entry->probe.display_name)));
     action->setIcon(simple_icon(QStringLiteral("8BF"), QColor(105, 185, 255)));
     action->setIconVisibleInMenu(false);
     connect(action, &QAction::triggered, this, [this, identifier] { run_legacy_plugin(identifier); });
@@ -402,7 +414,45 @@ void MainWindow::rebuild_legacy_plugins_menu() {
   update_document_action_state();
 }
 
-void MainWindow::run_legacy_plugin(QString identifier) {
+void MainWindow::run_last_legacy_plugin(bool show_dialog) {
+  if (last_legacy_plugin_identifier_.empty()) {
+    return;
+  }
+  const auto* entry = find_legacy_plugin(last_legacy_plugin_identifier_);
+  if (entry == nullptr || !entry->probe.supported) {
+    // Gone since the last run (a rescan dropped its folder).
+    update_legacy_plugin_repeat_actions();
+    show_status_error(tr("The last plug-in is no longer available"));
+    return;
+  }
+  run_legacy_plugin(QString::fromStdString(last_legacy_plugin_identifier_), show_dialog);
+}
+
+void MainWindow::update_legacy_plugin_repeat_actions() {
+  if (plugins_repeat_last_action_ == nullptr || plugins_last_settings_action_ == nullptr) {
+    return;
+  }
+  const auto* entry =
+      last_legacy_plugin_identifier_.empty() ? nullptr : find_legacy_plugin(last_legacy_plugin_identifier_);
+  // The identifier is kept while the plug-in is missing (a scan in flight, a
+  // folder removed and added back); the commands just fall back to their
+  // generic text until it is found again.
+  const bool available = entry != nullptr && entry->probe.supported;
+  const auto name = available ? escape_qaction_ampersands(legacy_plugin_sentence_name(entry->probe.display_name)) : QString();
+  //: Plugins menu; %1 is the plug-in that ran last. Runs it again with its last settings, no dialog.
+  plugins_repeat_last_action_->setText(available ? tr("Repeat %1").arg(name) : tr("Repeat Last Plug-in"));
+  //: Plugins menu; %1 is the plug-in that ran last. Opens its settings dialog again, starting from the last settings.
+  plugins_last_settings_action_->setText(available ? tr("%1 Settings...").arg(name) : tr("Last Plug-in Settings..."));
+  // Not document actions: update_document_action_state would re-enable them
+  // whenever a document is open; they also need a plug-in that ran.
+  const bool enabled = available && has_active_document() && !preview_dialog_edit_locked();
+  plugins_repeat_last_action_->setEnabled(enabled);
+  plugins_last_settings_action_->setEnabled(enabled);
+  refresh_action_tooltip(plugins_repeat_last_action_);
+  refresh_action_tooltip(plugins_last_settings_action_);
+}
+
+void MainWindow::run_legacy_plugin(QString identifier, bool show_dialog) {
   if (canvas_ != nullptr && canvas_->quick_mask_active()) {
     show_status_error(tr("Filters are unavailable in Quick Mask mode"));
     return;
@@ -442,7 +492,7 @@ void MainWindow::run_legacy_plugin(QString identifier) {
     show_status_error(tr("Select a pixel layer before running the plug-in"));
     return;
   }
-  const auto display_name = QString::fromStdString(entry->probe.display_name);
+  const auto display_name = legacy_plugin_sentence_name(entry->probe.display_name);
   // A text or shape layer is offered for rasterizing first, as Photoshop does
   // for its filters (a plug-in only ever sees pixels); Cancel leaves it alone.
   if (layer->kind() == LayerKind::Text || layer_pixels_are_procedural(*layer)) {
@@ -478,9 +528,12 @@ void MainWindow::run_legacy_plugin(QString identifier) {
   // such as Ctrl+Z went nowhere until the canvas was clicked. Put focus back
   // where it was.
   QPointer<QWidget> previous_focus = QApplication::focusWidget();
+  // Repeat (show_dialog false) reuses the last settings without the dialog, as
+  // Photoshop's "repeat last filter" does; a dialog the plug-in opens anyway
+  // (nothing stored yet) is the user's to answer, never auto-accepted.
   const auto status = apply_legacy_plugin(
-      *session, *active, *entry, /*show_dialog=*/true, [this, display_name] { push_undo_snapshot(tr("Plug-in: %1").arg(display_name)); },
-      &error);
+      *session, *active, *entry, show_dialog, [this, display_name] { push_undo_snapshot(tr("Plug-in: %1").arg(display_name)); },
+      &error, QString(), /*auto_accept_dialogs=*/false);
   activateWindow();
   if (QWidget* focus = previous_focus != nullptr && previous_focus->isEnabled() && previous_focus->isVisible()
                            ? previous_focus.data()
@@ -489,9 +542,16 @@ void MainWindow::run_legacy_plugin(QString identifier) {
     focus->setFocus(Qt::OtherFocusReason);
   }
   switch (status) {
-    case LegacyPluginApplyStatus::Applied:
-      statusBar()->showMessage(tr("Applied %1").arg(display_name));
+    case LegacyPluginApplyStatus::Applied: {
+      // A plug-in never previews on the canvas, so the result is the first
+      // look: say how to take it back.
+      const auto undo_key = undo_action_ != nullptr ? undo_action_->shortcut() : QKeySequence();
+      statusBar()->showMessage(undo_key.isEmpty()
+                                   ? tr("Applied %1").arg(display_name)
+                                   //: %1 is the plug-in's name, %2 the Undo shortcut ("Ctrl+Z").
+                                   : tr("Applied %1 (%2 undoes it)").arg(display_name, undo_key.toString(QKeySequence::NativeText)));
       break;
+    }
     case LegacyPluginApplyStatus::NoChange:
       statusBar()->showMessage(tr("%1 made no changes").arg(display_name));
       break;
@@ -607,9 +667,10 @@ MainWindow::LegacyPluginApplyStatus MainWindow::apply_legacy_plugin(DocumentSess
   run.plugin_path = entry.path;
   run.entry_point = entry.probe.entry_point;
   run.show_dialog = show_dialog;
-  // Asked for no dialog: a plug-in that opens one from Start anyway (first run,
-  // no stored parameters) gets its OK pressed so scripts never block on it.
-  run.auto_accept_dialogs = auto_accept_dialogs || !show_dialog;
+  // The caller decides (main_window.hpp): scripts that asked for no dialog get
+  // any dialog a plug-in opens anyway answered so they never block; the menu's
+  // Repeat leaves such a dialog to the user.
+  run.auto_accept_dialogs = auto_accept_dialogs;
   run.capture_dialog_path = capture_dialog_path;
   run.protect_alpha = protect_alpha && planes == 4;
   run.parent_window = QGuiApplication::platformName() == QLatin1String("offscreen")
@@ -621,7 +682,7 @@ MainWindow::LegacyPluginApplyStatus MainWindow::apply_legacy_plugin(DocumentSess
     run.screen_max_height = screen_size.second;
   }
   //: Title of the movable window a full-screen plug-in interface is shown in; %1 is the plug-in's name.
-  run.window_title = tr("%1 via Patchy").arg(QString::fromStdString(entry.probe.display_name));
+  run.window_title = tr("%1 via Patchy").arg(legacy_plugin_sentence_name(entry.probe.display_name));
   run.width = width;
   run.height = height;
   run.planes = planes;
@@ -645,78 +706,30 @@ MainWindow::LegacyPluginApplyStatus MainWindow::apply_legacy_plugin(DocumentSess
     run.parameters = stored->second;
   }
 
-  const auto display_name = QString::fromStdString(entry.probe.display_name);
-  // No canvas "Processing..." overlay here: the progress box below is the
-  // one indicator, next to the plug-in's own window.
-  // Busy (no percentage) until the plug-in reports progress. The box never
-  // takes activation (WindowDoesNotAcceptFocus, so it cannot push the
-  // plug-in's window, which lives in another process, behind Patchy; Cancel
-  // still takes clicks), and while the plug-in shows a window it sits just
-  // below that window instead of over the canvas.
-  QProgressDialog progress(tr("Running %1...").arg(display_name), tr("Cancel"), 0, 0, this);
-  progress.setObjectName(QStringLiteral("legacyPluginProgressDialog"));
-  progress.setWindowModality(Qt::WindowModal);
-  progress.setWindowFlag(Qt::WindowDoesNotAcceptFocus);
-  progress.setMinimumDuration(std::numeric_limits<int>::max());  // shown by the tick below only
-  progress.setAttribute(Qt::WA_ShowWithoutActivating);
-  remember_dialog_position(progress);
+  const auto display_name = legacy_plugin_sentence_name(entry.probe.display_name);
+  // No canvas "Processing..." overlay here: the companion box is the one
+  // indicator, next to the plug-in's own window. It follows the helper's
+  // phase reports and the plug-in's window (legacy_plugin_run_dialog.hpp): calm
+  // "adjust its settings and click OK" text while the plug-in waits for the
+  // user, a busy bar or percentage while it applies. Shown once the run
+  // outlasts a quick filter, or as soon as the plug-in shows a window.
+  LegacyPluginRunDialog progress(display_name, this);
   QElapsedTimer elapsed;
   elapsed.start();
-  QRect plugin_window_rect;
-  bool placed_below_plugin = false;
-  const auto place_below_plugin = [&] {
-    // Once, when the plug-in's window first appears; after that both windows
-    // are the user's to arrange.
-    if (!plugin_window_rect.isValid() || placed_below_plugin) {
-      return;
-    }
-    placed_below_plugin = true;
-    // Physical pixels from the helper; Qt positions in logical ones, equal at
-    // 100 percent scaling. On a scaled monitor the box keeps its usual place.
-    QScreen* screen = QGuiApplication::screenAt(plugin_window_rect.center());
-    if (screen == nullptr || screen->devicePixelRatio() != 1.0) {
-      return;
-    }
-    const auto available = screen->availableGeometry();
-    const QSize size = progress.size().isValid() && progress.size().width() > 0 ? progress.size() : progress.sizeHint();
-    int x = plugin_window_rect.center().x() - size.width() / 2;
-    int y = plugin_window_rect.bottom() + 8;
-    if (y + size.height() > available.bottom()) {
-      y = plugin_window_rect.top() - size.height() - 8;  // no room below: above it
-    }
-    x = std::clamp(x, available.left(), std::max(available.left(), available.right() - size.width()));
-    y = std::clamp(y, available.top(), std::max(available.top(), available.bottom() - size.height()));
-    progress.move(x, y);
-  };
   LegacyPluginRunCallbacks callbacks;
-  callbacks.plugin_window = [&](const QRect& rect) {
-    plugin_window_rect = rect;
-    if (rect.isValid()) {
-      place_below_plugin();
-      if (!progress.isVisible() && !progress.wasCanceled()) {
-        progress.show();
-      }
-    }
-  };
-  callbacks.progress = [&progress](int done, int total) {
-    if (total <= 0) {
-      return;
-    }
-    if (progress.maximum() == 0) {
-      progress.setRange(0, 100);
-    }
-    progress.setValue(std::clamp(static_cast<int>((static_cast<long long>(done) * 100) / total), 0, 100));
-  };
-  callbacks.cancelled = [&progress] { return progress.wasCanceled(); };
+  callbacks.plugin_window = [&progress](const QRect& rect) { progress.set_plugin_window(rect); };
+  callbacks.phase = [&progress](LegacyPluginPhase phase) { progress.set_phase(phase); };
+  callbacks.progress = [&progress](int done, int total) { progress.set_progress(done, total); };
+  callbacks.cancelled = [&progress] { return progress.stop_requested(); };
+  callbacks.raise_plugin_window = [&progress] { return progress.take_show_window_request(); };
   callbacks.tick = [&] {
-    // A plug-in that never reports progress would keep the dialog (and its
-    // Cancel button) hidden; show it once the run outlasts a quick filter.
-    if (!progress.isVisible() && !progress.wasCanceled() && elapsed.elapsed() > kFilterProgressMinimumDurationMs) {
-      progress.show();
+    // A plug-in that never reports progress would keep the box (and its stop
+    // button) hidden; show it once the run outlasts a quick filter.
+    if (elapsed.elapsed() > kFilterProgressMinimumDurationMs) {
+      progress.reveal();
     }
   };
   const auto result = run_legacy_plugin_out_of_process(run, callbacks);
-  progress.reset();
   progress.hide();
   // The plug-in's windows lived in another process but were owned by this
   // window, which shares input state with them for the duration: a modal
@@ -744,6 +757,12 @@ MainWindow::LegacyPluginApplyStatus MainWindow::apply_legacy_plugin(DocumentSess
   }
   if (!result.parameters.isEmpty()) {
     legacy_plugin_parameters_[entry.identifier] = result.parameters;
+  }
+  if (result.status == LegacyPluginRunStatus::Ok) {
+    // A completed run (changed pixels or not) is what Repeat and "Settings..."
+    // run again; a cancelled or failed one is not.
+    last_legacy_plugin_identifier_ = entry.identifier;
+    update_legacy_plugin_repeat_actions();
   }
   if (result.status == LegacyPluginRunStatus::Cancelled) {
     return LegacyPluginApplyStatus::Cancelled;

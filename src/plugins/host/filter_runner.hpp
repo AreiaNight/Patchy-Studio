@@ -26,6 +26,9 @@ struct RunnerCallbacks {
   std::function<void(std::int32_t, std::int32_t)> progress;
   // Polled from the plug-in's abort callback and between tiles.
   std::function<bool()> should_abort;
+  // Called with the selector about to be invoked (kSelectorParameters and so
+  // on), before each entry call. Optional.
+  std::function<void(std::int32_t)> phase;
 };
 
 // Runs the plug-in described by `request` over `image`. Never throws; a crash

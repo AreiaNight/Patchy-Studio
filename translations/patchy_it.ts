@@ -10355,6 +10355,55 @@ RGB: %2, %3, %4</translation>
     </message>
 </context>
 <context>
+    <name>patchy::ui::LegacyPluginRunDialog</name>
+    <message>
+        <source>Legacy Photoshop Plug-in</source>
+        <translation>Plug-in Photoshop legacy</translation>
+    </message>
+    <message>
+        <source>Classic plug-ins show their preview inside their own window. The layer changes after you click OK.</source>
+        <translation>I plug-in classici mostrano l&apos;anteprima nella propria finestra. Il livello cambia dopo aver fatto clic su OK.</translation>
+    </message>
+    <message>
+        <source>Show Plug-in Window</source>
+        <translation>Mostra finestra del plug-in</translation>
+    </message>
+    <message>
+        <source>Brings the plug-in&apos;s window back in front of Patchy.</source>
+        <translation>Riporta la finestra del plug-in davanti a Patchy.</translation>
+    </message>
+    <message>
+        <source>Starting %1...</source>
+        <translation>Avvio di %1...</translation>
+    </message>
+    <message>
+        <source>Force Stop Plug-in</source>
+        <translation>Forza l&apos;arresto del plug-in</translation>
+    </message>
+    <message>
+        <source>Ends the plug-in without applying it. Use it only if the plug-in&apos;s window has stopped responding.</source>
+        <extracomment>Tooltip of the stop button while a plug-in is loading or waits for the user in its own window.</extracomment>
+        <translation>Termina il plug-in senza applicarlo. Usalo solo se la finestra del plug-in non risponde più.</translation>
+    </message>
+    <message>
+        <source>%1 is open in its own window. Adjust its settings there and click its OK button to apply it to this layer.</source>
+        <extracomment>%1 is the plug-in&apos;s name; shown while its own settings window is open.</extracomment>
+        <translation>%1 è aperto nella propria finestra. Regola lì le impostazioni e fai clic sul suo pulsante OK per applicarlo a questo livello.</translation>
+    </message>
+    <message>
+        <source>Applying %1...</source>
+        <translation>Applicazione di %1...</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Annulla</translation>
+    </message>
+    <message>
+        <source>Stops the plug-in. The layer stays unchanged.</source>
+        <translation>Arresta il plug-in. Il livello resta invariato.</translation>
+    </message>
+</context>
+<context>
     <name>patchy::ui::MainWindow</name>
     <message>
         <source>Editing layer mask (click to exit)</source>
@@ -17867,10 +17916,6 @@ Y: %2
         <translation>La selezione non tocca il livello attivo.</translation>
     </message>
     <message>
-        <source>Running %1...</source>
-        <translation>Esecuzione di %1...</translation>
-    </message>
-    <message>
         <source>The layer no longer exists.</source>
         <translation>Il livello non esiste più.</translation>
     </message>
@@ -18115,6 +18160,32 @@ Y: %2
     <message>
         <source>Units &amp;&amp; Grids</source>
         <translation>Unità &amp;&amp; griglie</translation>
+    </message>
+    <message>
+        <source>Repeat Last Plug-in</source>
+        <translation>Ripeti ultimo plug-in</translation>
+    </message>
+    <message>
+        <source>Last Plug-in Settings...</source>
+        <translation>Impostazioni ultimo plug-in...</translation>
+    </message>
+    <message>
+        <source>The last plug-in is no longer available</source>
+        <translation>L&apos;ultimo plug-in non è più disponibile</translation>
+    </message>
+    <message>
+        <source>Repeat %1</source>
+        <extracomment>Plugins menu; %1 is the plug-in that ran last. Runs it again with its last settings, no dialog.</extracomment>
+        <translation>Ripeti %1</translation>
+    </message>
+    <message>
+        <source>%1 Settings...</source>
+        <extracomment>Plugins menu; %1 is the plug-in that ran last. Opens its settings dialog again, starting from the last settings.</extracomment>
+        <translation>Impostazioni di %1...</translation>
+    </message>
+    <message>
+        <source>Applied %1 (%2 undoes it)</source>
+        <translation>%1 applicato (%2 per annullare)</translation>
     </message>
 </context>
 <context>

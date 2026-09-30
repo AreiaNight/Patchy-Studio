@@ -10344,6 +10344,55 @@ RGB: %2, %3, %4</source>
     </message>
 </context>
 <context>
+    <name>patchy::ui::LegacyPluginRunDialog</name>
+    <message>
+        <source>Legacy Photoshop Plug-in</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Classic plug-ins show their preview inside their own window. The layer changes after you click OK.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show Plug-in Window</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Brings the plug-in&apos;s window back in front of Patchy.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Starting %1...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Force Stop Plug-in</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ends the plug-in without applying it. Use it only if the plug-in&apos;s window has stopped responding.</source>
+        <extracomment>Tooltip of the stop button while a plug-in is loading or waits for the user in its own window.</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 is open in its own window. Adjust its settings there and click its OK button to apply it to this layer.</source>
+        <extracomment>%1 is the plug-in&apos;s name; shown while its own settings window is open.</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Applying %1...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stops the plug-in. The layer stays unchanged.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>patchy::ui::MainWindow</name>
     <message>
         <source>Editing layer mask (click to exit)</source>
@@ -17821,10 +17870,6 @@ Y: %2
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Running %1...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>The layer no longer exists.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -18068,6 +18113,32 @@ Y: %2
     </message>
     <message>
         <source>Units &amp;&amp; Grids</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Repeat Last Plug-in</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Last Plug-in Settings...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The last plug-in is no longer available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Repeat %1</source>
+        <extracomment>Plugins menu; %1 is the plug-in that ran last. Runs it again with its last settings, no dialog.</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 Settings...</source>
+        <extracomment>Plugins menu; %1 is the plug-in that ran last. Opens its settings dialog again, starting from the last settings.</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Applied %1 (%2 undoes it)</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

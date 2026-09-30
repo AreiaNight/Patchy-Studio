@@ -2361,7 +2361,9 @@ bool ScriptEngineHost::apply_legacy_plugin_to_layer(std::int64_t session_id, Lay
       *session, layer_id, *entry, show_dialog && (!unattended_run() || !capture_dialog_path.isEmpty()),
       [this, session_id] { (void)prepare_mutation(session_id); }, &error,
       capture_dialog_path.isEmpty() ? QString() : QDir::toNativeSeparators(capture_dialog_path),
-      /*auto_accept_dialogs=*/unattended_run());
+      // A script that asked for no dialog gets a dialog the plug-in opens
+      // anyway (first run, nothing stored) answered, so it never blocks.
+      /*auto_accept_dialogs=*/unattended_run() || !show_dialog);
   switch (status) {
     case MainWindow::LegacyPluginApplyStatus::Applied:
       note_pixels_changed(session_id, before_bounds);

@@ -10,6 +10,7 @@
 #include "ui/app_settings.hpp"
 #include "ui/canvas_widget.hpp"
 #include "ui/legacy_plugin_folder.hpp"
+#include "ui/legacy_plugin_run_dialog.hpp"
 #include "ui/main_window.hpp"
 #include "ui/splash_dialog.hpp"
 #include "ui/qt_paths.hpp"
@@ -32,8 +33,10 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QImage>
+#include <QKeySequence>
 #include <QLabel>
 #include <QMenu>
+#include <QProgressBar>
 #include <QPushButton>
 #include <QStatusBar>
 #include <QTabBar>
@@ -311,7 +314,7 @@ void ui_legacy_plugin_run_respects_selection_and_undoes() {
 
 // Third-party plug-ins from local-test-fixtures/photoshop-plugins/mehdi (not
 // committed; see agents_local.md). Each is run without its dialog; a plug-in
-// that opens one anyway is dismissed with OK by the timer below.
+// that opens one anyway is answered by the runner's auto-accept.
 void ui_legacy_plugin_mehdi_filters_run_if_available() {
   const auto mehdi = patchy::test::source_root_path() / "local-test-fixtures" / "photoshop-plugins" / "mehdi";
   if (!std::filesystem::exists(mehdi)) {
@@ -369,6 +372,25 @@ void ui_legacy_plugin_mehdi_dialog_capture_if_available() {
   ensure_artifact_dir();
   const auto png = QDir::current().filePath(QStringLiteral("test-artifacts/ui_legacy_plugin_dialog_capture.png"));
   QFile::remove(png);
+  // While the plug-in's own dialog is up (the acceptor leaves it alone for
+  // 0.7 s first), the companion box must say so and show no busy bar; the
+  // busy state belongs to the filtering pass after OK.
+  bool saw_waiting = false;
+  bool saw_busy_bar_while_waiting = false;
+  QTimer probe;
+  QObject::connect(&probe, &QTimer::timeout, [&] {
+    auto* dialog = qobject_cast<patchy::ui::LegacyPluginRunDialog*>(
+        find_top_level_dialog(QStringLiteral("legacyPluginRunDialog")));
+    if (dialog == nullptr || dialog->state() != patchy::ui::LegacyPluginRunDialog::State::WaitingForUser) {
+      return;
+    }
+    saw_waiting = true;
+    auto* bar = dialog->findChild<QProgressBar*>(QStringLiteral("legacyPluginRunProgressBar"));
+    if (bar != nullptr && bar->isVisible()) {
+      saw_busy_bar_while_waiting = true;
+    }
+  });
+  probe.start(15);
   CHECK(run_script(window, QStringLiteral("patchy.plugins.folders = ['%1'];\n"
                                           "app.activeDocument.activeLayer.fillRect(0, 0, 300, 300, '#4080c0');\n"
                                           "var list = patchy.plugins.list();\n"
@@ -381,10 +403,82 @@ void ui_legacy_plugin_mehdi_dialog_capture_if_available() {
                                           "}\n"
                                           "patchy.plugins.folders = [];\n")
                                .arg(QDir::fromNativeSeparators(patchy::ui::to_qstring(mehdi)), png)));
+  probe.stop();
   CHECK(backlog_contains(window, QStringLiteral("captured legacy.photoshop.")));
+  CHECK(saw_waiting);
+  CHECK(!saw_busy_bar_while_waiting);
+  CHECK(find_top_level_dialog(QStringLiteral("legacyPluginRunDialog")) == nullptr);
   const QImage image(png);
   CHECK(!image.isNull());
   CHECK(image.width() > 200 && image.height() > 100);
+}
+
+// Plugins > Repeat Last Plug-in (Ctrl+F) and Last Plug-in Settings...
+// (Ctrl+Alt+F): disabled until a plug-in completes a run, then named after it,
+// repeating it on the active layer with its own undo step; gone with the
+// plug-in's folder.
+void ui_legacy_plugin_repeat_last_commands() {
+  patchy::ui::MainWindow window;
+  show_window(window);
+  wait_for_legacy_plugin_scan(window);
+  require_canvas(window);
+  auto* repeat = require_action(window, "pluginsRepeatLastAction");
+  auto* settings = require_action(window, "pluginsLastSettingsAction");
+  CHECK(!repeat->isEnabled());
+  CHECK(!settings->isEnabled());
+  CHECK(repeat->text() == QStringLiteral("Repeat Last Plug-in"));
+  CHECK(settings->text() == QStringLiteral("Last Plug-in Settings..."));
+  {
+    const auto* command = window.hotkey_registry().find_command(QStringLiteral("plugins.repeat_last"));
+    CHECK(command != nullptr);
+    CHECK(command != nullptr && command->default_shortcuts.contains(QKeySequence(Qt::CTRL | Qt::Key_F)));
+    const auto* command2 = window.hotkey_registry().find_command(QStringLiteral("plugins.last_settings"));
+    CHECK(command2 != nullptr);
+    CHECK(command2 != nullptr && command2->default_shortcuts.contains(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_F)));
+  }
+
+  // A folder of its own, so the plug-in can be taken away again below.
+  const auto folder = make_plugin_folder(QStringLiteral("repeat32"), {{"Greyscale.8bf", QStringLiteral("Repeat Grey32.8bf")}});
+  // Two scripts: a script's edits undo as one step, and only the run is undone below.
+  CHECK(run_script(window, QStringLiteral("patchy.plugins.folders = ['%1'];\n"
+                                          "app.activeDocument.activeLayer.fillRect(0, 0, 200, 200, '#dc1e1e');")
+                               .arg(folder)));
+  CHECK(layer_pixel(window, 50, 50) == QColor(220, 30, 30));
+  CHECK(run_script(window, QStringLiteral(
+                               "app.activeDocument.activeLayer.applyPlugin('legacy.photoshop.Repeat Grey32', {dialog: false});")));
+  CHECK(repeat->isEnabled());
+  CHECK(settings->isEnabled());
+  CHECK(repeat->text() == QStringLiteral("Repeat Greyscale"));
+  CHECK(settings->text() == QStringLiteral("Greyscale Settings..."));
+  require_action_by_text(window, QStringLiteral("Undo"))->trigger();
+  QApplication::processEvents();
+  CHECK(layer_pixel(window, 50, 50) == QColor(220, 30, 30));
+
+  repeat->trigger();
+  QApplication::processEvents();
+  {
+    const auto after = layer_pixel(window, 50, 50);
+    CHECK(after.red() == after.green() && after.green() == after.blue());
+    CHECK(after.red() > 60 && after.red() < 120);
+  }
+  CHECK(window.statusBar()->currentMessage().startsWith(QStringLiteral("Applied Greyscale (")));
+  CHECK(window.statusBar()->currentMessage().contains(QStringLiteral("undoes it")));
+  CHECK(find_top_level_dialog(QStringLiteral("legacyPluginRunDialog")) == nullptr);
+  require_action_by_text(window, QStringLiteral("Undo"))->trigger();
+  QApplication::processEvents();
+  CHECK(layer_pixel(window, 50, 50) == QColor(220, 30, 30));
+
+  // "Settings..." is not triggered here: the Filter Foundry fixture answers a
+  // Parameters call made with a stored parameter block with its "DialogBoxParam
+  // failed" box, which waits for a click. The menu path with the Parameters
+  // selector is covered by ui_legacy_plugin_run_respects_selection_and_undoes.
+
+  // The folder goes away: the commands fall back to their generic text.
+  CHECK(run_script(window, QStringLiteral("patchy.plugins.folders = [];")));
+  CHECK(!repeat->isEnabled());
+  CHECK(!settings->isEnabled());
+  CHECK(repeat->text() == QStringLiteral("Repeat Last Plug-in"));
+  CHECK(settings->text() == QStringLiteral("Last Plug-in Settings..."));
 }
 
 // Plugins menu: the folder command creates the folder with its README, the
@@ -525,7 +619,7 @@ void ui_legacy_plugin_offers_to_rasterize_text_layer() {
   CHECK(saw_rasterize);
   CHECK(run_script(window, QStringLiteral("console.log('after rasterize ' + app.activeDocument.activeLayer.isText);")));
   CHECK(backlog_contains(window, QStringLiteral("after rasterize false")));
-  CHECK(window.statusBar()->currentMessage() == QStringLiteral("Applied Greyscale"));
+  CHECK(window.statusBar()->currentMessage().startsWith(QStringLiteral("Applied Greyscale")));
 }
 
 // The screen size reported to plug-ins (the helper's virtual screen) is a
@@ -604,6 +698,96 @@ void ui_preferences_dialog_shows_every_tab() {
   CHECK(inspected);
 }
 
+// The companion box of a plug-in run, driven the way the runner drives it
+// (docs/plugins.md): no plug-in involved, so it runs on every platform.
+void ui_legacy_plugin_run_dialog_states() {
+  using patchy::ui::LegacyPluginPhase;
+  using patchy::ui::LegacyPluginRunDialog;
+  LegacyPluginRunDialog dialog(QStringLiteral("Greyscale"));
+  auto* message = dialog.findChild<QLabel*>(QStringLiteral("legacyPluginRunMessage"));
+  auto* hint = dialog.findChild<QLabel*>(QStringLiteral("legacyPluginRunHint"));
+  auto* bar = dialog.findChild<QProgressBar*>(QStringLiteral("legacyPluginRunProgressBar"));
+  auto* show_window = dialog.findChild<QPushButton*>(QStringLiteral("legacyPluginShowWindowButton"));
+  auto* stop = dialog.findChild<QPushButton*>(QStringLiteral("legacyPluginStopButton"));
+  CHECK(message != nullptr && hint != nullptr && bar != nullptr && show_window != nullptr && stop != nullptr);
+  if (message == nullptr || hint == nullptr || bar == nullptr || show_window == nullptr || stop == nullptr) {
+    return;
+  }
+  CHECK(dialog.windowFlags().testFlag(Qt::WindowDoesNotAcceptFocus));
+  CHECK(dialog.windowModality() == Qt::WindowModal);
+  CHECK(!dialog.isVisible());  // the caller reveals it after a second, or when a window appears
+
+  // Helper starting: busy, force stop.
+  CHECK(dialog.state() == LegacyPluginRunDialog::State::Starting);
+  CHECK(message->text() == QStringLiteral("Starting Greyscale..."));
+  CHECK(stop->text() == QStringLiteral("Force Stop Plug-in"));
+  CHECK(!show_window->isVisibleTo(&dialog));
+  CHECK(bar->isVisibleTo(&dialog));
+  CHECK(bar->maximum() == 0);
+  dialog.set_phase(LegacyPluginPhase::Parameters);
+  CHECK(dialog.state() == LegacyPluginRunDialog::State::Starting);
+
+  // The plug-in's dialog is up: calm text, no bar, both buttons, revealed and
+  // placed by the window.
+  dialog.set_plugin_window(QRect(100, 100, 700, 400));
+  CHECK(dialog.state() == LegacyPluginRunDialog::State::WaitingForUser);
+  CHECK(dialog.isVisible());
+  CHECK(message->text().startsWith(QStringLiteral("Greyscale is open in its own window.")));
+  CHECK(message->text().contains(QStringLiteral("click its OK button")));
+  CHECK(hint->isVisibleTo(&dialog));
+  CHECK(hint->text().contains(QStringLiteral("preview inside their own window")));
+  CHECK(!bar->isVisibleTo(&dialog));
+  CHECK(show_window->isVisibleTo(&dialog));
+  CHECK(stop->text() == QStringLiteral("Force Stop Plug-in"));
+  CHECK(!stop->toolTip().isEmpty());
+  CHECK(!dialog.take_show_window_request());
+  show_window->click();
+  CHECK(dialog.take_show_window_request());
+  CHECK(!dialog.take_show_window_request());  // consumed
+
+  // A plug-in that opens its dialog from Start (Mehdi's, KPT) still waits.
+  dialog.set_phase(LegacyPluginPhase::Prepare);
+  dialog.set_phase(LegacyPluginPhase::Start);
+  CHECK(dialog.state() == LegacyPluginRunDialog::State::WaitingForUser);
+
+  // OK clicked: the window is gone and the filtering pass runs.
+  dialog.set_plugin_window(QRect());
+  CHECK(dialog.state() == LegacyPluginRunDialog::State::Applying);
+  CHECK(message->text() == QStringLiteral("Applying Greyscale..."));
+  CHECK(!hint->isVisibleTo(&dialog));
+  CHECK(bar->isVisibleTo(&dialog));
+  CHECK(!show_window->isVisibleTo(&dialog));
+  CHECK(stop->text() == QStringLiteral("Cancel"));
+  dialog.set_progress(50, 100);
+  CHECK(bar->maximum() == 100);
+  CHECK(bar->value() == 50);
+  // The plug-in's own progress window during Continue is not a settings dialog.
+  dialog.set_phase(LegacyPluginPhase::Continue);
+  dialog.set_plugin_window(QRect(100, 100, 300, 80));
+  CHECK(dialog.state() == LegacyPluginRunDialog::State::Applying);
+  CHECK(show_window->isVisibleTo(&dialog));
+
+  // Stopping, by the button or the title-bar close, is one request.
+  CHECK(!dialog.stop_requested());
+  stop->click();
+  CHECK(dialog.stop_requested());
+  CHECK(!dialog.isVisible());
+  dialog.reveal();
+  CHECK(!dialog.isVisible());  // never comes back after a stop
+
+  // Straight to work with no dialog at all (dialog:false): applying from Prepare on.
+  LegacyPluginRunDialog quiet(QStringLiteral("Quiet"));
+  quiet.set_phase(LegacyPluginPhase::Prepare);
+  CHECK(quiet.state() == LegacyPluginRunDialog::State::Applying);
+  quiet.set_phase(LegacyPluginPhase::Continue);
+  CHECK(quiet.state() == LegacyPluginRunDialog::State::Applying);
+  CHECK(!quiet.stop_requested());
+  quiet.reveal();
+  CHECK(quiet.isVisible());
+  quiet.close();  // the title-bar close button
+  CHECK(quiet.stop_requested());
+}
+
 // The README the app writes into a fresh plug-ins folder is the one the Windows
 // package ships.
 void ui_legacy_plugins_readme_matches_packaged_file() {
@@ -630,9 +814,11 @@ std::vector<patchy::test::TestCase> legacy_plugin_tests() {
       {"ui_about_dialog_has_plugins_folder_row", ui_about_dialog_has_plugins_folder_row},
       {"ui_preferences_plugin_screen_size_round_trips", ui_preferences_plugin_screen_size_round_trips},
       {"ui_legacy_plugin_offers_to_rasterize_text_layer", ui_legacy_plugin_offers_to_rasterize_text_layer},
+      {"ui_legacy_plugin_repeat_last_commands", ui_legacy_plugin_repeat_last_commands},
 #else
       {"ui_legacy_plugin_ui_absent_off_windows", ui_legacy_plugin_ui_absent_off_windows},
 #endif
+      {"ui_legacy_plugin_run_dialog_states", ui_legacy_plugin_run_dialog_states},
       {"ui_legacy_plugins_readme_matches_packaged_file", ui_legacy_plugins_readme_matches_packaged_file},
       {"ui_preferences_dialog_shows_every_tab", ui_preferences_dialog_shows_every_tab},
   };

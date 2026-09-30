@@ -1049,6 +1049,8 @@ ${PATCHY_LUPDATE_MANIFEST_SOURCES}
       src/ui/main_window_layer_panel.cpp
       src/ui/main_window_palette.cpp
       src/ui/main_window_plugins.cpp
+      src/ui/legacy_plugin_run_dialog.hpp
+      src/ui/legacy_plugin_run_dialog.cpp
       src/ui/main_window_preferences.cpp
       src/ui/main_window_scripting.cpp
       src/ui/main_window_sessions.cpp
