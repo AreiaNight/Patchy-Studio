@@ -1106,7 +1106,8 @@ void ui_transform_fields_accept_unit_tokens() {
   CHECK(scale_x->text() == QStringLiteral("100.00%"));
   CHECK(scale_y->suffix() == patchy::ui::percent_suffix());
   commit_text(*x, QStringLiteral("1 in"));
-  CHECK(x->text() == QStringLiteral("1.00") + patchy::ui::inch_suffix());
+  // An inch display widens to three decimals (docs/resolution-units.md).
+  CHECK(x->text() == QString::number(snapped_reference(300.0, true) / 300.0, 'f', 3) + patchy::ui::inch_suffix());
   CHECK(std::abs(state().reference_position.x() - snapped_reference(300.0, true)) < 0.01);
   commit_text(*x, QStringLiteral("600 px"));
   CHECK(x->text() == QString::number(snapped_reference(600.0, true), 'f', 2) + patchy::ui::pixel_suffix());

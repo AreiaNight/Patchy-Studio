@@ -8300,7 +8300,7 @@ void MainWindow::configure_canvas(CanvasWidget* canvas) {
         appearance.stroke_enabled = current_vector_stroke_enabled_;
         appearance.stroke = vector_fill_preview_brush(current_vector_stroke_paint_);
         appearance.stroke_width = current_vector_stroke_width_;
-        appearance.line_weight = current_vector_line_weight_;
+        appearance.line_weight = static_cast<int>(std::lround(current_vector_line_weight_));
         return appearance;
       });
   canvas->set_polygon_sides(

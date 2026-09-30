@@ -64,10 +64,14 @@ resamples revert, as in Photoshop), pixel/percent units disable (auto-flip to In
 W/H/Resolution tri-link (a physical edit re-derives the PPI). Applying with Resample off
 is a metadata-only undo step ("Print resolution").
 
-New Document: presets carry a resolution (physical paper presets 300; Clipboard, 1080p,
-4K follow Photoshop's 72 screen convention; the default 1024x768 keeps Patchy's historical
-300). One shared W/H unit combo converts through the Resolution spin; physical entry holds
-its size when the resolution changes.
+New Document: presets carry a resolution (physical paper presets 300; the screen presets,
+the default 1024x768 included, and Clipboard follow Photoshop's 72 screen convention). One
+shared W/H unit combo (px/in/cm/mm) converts through the Resolution spin; physical entry
+holds its size when the resolution changes. The accepted W/H unit and the resolution unit
+persist with the other settings as `newDocument/lastUnit` (a settings token) and
+`newDocument/lastResolutionUnit` (`in`/`cm`), issue 53; with no stored unit the combo
+seeds from `view/rulerUnits`, and a token the combo cannot show (`pt`, `percent`) falls
+back to Pixels. `ui_new_document_dialog_remembers_unit`.
 
 Print dialog (src/ui/print_dialog.cpp): print resolution is READ-ONLY, derived as document
 PPI / scale (Photoshop semantics); editing resolution belongs to Image Size. Default scale
@@ -128,17 +132,55 @@ document width/height; the W/H fields (native percent) take pixels relative to t
 session's original extent (`TransformControlsState::original_size`); text size (native
 pt) takes px through the PPI; a degree field accepts only degrees; a percent typed into a
 field with no basis is refused. Converted values clamp to the range; plain numbers keep
-the stock spin-box typing rules. A dimension field that switches units also takes
-`measurement_unit_single_step` (1 for px/mm/pt/%, 0.1 cm, 0.01 in) so arrow keys and a
-scrubby-label drag ([ui-conventions.md](ui-conventions.md)) never move a whole inch per step. A switchable field (`set_display_unit_switchable`, the
-transform X/Y/W/H fields) also adopts a typed unit as its display unit, Photoshop-style:
-`value()` stays native, `textFromValue` converts for display, a plain number is then read in
-the shown unit, and a right-click lists the units (`display_unit_changed` lets the linked
-W/H pair follow each other). Coverage: the `unit_spin_box` UI test group and
-`ui_transform_fields_accept_unit_tokens`.
+the stock spin-box typing rules.
+
+Every px-native field that converts typed units needs a context provider carrying the
+document PPI (`MainWindow::document_unit_context_provider(horizontal)` for live fields, a
+`DocumentFieldUnits` snapshot through `document_field_context` for modal dialogs). A field
+without one converts at 300 PPI, which is wrong on every other document; until issue 53
+the feather, corner radius, magnetic lasso width, pattern offset, tolerance and grid
+spacing fields all did that. `ui_feather_field_typed_unit_uses_document_ppi`.
+
+A switchable field (`set_display_unit_switchable`) adopts a typed unit as its display unit,
+Photoshop-style: `value()` stays native, `textFromValue` converts for display, a plain
+number is then read in the shown unit, and a right-click lists the units
+(`display_unit_changed` lets the linked transform W/H pair follow each other). Leaving the
+native unit widens `decimals()` to `measurement_unit_decimals` (never narrower than the
+field's own) and sets `singleStep()` to one shown unit converted to native
+(`measurement_unit_single_step`: 1 for px/mm/pt/%, 0.1 cm, 0.01 in), so arrow keys and a
+scrubby-label drag ([ui-conventions.md](ui-conventions.md)) move a sensible amount in
+inches; returning to the native unit restores both. The decimals change is silent (no
+`valueChanged`), so a shape W/H handler never resizes the shape for a readout change.
+`refresh_display_metrics` re-derives the step when the PPI changes. Set a field's native
+decimals and step before it shows another unit, never while one is shown.
+
+### Dimension fields follow the ruler unit (issue 53)
+
+`view/rulerUnits` is also the display unit of the pixel-native position and size fields,
+Photoshop's Units & Rulers model: the transform X/Y fields, the shape W/H readouts (options
+bar and Properties panel), the vector stroke width and line weight (both fractional px so
+a 0.5 mm hairline survives), the New Guide position, and the Shape Appearance and Create
+Shape dialogs' X/Y/W/H, line start/end, line weight and stroke width. The transform W/H
+pair stays percent-native. MainWindow enrolls its live fields with
+`register_ruler_unit_field`; `apply_ruler_unit_to_fields` (Preferences OK, the ruler
+right-click, startup) resets them all to the preference, so a right-click unit pick on one
+field is a per-field session override that lasts until the next preference change;
+`refresh_ruler_unit_field_metrics` runs from `refresh_document_info` because the PPI is per
+document. Dialogs receive a `DocumentFieldUnits` snapshot (`document_field_units()`) and
+call `apply_document_field_units`. `measurement_unit_for` / `spin_unit_for` bridge the two
+enums. A Percent ruler unit shows percent of the document extent on position/size fields
+and falls back to the native text on thicknesses (no basis).
+
+Deliberately still px: selection Feather, corner radii, pattern offsets, layer-style
+sizes and distances, brush and Liquify sizes, tolerances. They are raster parameters
+Photoshop keeps in px, most are integer fields, and they accept "0.5 mm" at the document
+PPI. Coverage: the `unit_spin_box` UI test group, `ui_transform_fields_accept_unit_tokens`,
+`ui_shape_size_fields_follow_ruler_unit`.
 
 ## Known limits / future work
 
 Type unit preference (pt vs px for the text tool), Info-panel cursor/selection readouts in
-ruler units, physical presets in Image Size's Fit To combo, and reading PCX header DPI
-(unreliable in the wild; Photoshop ignores it too) are deliberately not implemented yet.
+ruler units, a right-click unit pick that changes the ruler preference itself (Photoshop
+does; Patchy keeps it per field), physical presets in Image Size's Fit To combo, and reading
+PCX header DPI (unreliable in the wild; Photoshop ignores it too) are deliberately not
+implemented yet.

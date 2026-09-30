@@ -1484,7 +1484,7 @@ void ui_size_sliders_give_the_low_end_most_of_the_track() {
   CHECK(feather->value() == 12);
   close_popup(QStringLiteral("selectionFeather"));
 
-  auto* line_weight = window.findChild<QSpinBox*>(QStringLiteral("vectorLineWeightSpin"));
+  auto* line_weight = window.findChild<QDoubleSpinBox*>(QStringLiteral("vectorLineWeightSpin"));
   CHECK(line_weight != nullptr);
   auto* line_weight_slider = open_popup_slider(QStringLiteral("vectorLineWeight"));
   CHECK(line_weight_slider->maximum() == kCurvedSliderPositions);

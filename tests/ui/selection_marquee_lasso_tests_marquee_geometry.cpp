@@ -2133,8 +2133,51 @@ void ui_pen_preferences_spin_buttons_visible_and_increment_on_right() {
 
 }  // namespace
 
+// A typed physical unit in a pixel-only field (Feather, the Rectangle tool's
+// corner radius) converts at the document PPI, not a fixed 300 (issue 53).
+void ui_feather_field_typed_unit_uses_document_ppi() {
+  patchy::ui::MainWindow window;
+  show_window(window);
+  auto* canvas = require_canvas(window);
+  auto& document = patchy::ui::MainWindowTestAccess::document(window);
+  document.print_settings().horizontal_ppi = 72.0;
+  document.print_settings().vertical_ppi = 72.0;
+  const auto commit_text = [](QAbstractSpinBox& spin, const QString& text) {
+    auto* editor = spin.findChild<QLineEdit*>();
+    CHECK(editor != nullptr);
+    editor->setText(text);
+    send_key(spin, Qt::Key_Return);
+    QApplication::processEvents();
+  };
+
+  require_action_by_text(window, QStringLiteral("Marquee"))->trigger();
+  auto* feather = window.findChild<QSpinBox*>(QStringLiteral("selectionFeatherSpin"));
+  CHECK(feather != nullptr);
+  CHECK(feather->suffix() == patchy::ui::pixel_suffix());  // stays a px field
+  commit_text(*feather, QStringLiteral("1 in"));
+  CHECK(feather->value() == 72);
+  CHECK(canvas->selection_feather_radius() == 72);
+  CHECK(feather->text() == QStringLiteral("72") + patchy::ui::pixel_suffix());
+
+  document.print_settings().horizontal_ppi = 300.0;
+  document.print_settings().vertical_ppi = 300.0;
+  commit_text(*feather, QStringLiteral("1 in"));
+  CHECK(feather->value() == 300);
+  commit_text(*feather, QStringLiteral("0"));
+  CHECK(feather->value() == 0);
+
+  require_action(window, "toolRectAction")->trigger();
+  QApplication::processEvents();
+  auto* radius = window.findChild<QSpinBox*>(QStringLiteral("shapeCornerRadiusSpin"));
+  CHECK(radius != nullptr);
+  commit_text(*radius, QStringLiteral("10 mm"));
+  CHECK(radius->value() == 118);  // 300 / 25.4 * 10, rounded
+  commit_text(*radius, QStringLiteral("0"));
+}
+
 std::vector<patchy::test::TestCase> selection_marquee_lasso_tests_part1() {
   return {
+      {"ui_feather_field_typed_unit_uses_document_ppi", ui_feather_field_typed_unit_uses_document_ppi},
       {"ui_marquee_selection_modifiers_work", ui_marquee_selection_modifiers_work},
       {"ui_marquee_click_outside_canvas_deselects", ui_marquee_click_outside_canvas_deselects},
       {"ui_marquee_shift_drag_constrains_to_square", ui_marquee_shift_drag_constrains_to_square},

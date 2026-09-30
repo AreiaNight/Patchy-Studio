@@ -1768,6 +1768,11 @@ void MainWindow::create_docks() {
   properties_shape_size_row->addStretch(1);
   properties_layout->addWidget(properties_shape_size_panel_);
   install_scrub_labels_in(properties_shape_size_panel_);  // drag "W:" / "H:" to scrub (issue 46)
+  // Photoshop's Properties panel shows shape W/H in the ruler unit.
+  properties_shape_width_spin_->set_context_provider(document_unit_context_provider(true));
+  properties_shape_height_spin_->set_context_provider(document_unit_context_provider(false));
+  register_ruler_unit_field(properties_shape_width_spin_);
+  register_ruler_unit_field(properties_shape_height_spin_);
   connect(properties_shape_width_spin_, &QDoubleSpinBox::valueChanged, this,
           [this](double value) { handle_vector_shape_size_value_changed(true, value); });
   connect(properties_shape_height_spin_, &QDoubleSpinBox::valueChanged, this,

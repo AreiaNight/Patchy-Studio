@@ -783,13 +783,13 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   transform_x_spin_ = make_transform_spin(QStringLiteral("freeTransformXSpin"), -30000.0, 30000.0, 2,
                                           SpinUnit::Pixels);
   transform_x_spin_->set_context_provider(document_axis_context(true));
-  transform_x_spin_->set_display_unit_switchable(true);
+  register_ruler_unit_field(transform_x_spin_);  // starts in the ruler unit (Photoshop)
   bind_tooltip(transform_x_spin_, QT_TR_NOOP("Reference X position"));
   make_transform_label(QT_TR_NOOP("Y:"));
   transform_y_spin_ = make_transform_spin(QStringLiteral("freeTransformYSpin"), -30000.0, 30000.0, 2,
                                           SpinUnit::Pixels);
   transform_y_spin_->set_context_provider(document_axis_context(false));
-  transform_y_spin_->set_display_unit_switchable(true);
+  register_ruler_unit_field(transform_y_spin_);
   bind_tooltip(transform_y_spin_, QT_TR_NOOP("Reference Y position"));
   make_transform_label(QT_TR_NOOP("W:"));
   transform_scale_x_spin_ = make_transform_spin(QStringLiteral("freeTransformScaleXSpin"), -10000.0, 10000.0, 2,
@@ -1099,6 +1099,7 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   feather_layout->addWidget(feather_label);
   auto* feather = new UnitIntSpinBox(SpinUnit::Pixels, feather_group);
   feather->setObjectName(QStringLiteral("selectionFeatherSpin"));
+  feather->set_context_provider(document_unit_context_provider(true));  // "2 mm" converts at the document PPI
   feather->setRange(0, kMaxSelectionFeatherRadius);
   feather->setValue(current_selection_feather_radius_);
   feather->setProperty(kToolbarSpinboxSliderCurvedProperty, true);
@@ -1131,6 +1132,7 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   add_option_label(QT_TR_NOOP("Radius:"), {CanvasTool::Marquee});
   auto* marquee_corner_radius = new UnitIntSpinBox(SpinUnit::Pixels, toolbar);
   marquee_corner_radius->setObjectName(QStringLiteral("selectionCornerRadiusSpin"));
+  marquee_corner_radius->set_context_provider(document_unit_context_provider(true));
   marquee_corner_radius->setRange(0, 512);
   marquee_corner_radius->setValue(current_marquee_corner_radius_);
   bind_tooltip(marquee_corner_radius, QT_TR_NOOP("Rounded-corner radius for the rectangular marquee (0 = sharp corners)"));
@@ -2284,6 +2286,7 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   add_option_label(QT_TR_NOOP("Width:"), {CanvasTool::MagneticLasso});
   auto* magnetic_width = new UnitIntSpinBox(SpinUnit::Pixels, toolbar);
   magnetic_width->setObjectName(QStringLiteral("magneticLassoWidthSpin"));
+  magnetic_width->set_context_provider(document_unit_context_provider(true));
   magnetic_width->setRange(1, 256);
   magnetic_width->setValue(canvas_defaults->magnetic_lasso_width());
   bind_tooltip(magnetic_width, QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Edge search width in document pixels: press [ or ]"));
@@ -2469,15 +2472,23 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   connect(vector_stroke_swatch_button_, &QToolButton::clicked, this,
           [this] { show_vector_paint_menu(true); });
 
+  // A thickness has no percent basis: the document extent means nothing to it.
+  const auto thickness_context = [this]() -> UnitConversionContext {
+    auto context = document_unit_context(true);
+    context.percent_reference_pixels = 0.0;
+    return context;
+  };
   auto* vector_stroke_width = new UnitSpinBox(SpinUnit::Pixels, toolbar);
   vector_stroke_width->setObjectName(QStringLiteral("vectorStrokeWidthSpin"));
   vector_stroke_width->setRange(0.1, 1000.0);
   vector_stroke_width->setDecimals(1);
   vector_stroke_width->setValue(current_vector_stroke_width_);
+  vector_stroke_width->set_context_provider(thickness_context);
   bind_tooltip(vector_stroke_width, QT_TR_NOOP("Stroke width"));
   configure_toolbar_spinbox(vector_stroke_width, 64);
   add_option_widget(vector_stroke_width, vector_appearance_tools);
   vector_shape_mode_option_widgets_.push_back(vector_stroke_width);
+  register_ruler_unit_field(vector_stroke_width);  // print users think in mm strokes
   connect(vector_stroke_width, &QDoubleSpinBox::valueChanged, this, [this](double value) {
     current_vector_stroke_width_ = value;
     schedule_save_tool_settings();
@@ -2526,6 +2537,11 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
       add_option_label(QT_TR_NOOP("H:"), vector_shape_size_tools));
   vector_shape_height_spin_ =
       make_shape_size_spin("vectorShapeHeightSpin", QT_TR_NOOP("Height of the active shape"));
+  // The readouts follow the ruler unit; value() stays document pixels.
+  vector_shape_width_spin_->set_context_provider(document_unit_context_provider(true));
+  vector_shape_height_spin_->set_context_provider(document_unit_context_provider(false));
+  register_ruler_unit_field(vector_shape_width_spin_);
+  register_ruler_unit_field(vector_shape_height_spin_);
   connect(vector_shape_width_spin_, &QDoubleSpinBox::valueChanged, this, [this](double value) {
     handle_vector_shape_size_value_changed(true, value);
   });
@@ -2535,16 +2551,21 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
 
   vector_vector_mode_option_widgets_.push_back(
       add_option_label(QT_TR_NOOP("Weight:"), {CanvasTool::Line}));
-  auto* vector_line_weight = new UnitIntSpinBox(SpinUnit::Pixels, toolbar);
+  // Fractional so a 0.5 mm hairline survives a ruler unit of mm; the shape
+  // model's line_weight is a double already.
+  auto* vector_line_weight = new UnitSpinBox(SpinUnit::Pixels, toolbar);
   vector_line_weight->setObjectName(QStringLiteral("vectorLineWeightSpin"));
-  vector_line_weight->setRange(1, 1000);
+  vector_line_weight->setRange(1.0, 1000.0);
+  vector_line_weight->setDecimals(1);
   vector_line_weight->setValue(current_vector_line_weight_);
+  vector_line_weight->set_context_provider(thickness_context);
   bind_tooltip(vector_line_weight, QT_TR_NOOP("Line thickness"));
   vector_line_weight->setProperty(kToolbarSpinboxSliderCurvedProperty, true);
   configure_toolbar_spinbox(vector_line_weight, 58);
   add_option_widget(vector_line_weight, {CanvasTool::Line});
   vector_vector_mode_option_widgets_.push_back(vector_line_weight);
-  connect(vector_line_weight, &QSpinBox::valueChanged, this, [this](int value) {
+  register_ruler_unit_field(vector_line_weight);
+  connect(vector_line_weight, &QDoubleSpinBox::valueChanged, this, [this](double value) {
     current_vector_line_weight_ = value;
     schedule_save_tool_settings();
   });
@@ -2693,6 +2714,7 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   add_option_label(QT_TR_NOOP("Radius:"), {CanvasTool::Rectangle});
   auto* shape_corner_radius = new UnitIntSpinBox(SpinUnit::Pixels, toolbar);
   shape_corner_radius->setObjectName(QStringLiteral("shapeCornerRadiusSpin"));
+  shape_corner_radius->set_context_provider(document_unit_context_provider(true));
   shape_corner_radius->setRange(0, 512);
   shape_corner_radius->setValue(canvas_defaults->shape_corner_radius());
   bind_tooltip(shape_corner_radius, QT_TR_NOOP("Rounded-corner radius for the rectangle tool (0 = sharp corners)"));

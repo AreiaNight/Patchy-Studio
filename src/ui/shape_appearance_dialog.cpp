@@ -152,9 +152,15 @@ std::optional<ShapeAppearanceSettings> request_shape_appearance_settings(
     ShapeAppearanceSettings initial, ShapeAppearanceSettings reset_defaults,
     GradientLibrary* gradient_library,
     PatternLibrary* pattern_library, const PatternStore* document_patterns, RgbColor foreground,
-    RgbColor background) {
+    RgbColor background, const DocumentFieldUnits& units) {
   QDialog dialog(parent);
   dialog.setObjectName(QStringLiteral("shapeAppearanceDialog"));
+  // Thicknesses and radii have no percent basis; positions and sizes take the
+  // document extent on their axis.
+  auto thickness_units = units;
+  thickness_units.document_width = 0.0;
+  thickness_units.document_height = 0.0;
+  const auto pixel_field_context = [thickness_units] { return document_field_context(thickness_units, true); };
   dialog.setWindowTitle(QObject::tr("Shape Appearance"));
   auto* dialog_layout = new QVBoxLayout(&dialog);
 
@@ -314,6 +320,11 @@ std::optional<ShapeAppearanceSettings> request_shape_appearance_settings(
       auto* end_x = make_spin("shapeGeometryLineEndXSpin", -30000, 30000, geometry.line_end_x);
       auto* end_y = make_spin("shapeGeometryLineEndYSpin", -30000, 30000, geometry.line_end_y);
       auto* weight = make_spin("shapeGeometryLineWeightSpin", 0.5, 1000, geometry.line_weight);
+      apply_document_field_units(start_x, units, true);
+      apply_document_field_units(start_y, units, false);
+      apply_document_field_units(end_x, units, true);
+      apply_document_field_units(end_y, units, false);
+      apply_document_field_units(weight, thickness_units, true);
       add_geometry_row(QObject::tr("Start X:"), start_x);
       add_geometry_row(QObject::tr("Start Y:"), start_y);
       add_geometry_row(QObject::tr("End X:"), end_x);
@@ -343,6 +354,10 @@ std::optional<ShapeAppearanceSettings> request_shape_appearance_settings(
           make_spin("shapeGeometryWidthSpin", 0.5, 60000, geometry.right - geometry.left);
       auto* height_spin =
           make_spin("shapeGeometryHeightSpin", 0.5, 60000, geometry.bottom - geometry.top);
+      apply_document_field_units(x_spin, units, true);
+      apply_document_field_units(y_spin, units, false);
+      apply_document_field_units(width_spin, units, true);
+      apply_document_field_units(height_spin, units, false);
       add_geometry_row(QObject::tr("X:"), x_spin);
       add_geometry_row(QObject::tr("Y:"), y_spin);
       const int width_row = add_geometry_row(QObject::tr("Width:"), width_spin);
@@ -387,8 +402,9 @@ std::optional<ShapeAppearanceSettings> request_shape_appearance_settings(
             QObject::tr("Bottom right radius:"), QObject::tr("Bottom left radius:")};
         const int first_radius_row = static_cast<int>(geometry_rows.size());
         for (std::size_t corner = 0; corner < 4; ++corner) {
-          radius_spins[corner] =
-              make_spin(names[corner], 0, 30000, geometry.corner_radii[corner]);
+          auto* radius_spin = make_spin(names[corner], 0, 30000, geometry.corner_radii[corner]);
+          radius_spin->set_context_provider(pixel_field_context);  // stays px; "2 mm" converts
+          radius_spins[corner] = radius_spin;
           add_geometry_row(labels[corner], radius_spins[corner]);
         }
         // Linked, editing any corner sets all four. Starts linked when the
@@ -579,6 +595,7 @@ std::optional<ShapeAppearanceSettings> request_shape_appearance_settings(
 
   auto* pattern_offset_x_spin = new UnitSpinBox(SpinUnit::Pixels, fill_group);
   pattern_offset_x_spin->setObjectName(QStringLiteral("shapePatternOffsetXSpin"));
+  pattern_offset_x_spin->set_context_provider(pixel_field_context);
   pattern_offset_x_spin->setRange(-30000.0, 30000.0);
   pattern_offset_x_spin->setDecimals(1);
   configure_dialog_spinbox(pattern_offset_x_spin, 80);
@@ -586,6 +603,7 @@ std::optional<ShapeAppearanceSettings> request_shape_appearance_settings(
 
   auto* pattern_offset_y_spin = new UnitSpinBox(SpinUnit::Pixels, fill_group);
   pattern_offset_y_spin->setObjectName(QStringLiteral("shapePatternOffsetYSpin"));
+  pattern_offset_y_spin->set_context_provider(pixel_field_context);
   pattern_offset_y_spin->setRange(-30000.0, 30000.0);
   pattern_offset_y_spin->setDecimals(1);
   configure_dialog_spinbox(pattern_offset_y_spin, 80);
@@ -612,6 +630,7 @@ std::optional<ShapeAppearanceSettings> request_shape_appearance_settings(
   edge_layout->addLayout(edge_form);
   auto* feather_spin = new UnitSpinBox(SpinUnit::Pixels, edge_group);
   feather_spin->setObjectName(QStringLiteral("shapeFeatherSpin"));
+  feather_spin->set_context_provider(pixel_field_context);
   feather_spin->setRange(0.0, 1000.0);
   feather_spin->setDecimals(1);
   feather_spin->setValue(state->settings.feather);
@@ -656,6 +675,7 @@ std::optional<ShapeAppearanceSettings> request_shape_appearance_settings(
   stroke_width_spin->setRange(0.1, 1000.0);
   stroke_width_spin->setDecimals(1);
   stroke_width_spin->setValue(state->settings.stroke.width);
+  apply_document_field_units(stroke_width_spin, thickness_units, true);
   configure_dialog_spinbox(stroke_width_spin, 80);
   add_spin_row(stroke_form, QObject::tr("Width:"), stroke_width_spin);
 
@@ -746,6 +766,7 @@ std::optional<ShapeAppearanceSettings> request_shape_appearance_settings(
 
   auto* stroke_pattern_offset_x_spin = new UnitSpinBox(SpinUnit::Pixels, stroke_group);
   stroke_pattern_offset_x_spin->setObjectName(QStringLiteral("shapeStrokePatternOffsetXSpin"));
+  stroke_pattern_offset_x_spin->set_context_provider(pixel_field_context);
   stroke_pattern_offset_x_spin->setRange(-30000.0, 30000.0);
   stroke_pattern_offset_x_spin->setDecimals(1);
   configure_dialog_spinbox(stroke_pattern_offset_x_spin, 80);
@@ -753,6 +774,7 @@ std::optional<ShapeAppearanceSettings> request_shape_appearance_settings(
 
   auto* stroke_pattern_offset_y_spin = new UnitSpinBox(SpinUnit::Pixels, stroke_group);
   stroke_pattern_offset_y_spin->setObjectName(QStringLiteral("shapeStrokePatternOffsetYSpin"));
+  stroke_pattern_offset_y_spin->set_context_provider(pixel_field_context);
   stroke_pattern_offset_y_spin->setRange(-30000.0, 30000.0);
   stroke_pattern_offset_y_spin->setDecimals(1);
   configure_dialog_spinbox(stroke_pattern_offset_y_spin, 80);

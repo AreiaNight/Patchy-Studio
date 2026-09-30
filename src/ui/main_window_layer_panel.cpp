@@ -3819,6 +3819,7 @@ void MainWindow::refresh_layer_controls() {
 
 void MainWindow::refresh_document_info() {
   const UiProfileScope profile_scope("refresh_document_info");
+  refresh_ruler_unit_field_metrics();  // the PPI is per document
   sync_vector_shape_size_spins();
   refresh_palette_panel();
   schedule_palette_compliance_check();
