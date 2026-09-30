@@ -254,7 +254,9 @@ struct Writer {
       if (!transform.empty()) {
         transform.push_back(' ');
       }
-      transform += "rotate(" + detail::format_number(fill.pattern_angle_degrees) + ")";
+      // A positive pattern angle turns the tile counterclockwise (the Photoshop
+      // dial, PatternTileSampler); an SVG rotate() is clockwise on the y-down canvas.
+      transform += "rotate(" + detail::format_number(-fill.pattern_angle_degrees) + ")";
     }
     if (fill.pattern_linked) {
       // Linked placement anchors at the layer's effects reference point;

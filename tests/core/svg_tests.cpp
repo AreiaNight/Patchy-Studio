@@ -12,6 +12,7 @@
 #include "test_harness.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -22,6 +23,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -389,6 +391,319 @@ void svg_export_reimport_keeps_user_space_gradients() {
   check_user_space_gradient_geometry(read_svg(text));
 }
 
+// --- patterns ----------------------------------------------------------------
+
+// An imported pattern fill with the tile it paints from and the layer it was baked into.
+struct ImportedPattern {
+  const Layer* layer{nullptr};
+  patchy::VectorFill fill{};
+  PixelBuffer tile{};
+};
+
+ImportedPattern imported_pattern(const Document& document, std::string_view name) {
+  ImportedPattern result;
+  result.layer = find_layer_named(document.layers(), name);
+  CHECK(result.layer != nullptr && result.layer->vector_shape() != nullptr);
+  result.fill = result.layer->vector_shape()->fill;
+  CHECK(result.fill.kind == VectorFillKind::Pattern);
+  const auto* resource = document.metadata().patterns.find(result.fill.pattern_id);
+  CHECK(resource != nullptr && !resource->tile.empty());
+  result.tile = resource->tile;
+  return result;
+}
+
+// A layer's baked pixel at a document position; transparent outside its bounds.
+std::array<std::uint8_t, 4> baked_pixel(const Layer& layer, std::int32_t x, std::int32_t y) {
+  const auto bounds = layer.bounds();
+  if (x < bounds.x || y < bounds.y || x >= bounds.x + bounds.width || y >= bounds.y + bounds.height) {
+    return {};
+  }
+  const auto* pixel = layer.pixels().pixel(x - bounds.x, y - bounds.y);
+  return {pixel[0], pixel[1], pixel[2], pixel[3]};
+}
+
+bool painted(const Layer& layer, std::int32_t x, std::int32_t y, std::uint8_t red, std::uint8_t green,
+             std::uint8_t blue) {
+  return baked_pixel(layer, x, y) == std::array<std::uint8_t, 4>{red, green, blue, 255};
+}
+
+bool clear_at(const Layer& layer, std::int32_t x, std::int32_t y) {
+  return baked_pixel(layer, x, y)[3] == 0;
+}
+
+// The opaque runs a baked row has between two document columns: one per tile of a checker.
+int opaque_runs(const Layer& layer, std::int32_t y, std::int32_t from_x, std::int32_t to_x) {
+  int runs = 0;
+  bool inside = false;
+  for (std::int32_t x = from_x; x < to_x; ++x) {
+    const bool opaque = baked_pixel(layer, x, y)[3] == 255;
+    runs += opaque && !inside ? 1 : 0;
+    inside = opaque;
+  }
+  return runs;
+}
+
+bool placed_at(const patchy::VectorFill& fill, double x, double y) {
+  return std::abs(fill.pattern_phase_x - x) < 1e-6 && std::abs(fill.pattern_phase_y - y) < 1e-6;
+}
+
+// A pattern's tile lives in the painted element's user space, so its size, phase and
+// content take the same viewBox mapping and ancestor transforms as the element's path.
+// They used to stay in raw user units: under this 2x viewBox the 20-unit checker came
+// out with 20 px tiles, eight across each 160 px square instead of four.
+constexpr std::string_view kUserSpacePatternSvg =
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"400\" height=\"200\" viewBox=\"0 0 200 100\">"
+    "<defs>"
+    "<pattern id=\"checks\" patternUnits=\"userSpaceOnUse\" width=\"20\" height=\"20\">"
+    "<rect width=\"10\" height=\"10\" fill=\"#000000\"/>"
+    "<rect x=\"10\" y=\"10\" width=\"10\" height=\"10\" fill=\"#000000\"/>"
+    "</pattern>"
+    "</defs>"
+    "<rect width=\"200\" height=\"100\" fill=\"#ffffff\"/>"
+    "<rect id=\"Scaled\" x=\"10\" y=\"10\" width=\"80\" height=\"80\" fill=\"url(#checks)\"/>"
+    "<g transform=\"translate(100 0)\">"
+    "<rect id=\"Moved\" x=\"10\" y=\"10\" width=\"80\" height=\"80\" fill=\"url(#checks)\"/></g>"
+    "</svg>";
+
+void check_user_space_pattern_placement(const Document& document) {
+  CHECK(document.width() == 400 && document.height() == 200);
+  const auto scaled = imported_pattern(document, "Scaled");
+  // Drawn at document resolution: a 40 px tile placed unscaled, so the checks stay sharp.
+  CHECK(scaled.tile.width() == 40 && scaled.tile.height() == 40);
+  CHECK(scaled.fill.pattern_scale == 1.0);
+  CHECK(scaled.fill.pattern_angle_degrees == 0.0);
+  CHECK(!scaled.fill.pattern_linked);
+  CHECK(placed_at(scaled.fill, 0.0, 0.0));
+  CHECK(opaque_runs(*scaled.layer, 30, 20, 180) == 4);  // four tiles across the 160 px square
+  CHECK(painted(*scaled.layer, 30, 30, 0, 0, 0));
+  CHECK(painted(*scaled.layer, 39, 30, 0, 0, 0) && clear_at(*scaled.layer, 40, 30));  // a hard edge
+  CHECK(clear_at(*scaled.layer, 50, 30) && clear_at(*scaled.layer, 30, 50));
+  CHECK(painted(*scaled.layer, 50, 50, 0, 0, 0));
+  // The group translate carries the grid along with the square.
+  const auto moved = imported_pattern(document, "Moved");
+  CHECK(moved.tile.width() == 40 && moved.tile.height() == 40);
+  CHECK(moved.fill.pattern_scale == 1.0);
+  CHECK(placed_at(moved.fill, 200.0, 0.0));
+  CHECK(opaque_runs(*moved.layer, 30, 220, 380) == 4);
+  CHECK(painted(*moved.layer, 230, 30, 0, 0, 0) && clear_at(*moved.layer, 250, 30));
+}
+
+void svg_import_user_space_patterns_follow_the_element_transform() {
+  const auto repro = read_svg(kUserSpacePatternSvg);
+  check_user_space_pattern_placement(repro);
+  // Both squares draw the same tile: one PatternStore entry, not a copy each.
+  CHECK(repro.metadata().patterns.patterns.size() == 1);
+
+  // The tile's x/y and patternTransform ride the same chain, and a translate that is
+  // not a whole tile shows up as the grid's anchor.
+  std::vector<std::string> notices;
+  const auto document = read_svg(
+      "<svg width=\"400\" height=\"200\" viewBox=\"0 0 200 100\">"
+      "<defs>"
+      "<pattern id=\"checks\" patternUnits=\"userSpaceOnUse\" width=\"20\" height=\"20\">"
+      "<rect width=\"10\" height=\"10\" fill=\"#000000\"/>"
+      "<rect x=\"10\" y=\"10\" width=\"10\" height=\"10\" fill=\"#000000\"/>"
+      "</pattern>"
+      "<pattern id=\"big\" href=\"#checks\" x=\"5\" y=\"5\" patternTransform=\"scale(2)\"/>"
+      "</defs>"
+      "<g transform=\"translate(105 5)\">"
+      "<rect id=\"Offset\" x=\"10\" y=\"10\" width=\"80\" height=\"80\" fill=\"url(#checks)\"/></g>"
+      "<rect id=\"Doubled\" x=\"10\" y=\"10\" width=\"80\" height=\"80\" fill=\"url(#big)\"/>"
+      "</svg>",
+      &notices);
+  CHECK(notices.empty());
+  const auto offset = imported_pattern(document, "Offset");
+  CHECK(offset.tile.width() == 40 && offset.fill.pattern_scale == 1.0);
+  CHECK(placed_at(offset.fill, 210.0, 10.0));
+  CHECK(painted(*offset.layer, 240, 40, 0, 0, 0) && clear_at(*offset.layer, 260, 40));
+  const auto doubled = imported_pattern(document, "Doubled");
+  CHECK(doubled.tile.width() == 80 && doubled.tile.height() == 80);  // 20 units x scale(2) x the 2x viewBox
+  CHECK(doubled.fill.pattern_scale == 1.0);
+  CHECK(placed_at(doubled.fill, 20.0, 20.0));
+  CHECK(painted(*doubled.layer, 30, 30, 0, 0, 0) && clear_at(*doubled.layer, 70, 30));
+  CHECK(painted(*doubled.layer, 70, 70, 0, 0, 0));
+
+  // A tile that is not a whole number of document pixels keeps its exact period: the
+  // nearest whole tile, scaled by the remainder.
+  const auto fractional = read_svg(
+      "<svg width=\"150\" height=\"150\" viewBox=\"0 0 100 100\">"
+      "<defs><pattern id=\"bars\" patternUnits=\"userSpaceOnUse\" width=\"7\" height=\"7\">"
+      "<rect width=\"3\" height=\"7\" fill=\"#ff0000\"/></pattern></defs>"
+      "<rect id=\"Odd\" width=\"100\" height=\"100\" fill=\"url(#bars)\"/>"
+      "</svg>");
+  const auto odd = imported_pattern(fractional, "Odd");
+  CHECK(odd.tile.width() == 11 && odd.tile.height() == 11);  // 10.5 px
+  CHECK(std::abs(odd.fill.pattern_scale - 10.5 / 11.0) < 1e-9);
+
+  // A pattern painted with a pattern (here with itself, which would never end) is
+  // refused where it nests: that child paints gray.
+  const auto looped = read_svg(
+      "<svg width=\"40\" height=\"40\">"
+      "<defs><pattern id=\"loop\" patternUnits=\"userSpaceOnUse\" width=\"10\" height=\"10\">"
+      "<rect width=\"5\" height=\"5\" fill=\"url(#loop)\"/></pattern></defs>"
+      "<rect id=\"Loop\" width=\"40\" height=\"40\" fill=\"url(#loop)\"/>"
+      "</svg>",
+      &notices);
+  const auto loop = imported_pattern(looped, "Loop");
+  CHECK(loop.tile.width() == 10 && loop.tile.height() == 10);
+  CHECK(painted(*loop.layer, 2, 2, 128, 128, 128) && clear_at(*loop.layer, 7, 7));
+  CHECK(std::ranges::any_of(notices, [](const std::string& text) { return text.find("Nested") != std::string::npos; }));
+}
+
+// objectBoundingBox units (the default) are fractions of the element's own box, measured
+// from its corner; patternContentUnits scales the content the same way.
+void svg_import_bounding_box_patterns_resolve_in_the_element_box() {
+  std::vector<std::string> notices;
+  const auto document = read_svg(
+      "<svg width=\"400\" height=\"200\" viewBox=\"0 0 200 100\">"
+      "<defs>"
+      "<pattern id=\"halves\" width=\"0.5\" height=\"0.5\"><rect width=\"20\" height=\"10\" fill=\"#ff0000\"/></pattern>"
+      "<pattern id=\"percent\" href=\"#halves\" width=\"50%\" height=\"50%\"/>"
+      "<pattern id=\"fractions\" width=\"0.5\" height=\"0.5\" patternContentUnits=\"objectBoundingBox\">"
+      "<rect width=\"0.25\" height=\"0.25\" fill=\"#ff0000\"/></pattern>"
+      "</defs>"
+      "<rect id=\"Box\" x=\"10\" y=\"10\" width=\"80\" height=\"40\" fill=\"url(#halves)\"/>"
+      "<rect id=\"Percent\" x=\"110\" y=\"10\" width=\"80\" height=\"40\" fill=\"url(#percent)\"/>"
+      "<g transform=\"translate(100 0)\">"
+      "<rect id=\"Fractions\" x=\"10\" y=\"50\" width=\"80\" height=\"40\" fill=\"url(#fractions)\"/></g>"
+      "</svg>",
+      &notices);
+  CHECK(notices.empty());
+  // Half of the 80 x 40 unit box is a 40 x 20 unit tile: 80 x 40 px, anchored at the
+  // box corner.
+  const auto box = imported_pattern(document, "Box");
+  CHECK(box.tile.width() == 80 && box.tile.height() == 40);
+  CHECK(box.fill.pattern_scale == 1.0);
+  CHECK(placed_at(box.fill, 20.0, 20.0));
+  CHECK(painted(*box.layer, 30, 30, 255, 0, 0));    // the 40 x 20 px red corner of the first tile
+  CHECK(clear_at(*box.layer, 70, 30) && clear_at(*box.layer, 30, 45));
+  CHECK(painted(*box.layer, 110, 30, 255, 0, 0));   // the second tile across
+  CHECK(painted(*box.layer, 30, 65, 255, 0, 0));    // and down
+  // A percentage is the same fraction, so the second box reuses the first one's tile.
+  const auto percent = imported_pattern(document, "Percent");
+  CHECK(percent.fill.pattern_id == box.fill.pattern_id);
+  CHECK(placed_at(percent.fill, 220.0, 20.0));
+  CHECK(painted(*percent.layer, 230, 30, 255, 0, 0) && clear_at(*percent.layer, 270, 30));
+  // Content in box fractions draws the same tile, and the group translate moves the box.
+  const auto fractions = imported_pattern(document, "Fractions");
+  CHECK(fractions.tile.width() == 80 && fractions.tile.height() == 40);
+  CHECK(std::ranges::equal(std::as_const(fractions.tile).data(), std::as_const(box.tile).data()));
+  CHECK(placed_at(fractions.fill, 220.0, 100.0));
+  CHECK(painted(*fractions.layer, 230, 110, 255, 0, 0) && clear_at(*fractions.layer, 270, 110));
+}
+
+// What a tile's pixels cannot carry rides the placement model: a rotation becomes the
+// pattern angle (counterclockwise-positive, so an SVG rotate() flips sign). Unequal
+// axis scales and mirrors are baked into the tile; only skew is approximated.
+void svg_import_rotated_and_mirrored_patterns() {
+  constexpr std::string_view kBands =
+      "<pattern id=\"bands\" patternUnits=\"userSpaceOnUse\" width=\"20\" height=\"20\">"
+      "<rect width=\"20\" height=\"10\" fill=\"#0000ff\"/></pattern>";  // blue over clear
+  std::vector<std::string> notices;
+  const auto document = read_svg(
+      "<svg width=\"400\" height=\"100\">"
+      "<defs>" + std::string(kBands) +
+      "<pattern id=\"turned\" href=\"#bands\" patternTransform=\"rotate(90)\"/>"
+      "</defs>"
+      "<rect id=\"Turned\" width=\"100\" height=\"100\" fill=\"url(#turned)\"/>"
+      "<g transform=\"translate(100 0)\">"
+      "<rect id=\"Spun\" width=\"40\" height=\"40\" transform=\"rotate(90 50 50)\" fill=\"url(#bands)\"/></g>"
+      "<g transform=\"translate(200 100) scale(1 -1)\">"
+      "<rect id=\"Flipped\" width=\"100\" height=\"100\" fill=\"url(#bands)\"/></g>"
+      "<g transform=\"translate(300 0)\">"
+      "<rect id=\"Stretched\" width=\"10\" height=\"10\" transform=\"scale(2 3)\" fill=\"url(#bands)\"/></g>"
+      "</svg>",
+      &notices);
+  CHECK(notices.empty());
+  // rotate(90) stands the bands up: pattern y runs along -x, so the blue half of
+  // each period is its right half.
+  const auto turned = imported_pattern(document, "Turned");
+  CHECK(turned.tile.width() == 20 && turned.tile.height() == 20);
+  CHECK(turned.fill.pattern_scale == 1.0);
+  CHECK(std::abs(turned.fill.pattern_angle_degrees + 90.0) < 1e-9);
+  CHECK(painted(*turned.layer, 15, 50, 0, 0, 255) && clear_at(*turned.layer, 5, 50));
+  CHECK(painted(*turned.layer, 35, 50, 0, 0, 255) && clear_at(*turned.layer, 25, 50));
+  // The element's own rotation does the same and carries the anchor around with it:
+  // user (0, 0) lands on (100, 0) of the group, (200, 0) of the document.
+  const auto spun = imported_pattern(document, "Spun");
+  CHECK(std::abs(spun.fill.pattern_angle_degrees + 90.0) < 1e-9);
+  CHECK(placed_at(spun.fill, 200.0, 0.0));
+  CHECK(painted(*spun.layer, 195, 20, 0, 0, 255) && clear_at(*spun.layer, 185, 20));
+  // A mirror is baked into the tile (its rows reversed), not approximated.
+  const auto flipped = imported_pattern(document, "Flipped");
+  CHECK(flipped.fill.pattern_angle_degrees == 0.0 && flipped.fill.pattern_scale == 1.0);
+  CHECK(placed_at(flipped.fill, 200.0, 100.0));
+  CHECK(std::as_const(flipped.tile).pixel(0, 5)[3] == 0 && std::as_const(flipped.tile).pixel(0, 15)[3] == 255);
+  CHECK(painted(*flipped.layer, 250, 95, 0, 0, 255) && clear_at(*flipped.layer, 250, 85));
+  // Unequal axis scales are baked in too.
+  const auto stretched = imported_pattern(document, "Stretched");
+  CHECK(stretched.tile.width() == 40 && stretched.tile.height() == 60);
+  CHECK(stretched.fill.pattern_scale == 1.0);
+  CHECK(std::as_const(stretched.tile).pixel(0, 29)[3] == 255 && std::as_const(stretched.tile).pixel(0, 30)[3] == 0);
+
+  const auto skewed = read_svg(
+      "<svg width=\"100\" height=\"100\"><defs>" + std::string(kBands) +
+          "</defs><rect id=\"Skewed\" width=\"50\" height=\"50\" transform=\"skewX(30)\" fill=\"url(#bands)\"/></svg>",
+      &notices);
+  (void)imported_pattern(skewed, "Skewed");  // still a pattern fill
+  CHECK(notices.size() == 1 && notices.front().find("skew") != std::string::npos);
+}
+
+// Patchy writes a pattern fill as a <pattern> holding the tile as one embedded image
+// that fills the cell, and reads that form back as the same tile and placement.
+void svg_export_reimport_keeps_pattern_fills() {
+  const auto document = read_svg(kUserSpacePatternSvg);
+  std::vector<std::string> notices;
+  const auto text = write_svg(document, &notices);
+  CHECK(notices.empty());
+  CHECK(text.find("<pattern id=\"pat1\" patternUnits=\"userSpaceOnUse\" width=\"40\" height=\"40\">") !=
+        std::string::npos);
+  const auto reimported = read_svg(text, &notices);
+  CHECK(notices.empty());
+  check_user_space_pattern_placement(reimported);
+  const auto before = imported_pattern(document, "Moved");
+  const auto after = imported_pattern(reimported, "Moved");
+  CHECK(std::ranges::equal(std::as_const(after.tile).data(), std::as_const(before.tile).data()));
+  CHECK(std::ranges::equal(after.layer->pixels().data(), before.layer->pixels().data()));
+
+  // Scale, angle and phase make the trip as the cell size and patternTransform. The
+  // pattern angle is counterclockwise-positive, an SVG rotate() clockwise.
+  auto turned = read_svg(kUserSpacePatternSvg);
+  auto& layer = turned.layers()[1];
+  CHECK(layer.name() == "Scaled");
+  auto content = *layer.vector_shape();
+  content.fill.pattern_scale = 1.5;
+  content.fill.pattern_angle_degrees = 30.0;
+  content.fill.pattern_phase_x = 7.0;
+  content.fill.pattern_phase_y = 3.0;
+  layer.set_vector_shape(std::move(content));
+  patchy::update_vector_shape_raster(layer, Rect::from_size(turned.width(), turned.height()),
+                                     &turned.metadata().patterns);
+  const auto turned_text = write_svg(turned);
+  CHECK(turned_text.find("width=\"60\" height=\"60\" patternTransform=\"translate(7 3) rotate(-30)\"") !=
+        std::string::npos);
+  const auto returned = read_svg(turned_text, &notices);
+  CHECK(notices.empty());
+  const auto kept = imported_pattern(returned, "Scaled");
+  CHECK(kept.tile.width() == 40 && kept.tile.height() == 40);
+  CHECK(std::abs(kept.fill.pattern_scale - 1.5) < 1e-9);
+  CHECK(std::abs(kept.fill.pattern_angle_degrees - 30.0) < 1e-9);
+  CHECK(placed_at(kept.fill, 7.0, 3.0));
+  const auto& sent = std::as_const(turned).layers()[1];
+  CHECK(kept.layer->bounds().width == sent.bounds().width);
+  CHECK(std::ranges::equal(kept.layer->pixels().data(), sent.pixels().data()));
+
+  // An image that does not fill its tile would need resampling: gray, with a notice.
+  const auto partial = read_svg(
+      "<svg width=\"50\" height=\"50\"><defs>"
+      "<pattern id=\"corner\" patternUnits=\"userSpaceOnUse\" width=\"20\" height=\"20\">"
+      "<image width=\"10\" height=\"10\" href=\"data:image/png;base64,AAAA\"/></pattern></defs>"
+      "<rect id=\"Partial\" width=\"50\" height=\"50\" fill=\"url(#corner)\"/></svg>",
+      &notices);
+  CHECK(find_layer_named(partial.layers(), "Partial")->vector_shape()->fill.kind == VectorFillKind::Solid);
+  CHECK(!notices.empty());
+}
+
 // --- fill rules --------------------------------------------------------------
 
 void svg_import_fill_rules() {
@@ -718,6 +1033,12 @@ std::vector<patchy::test::TestCase> svg_tests() {
       {"svg_import_bounding_box_gradients_resolve_in_the_element_box",
        svg_import_bounding_box_gradients_resolve_in_the_element_box},
       {"svg_export_reimport_keeps_user_space_gradients", svg_export_reimport_keeps_user_space_gradients},
+      {"svg_import_user_space_patterns_follow_the_element_transform",
+       svg_import_user_space_patterns_follow_the_element_transform},
+      {"svg_import_bounding_box_patterns_resolve_in_the_element_box",
+       svg_import_bounding_box_patterns_resolve_in_the_element_box},
+      {"svg_import_rotated_and_mirrored_patterns", svg_import_rotated_and_mirrored_patterns},
+      {"svg_export_reimport_keeps_pattern_fills", svg_export_reimport_keeps_pattern_fills},
       {"svg_import_fill_rules", svg_import_fill_rules},
       {"svg_import_clip_and_mask", svg_import_clip_and_mask},
       {"svg_import_units_and_ppi", svg_import_units_and_ppi},

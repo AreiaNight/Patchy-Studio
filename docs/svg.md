@@ -98,10 +98,38 @@ post-open passes (below), `MainWindow::define_custom_shape_from_svg_*`
   against the outermost viewport in user units.
   spreadMethod=reflect -> Reflected (scale doubles; the export halves it
   back). Focal points and repeat spreads are approximated with a notice.
-- **Patterns**: shape-only `<pattern>` content rasterizes once into a
-  document PatternStore tile -> pattern fill anchored to the document origin
-  (pattern_linked = false - exactly SVG's user-space anchoring); richer
-  content degrades to gray + notice.
+- **Patterns**: `<pattern>` with href template inheritance, userSpaceOnUse and
+  objectBoundingBox patternUnits (x/y/width/height; a user-space percentage is
+  a share of the viewport), patternContentUnits, viewBox, patternTransform.
+  The tile becomes a document PatternStore tile and the fill is placed against
+  the document (pattern_linked = false). Pattern space is the painted
+  element's user space, so the grid goes through the same `PaintSpace` matrix
+  as the gradients: element transform x patternTransform, with the tile's
+  corner at x/y (objectBoundingBox: fractions of the element's own
+  pre-transform box, measured from its corner).
+  That matrix is split into what a tile's pixels can carry and what the
+  placement model has to:
+  - Scale along each pattern axis, and a mirror, are baked into the tile: it is
+    rasterized at document resolution (20 user units under a 2x viewBox is a
+    40 px tile at pattern_scale 1), so scaled patterns stay sharp. A mirror
+    reverses the tile's rows.
+  - Rotation becomes pattern_angle. The model's angle is counterclockwise-
+    positive (the Photoshop dial, `PatternTileSampler`), an SVG rotate() is
+    clockwise on the y-down canvas, so the sign flips in both directions.
+  - pattern_scale carries only the remainder: a tile whose document size is not
+    a whole number of pixels is rasterized at the nearest whole size and scaled
+    by the ratio (the period stays exact), and a tile past 4096 px is
+    rasterized at that cap and scaled up.
+  - pattern_phase is the document position of the tile's corner.
+  - Skew is the one approximation (notice).
+  Content is either shapes (solid or gradient fills; strokes are not drawn) or
+  one embedded PNG/JPEG `<image>` that fills the tile unrotated, which is the
+  form the export writes: the decoded image is the tile at its own resolution
+  (stb_image, in the reader) and pattern_scale maps it to the cell. Other
+  content, or an image the pattern or the element would stretch, degrades to
+  gray + notice. A pattern child painted with a pattern (nested, or the
+  pattern itself) paints gray without being resolved. Elements that share a
+  pattern at the same tile size share one PatternStore tile.
 - **clip-path** (userSpaceOnUse, shape children) -> vector mask; **mask**
   (shape children) -> raster mask from fill-luminance-weighted coverage.
 - **Text**: basic `<text>`/tspan -> text layers (Pixel kind + patchy.text.*
@@ -145,8 +173,11 @@ emit native `<rect>`/`<ellipse>`/`<line>` (round-trips back to live).
   emit their real stops (merged ascending union of color+alpha locations,
   reverse via 1-x), while Classic easing (smoothness > 0), non-50% midpoints,
   and noise gradients resample into 65 dense stops. Angle/Diamond -> rasterize.
-- Pattern fills -> `<pattern>` with the tile PNG scaled into the cell +
-  patternTransform; layer-linked anchoring is approximated (notice).
+- Pattern fills -> a userSpaceOnUse `<pattern>` whose cell is the tile size x
+  pattern_scale, holding the tile PNG stretched over the cell, with
+  patternTransform = translate(phase) rotate(-angle). The reader takes that
+  form back to the same tile, scale, angle, and phase. Layer-linked anchoring
+  is approximated (notice).
 - Vector masks -> `<clipPath>` (inverted via canvas-rect + evenodd; density/
   feather/disabled -> rasterize). Raster masks -> luminance `<mask>` with a
   default_color backing rect.
@@ -195,7 +226,9 @@ emit native `<rect>`/`<ellipse>`/`<line>` (round-trips back to live).
 
 - tests/core/svg_tests.cpp - XML parser edge cases, d-grammar, cascade,
   gradients (placement under viewBox scale, group and element transforms, and
-  the canvas-anchored re-export), fill-rule decomposition, clip/mask, units/PPI, svgz (gzip built
+  the canvas-anchored re-export), patterns (tile size, anchor, and baked pixels
+  under viewBox scale, group and element transforms, both unit modes, rotation,
+  mirror, and the export round trip), fill-rule decomposition, clip/mask, units/PPI, svgz (gzip built
   in-test), the 2000-element fallback, export determinism/round-trip/raster
   chunking. tests/ui/svg_ui_tests.cpp - editable open, a QSvgRenderer
   cross-check (independent renderer, mean-delta tolerance), the text
@@ -219,6 +252,6 @@ to probe with.
 
 Known approximations (all noticed): nonzero self-intersecting single
 subpaths, radial focal points, spreadMethod=repeat, anisotropic stroke
-transforms, complex text layout, objectBoundingBox clip paths, pass-through
+transforms, skewed patterns, complex text layout, objectBoundingBox clip paths, pass-through
 group opacity, and Photoshop's Classic gradient easing exports as resampled
 stops.

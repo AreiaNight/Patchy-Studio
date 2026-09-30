@@ -6,6 +6,7 @@
 #include "core/vector_live_shapes.hpp"
 #include "core/vector_raster.hpp"
 #include "formats/miniz/miniz.h"
+#include "formats/stb/stb_image.h"
 #include "formats/svg_io_internal.hpp"
 #include "formats/gradient_placement.hpp"
 #include "formats/vector_fill_rule.hpp"
@@ -15,7 +16,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <iterator>
 #include <limits>
 #include <map>
@@ -25,6 +28,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -53,10 +57,14 @@ constexpr int kMaximumUseDepth = 32;
 constexpr std::size_t kMaximumInflatedBytes = 256U * 1024U * 1024U;
 constexpr std::int32_t kMaximumCanvasSize = 30000;  // matches the PSD writer's .psd cap
 constexpr double kEpsilon = 1e-9;
+// One side of a pattern tile, in pixels: a larger tile is rasterized at this size and
+// scaled up by the fill's pattern_scale.
+constexpr std::int32_t kMaximumPatternTileSize = 4096;
 
 // UI-side post-open markers (decoded/rendered by MainWindow after the open:
-// the formats library has no PNG decoder or font engine). The shared key
-// strings live in core/layer_metadata.hpp.
+// placed images go through QImage, which reads more than the vendored stb_image,
+// and the formats library has no font engine). The shared key strings live in
+// core/layer_metadata.hpp.
 constexpr const char* kPendingImageKey = kLayerMetadataSvgPendingImage;
 constexpr const char* kPendingTextKey = kLayerMetadataSvgPendingText;
 constexpr const char* kTextAnchorKey = kLayerMetadataSvgTextAnchor;
@@ -1023,6 +1031,73 @@ void transform_path(VectorPath& path, const Affine& matrix) {
   transform_vector_path(path, {matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f});
 }
 
+// An embedded base64 PNG or JPEG (the data: URI of an <image>) decoded to RGBA8
+// through the vendored stb_image. Only pattern tiles decode here, because their
+// pixels are needed while the shape layers are built; a placed <image> still waits
+// for the UI pass.
+std::optional<PixelBuffer> decode_data_uri_image(std::string_view href) {
+  const auto comma = href.find(',');
+  if (comma == std::string_view::npos) {
+    return std::nullopt;
+  }
+  const auto header = lower_ascii(href.substr(0, comma));
+  if (!header.starts_with("data:image/") || header.find(";base64") == std::string::npos) {
+    return std::nullopt;
+  }
+  std::vector<std::uint8_t> bytes;
+  bytes.reserve((href.size() - comma) / 4U * 3U);
+  std::uint32_t accumulator = 0;
+  int bits = 0;
+  for (const char c : href.substr(comma + 1)) {
+    std::uint32_t value = 0;
+    if (c >= 'A' && c <= 'Z') {
+      value = static_cast<std::uint32_t>(c - 'A');
+    } else if (c >= 'a' && c <= 'z') {
+      value = static_cast<std::uint32_t>(c - 'a') + 26U;
+    } else if (c >= '0' && c <= '9') {
+      value = static_cast<std::uint32_t>(c - '0') + 52U;
+    } else if (c == '+' || c == '-') {
+      value = 62U;
+    } else if (c == '/' || c == '_') {
+      value = 63U;
+    } else if (c == '=') {
+      break;
+    } else if (is_ascii_space(c)) {
+      continue;
+    } else {
+      return std::nullopt;
+    }
+    accumulator = (accumulator << 6) | value;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      bytes.push_back(static_cast<std::uint8_t>((accumulator >> bits) & 0xFFU));
+    }
+  }
+  if (bytes.empty() || bytes.size() > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
+    return std::nullopt;
+  }
+  int width = 0;
+  int height = 0;
+  int components = 0;
+  if (stbi_info_from_memory(bytes.data(), static_cast<int>(bytes.size()), &width, &height, &components) == 0 ||
+      width <= 0 || height <= 0 || width > kMaximumPatternTileSize || height > kMaximumPatternTileSize) {
+    return std::nullopt;
+  }
+  stbi_uc* decoded =
+      stbi_load_from_memory(bytes.data(), static_cast<int>(bytes.size()), &width, &height, &components, 4);
+  if (decoded == nullptr) {
+    return std::nullopt;
+  }
+  PixelBuffer pixels(width, height, PixelFormat::rgba8());
+  const auto row_bytes = static_cast<std::size_t>(width) * 4U;
+  for (std::int32_t y = 0; y < height; ++y) {
+    std::memcpy(pixels.row(y).data(), decoded + static_cast<std::size_t>(y) * row_bytes, row_bytes);
+  }
+  stbi_image_free(decoded);
+  return pixels;
+}
+
 // --- the importer -----------------------------------------------------------
 
 // A resolved paint: the fill plus the paint's own alpha (solid-color alpha
@@ -1060,6 +1135,14 @@ struct Importer {
   // sibling references free to double at every level (a billion-laughs tree of nothing
   // but <g> and <use> never reaches the drawable cap), so the count is bounded too.
   std::size_t use_expansions{0};
+  // Pattern tiles rasterized so far, keyed by what decides their pixels (the content
+  // node, the tile size, the content transform, the mirror): elements that paint with
+  // one pattern at one size share a PatternStore tile instead of adopting a copy each.
+  using PatternTileKey = std::tuple<std::uintptr_t, std::int32_t, std::int32_t, std::array<double, 6>, bool>;
+  std::map<PatternTileKey, std::string> pattern_tiles{};
+  // Set while a pattern's content is being painted into its tile: a pattern reached
+  // from there is nested (or the pattern painting itself, which would never end).
+  bool painting_pattern_tile{false};
 
   void notice(std::string text) {
     if (notices != nullptr && std::find(notices->begin(), notices->end(), text) == notices->end()) {
@@ -1313,11 +1396,129 @@ struct Importer {
 
   // --- patterns ---
 
-  // Simple <pattern> support: shape-only content rasterizes once into a
-  // document PatternStore tile (SVG patterns anchor to the user-space origin,
-  // which is exactly the PatternTileSampler's document-origin mode with
-  // pattern_linked = false). Anything richer degrades to gray + notice.
-  std::optional<VectorFill> pattern_fill(const XmlNode& original, const VectorPath& path) {
+  // The tile of a shape-only pattern: the children painted with their own solid or
+  // gradient fills through the shared shape rasterizer. `content_transform` maps the
+  // pattern's content units to tile pixels.
+  std::optional<PixelBuffer> rasterize_pattern_tile(const XmlNode& content, std::int32_t tile_w, std::int32_t tile_h,
+                                                    const Affine& content_transform) {
+    PixelBuffer tile(tile_w, tile_h, PixelFormat::rgba8());
+    tile.clear(0);
+    const Rect tile_rect{0, 0, tile_w, tile_h};
+    for (const auto& child : content.children) {
+      if (child.is_text() || child.name == "title" || child.name == "desc") {
+        continue;
+      }
+      auto parsed = element_geometry(child);
+      if (!parsed.has_value()) {
+        notice(PATCHY_TRANSLATE_NOOP("QObject", "SVG pattern content beyond plain shapes was skipped"));
+        return std::nullopt;
+      }
+      auto style = resolve_style(child, Style{}, css);
+      auto child_transform = content_transform;
+      if (const auto* transform_text = child.attribute("transform")) {
+        child_transform = detail::multiply(content_transform, parse_transform(*transform_text));
+      }
+      const PaintSpace paint_space{child_transform, parsed->path.bounds()};
+      transform_path(parsed->path, child_transform);
+      painting_pattern_tile = true;
+      const auto paint = resolve_paint(style.fill, style, parsed->path, paint_space);
+      painting_pattern_tile = false;
+      VectorShapeContent content_shape;
+      content_shape.path = std::move(parsed->path);
+      for (auto& subpath : content_shape.path.subpaths) {
+        subpath.shape_group = 0;
+        subpath.op = PathCombineOp::Add;
+      }
+      content_shape.fill = paint.fill;
+      const auto rendered = rasterize_vector_shape(content_shape, tile_rect, nullptr, nullptr);
+      if (rendered.pixels.empty()) {
+        continue;
+      }
+      const double coverage_scale = std::clamp(style.fill_opacity * paint.alpha, 0.0, 1.0);
+      for (std::int32_t y = 0; y < rendered.bounds.height; ++y) {
+        for (std::int32_t x = 0; x < rendered.bounds.width; ++x) {
+          const auto* source = rendered.pixels.pixel(x, y);
+          const double source_alpha = source[3] / 255.0 * coverage_scale;
+          if (source_alpha <= 0.0) {
+            continue;
+          }
+          auto* destination = tile.pixel(rendered.bounds.x + x, rendered.bounds.y + y);
+          const double destination_alpha = destination[3] / 255.0;
+          const double out_alpha = source_alpha + destination_alpha * (1.0 - source_alpha);
+          for (int channel = 0; channel < 3; ++channel) {
+            const double blended =
+                (source[channel] * source_alpha + destination[channel] * destination_alpha * (1.0 - source_alpha)) /
+                std::max(out_alpha, 1e-6);
+            destination[channel] = static_cast<std::uint8_t>(std::clamp<long>(std::lround(blended), 0, 255));
+          }
+          destination[3] = static_cast<std::uint8_t>(std::clamp<long>(std::lround(out_alpha * 255.0), 0, 255));
+        }
+      }
+    }
+    return tile;
+  }
+
+  // The one <image> a pattern holds, when that is all it holds.
+  static const XmlNode* sole_image_child(const XmlNode& content) {
+    const XmlNode* image = nullptr;
+    for (const auto& child : content.children) {
+      if (child.is_text() || child.name == "title" || child.name == "desc") {
+        continue;
+      }
+      if (child.name != "image" || image != nullptr) {
+        return nullptr;
+      }
+      image = &child;
+    }
+    return image;
+  }
+
+  // Whether that image covers the pattern's tile exactly, unrotated: its own pixels
+  // can then be the tile. `content_to_pattern` maps content units to pattern units
+  // measured from the tile's corner.
+  static bool image_fills_tile(const XmlNode& image, const Affine& content_to_pattern, double tile_width,
+                               double tile_height) {
+    auto placement = content_to_pattern;
+    if (const auto* transform_text = image.attribute("transform")) {
+      placement = detail::multiply(content_to_pattern, parse_transform(*transform_text));
+    }
+    if (!detail::positive_axis_scale_translate(placement)) {
+      return false;
+    }
+    const auto number = [&](std::string_view name) {
+      const auto* value = image.attribute(name);
+      return value != nullptr ? number_or(*value, 0.0) : 0.0;
+    };
+    const auto corner = detail::map_point(placement, number("x"), number("y"));
+    constexpr double tolerance = 1e-4;
+    return std::abs(corner[0]) <= tolerance * tile_width && std::abs(corner[1]) <= tolerance * tile_height &&
+           std::abs(number("width") * placement.a - tile_width) <= tolerance * tile_width &&
+           std::abs(number("height") * placement.d - tile_height) <= tolerance * tile_height;
+  }
+
+  // <pattern> support. Pattern space is the painted element's user space (with
+  // patternTransform on top), so the tile grid reaches the document through the
+  // element's whole transform chain, the way its path did. Reading the tile in raw
+  // user units instead drew it at half size under a 2x viewBox and left it behind
+  // under a group translate (September 2026).
+  //
+  // The tile is rasterized at DOCUMENT resolution: the matrix's scale along each
+  // pattern axis, and a mirror, are baked into the tile's pixels, so a scaled
+  // viewBox keeps the pattern sharp and pattern_scale stays 1. The placement model
+  // carries only what a tile cannot: the rotation (pattern_angle), a tile whose
+  // document size is not a whole number of pixels or passes the tile cap
+  // (pattern_scale keeps the period exact), and the anchor (pattern_phase with
+  // pattern_linked off: the grid hangs off the document, not the layer). Skew is
+  // the one approximation.
+  //
+  // Content is shapes (rasterized here) or a single embedded image that fills the
+  // tile, which is what Patchy's own export writes. Anything richer degrades to
+  // gray + notice.
+  std::optional<VectorFill> pattern_fill(const XmlNode& original, const PaintSpace& space) {
+    if (painting_pattern_tile) {
+      notice(PATCHY_TRANSLATE_NOOP("QObject", "Nested SVG patterns are not supported"));
+      return std::nullopt;
+    }
     std::vector<const XmlNode*> chain;
     std::set<std::string> seen;
     const XmlNode* node = &original;
@@ -1351,126 +1552,179 @@ struct Importer {
       return std::nullopt;
     }
 
-    const auto bounds = path.bounds();
-    const double bounds_width = bounds.has_value() ? std::max(1.0, bounds->right - bounds->left) : canvas.width;
-    const double bounds_height = bounds.has_value() ? std::max(1.0, bounds->bottom - bounds->top) : canvas.height;
-    const bool object_units = lower_ascii(attribute("patternUnits", "objectBoundingBox")) != "userspaceonuse";
-    const auto dimension = [&](std::string_view name, double relative_to) {
-      std::string text = attribute(name, "0");
+    // The tile rectangle in pattern space: user units (a percentage is a share of
+    // the viewport) for userSpaceOnUse, fractions of the element's own bounding
+    // box, measured from its corner, for objectBoundingBox.
+    const bool object_units =
+        lower_ascii(trimmed(attribute("patternUnits", "objectBoundingBox"))) != "userspaceonuse";
+    const auto view = number_list(attribute("viewBox", ""));
+    const bool has_view_box = view.size() == 4 && view[2] > 0.0 && view[3] > 0.0;
+    // A viewBox overrides patternContentUnits.
+    const bool content_object_units =
+        !has_view_box &&
+        lower_ascii(trimmed(attribute("patternContentUnits", "userSpaceOnUse"))) == "objectboundingbox";
+    const double box_left = space.local_bounds.has_value() ? space.local_bounds->left : 0.0;
+    const double box_top = space.local_bounds.has_value() ? space.local_bounds->top : 0.0;
+    const double box_width =
+        space.local_bounds.has_value() ? space.local_bounds->right - space.local_bounds->left : 0.0;
+    const double box_height =
+        space.local_bounds.has_value() ? space.local_bounds->bottom - space.local_bounds->top : 0.0;
+    if ((object_units || content_object_units) && !(box_width > 0.0 && box_height > 0.0)) {
+      return std::nullopt;  // no box to resolve the fractions against
+    }
+    const auto dimension = [&](std::string_view name, double viewport_size, double box_size) {
+      const std::string raw = attribute(name, "0");
+      auto text = trimmed(raw);
       const bool percent = text.ends_with('%');
       if (percent) {
-        text.pop_back();
+        text.remove_suffix(1);
       }
-      const double v = number_or(text, 0.0);
-      if (percent) {
-        return v * relative_to / 100.0;
+      const double value = number_or(text, 0.0) / (percent ? 100.0 : 1.0);
+      if (object_units) {
+        return value * box_size;
       }
-      return object_units ? v * relative_to : v;
+      return percent ? value * viewport_size : value;
     };
-    const double tile_width = dimension("width", bounds_width);
-    const double tile_height = dimension("height", bounds_height);
-    if (tile_width < 1.0 || tile_height < 1.0 || tile_width > 4096.0 || tile_height > 4096.0) {
+    const double tile_x = (object_units ? box_left : 0.0) + dimension("x", user_viewport_width, box_width);
+    const double tile_y = (object_units ? box_top : 0.0) + dimension("y", user_viewport_height, box_height);
+    const double tile_width = dimension("width", user_viewport_width, box_width);
+    const double tile_height = dimension("height", user_viewport_height, box_height);
+    if (!(tile_width > 0.0) || !(tile_height > 0.0)) {
       return std::nullopt;
     }
 
-    // Rasterize the tile: shape children only, painted with their own solid
-    // or gradient fills through the shared shape rasterizer.
-    const auto tile_w = static_cast<std::int32_t>(std::lround(tile_width));
-    const auto tile_h = static_cast<std::int32_t>(std::lround(tile_height));
-    PixelBuffer tile(tile_w, tile_h, PixelFormat::rgba8());
-    tile.clear(0);
-    const Rect tile_rect{0, 0, tile_w, tile_h};
-    Affine content_transform;
-    const auto view = number_list(attribute("viewBox", ""));
-    if (view.size() == 4 && view[2] > 0.0 && view[3] > 0.0) {
-      content_transform = {tile_width / view[2], 0.0, 0.0, tile_height / view[3], -view[0] * tile_width / view[2],
-                           -view[1] * tile_height / view[3]};
+    // Pattern space -> document, split into what the tile's pixels carry (the
+    // scale along each pattern axis and a mirror) and the rotation between them.
+    // The second axis is measured across the first, so a skew keeps the tile's area.
+    const Affine to_document =
+        detail::multiply(space.transform, parse_transform(attribute("patternTransform", "")));
+    const double scale_x = std::hypot(to_document.a, to_document.b);
+    const double area_scale = detail::determinant(to_document);
+    if (!(scale_x > 0.0) || area_scale == 0.0) {
+      return std::nullopt;
     }
-    for (const auto& child : content->children) {
-      if (child.is_text() || child.name == "title" || child.name == "desc") {
-        continue;
-      }
-      auto parsed = element_geometry(child);
-      if (!parsed.has_value()) {
+    const double scale_y = std::abs(area_scale) / scale_x;
+    const bool mirrored = area_scale < 0.0;
+    const double document_width = tile_width * scale_x;
+    const double document_height = tile_height * scale_y;
+    if (!std::isfinite(document_width) || !std::isfinite(document_height) || !(document_width > 0.0) ||
+        !(document_height > 0.0)) {
+      return std::nullopt;
+    }
+    if (std::abs(to_document.a * to_document.c + to_document.b * to_document.d) > 0.01 * std::abs(area_scale)) {
+      notice(PATCHY_TRANSLATE_NOOP("QObject", "SVG patternTransform skew was approximated"));
+    }
+
+    // Content units -> pattern units measured from the tile's corner.
+    Affine content_to_pattern;
+    if (has_view_box) {
+      content_to_pattern = {tile_width / view[2], 0.0, 0.0, tile_height / view[3], -view[0] * tile_width / view[2],
+                            -view[1] * tile_height / view[3]};
+    } else if (content_object_units) {
+      content_to_pattern = {box_width, 0.0, 0.0, box_height, 0.0, 0.0};
+    }
+
+    // The tile's pixel size: an image tile keeps its own resolution, a shape tile
+    // takes the size it has in the document.
+    const XmlNode* image = sole_image_child(*content);
+    std::int32_t tile_w = 0;
+    std::int32_t tile_h = 0;
+    Affine content_transform;
+    if (image != nullptr) {
+      if (!image_fills_tile(*image, content_to_pattern, tile_width, tile_height)) {
         notice(PATCHY_TRANSLATE_NOOP("QObject", "SVG pattern content beyond plain shapes was skipped"));
         return std::nullopt;
       }
-      auto style = resolve_style(child, Style{}, css);
-      auto child_transform = content_transform;
-      if (const auto* transform_text = child.attribute("transform")) {
-        child_transform = detail::multiply(content_transform, parse_transform(*transform_text));
-      }
-      const PaintSpace paint_space{child_transform, parsed->path.bounds()};
-      transform_path(parsed->path, child_transform);
-      const auto paint = resolve_paint(style.fill, style, parsed->path, paint_space);
-      if (paint.fill.kind == VectorFillKind::Pattern) {
-        notice(PATCHY_TRANSLATE_NOOP("QObject", "Nested SVG patterns are not supported"));
-        return std::nullopt;
-      }
-      VectorShapeContent content_shape;
-      content_shape.path = std::move(parsed->path);
-      for (auto& subpath : content_shape.path.subpaths) {
-        subpath.shape_group = 0;
-        subpath.op = PathCombineOp::Add;
-      }
-      content_shape.fill = paint.fill;
-      const auto rendered = rasterize_vector_shape(content_shape, tile_rect, nullptr, nullptr);
-      if (rendered.pixels.empty()) {
-        continue;
-      }
-      const double coverage_scale = std::clamp(style.fill_opacity * paint.alpha, 0.0, 1.0);
-      for (std::int32_t y = 0; y < rendered.bounds.height; ++y) {
-        for (std::int32_t x = 0; x < rendered.bounds.width; ++x) {
-          const auto* source = rendered.pixels.pixel(x, y);
-          const double source_alpha = source[3] / 255.0 * coverage_scale;
-          if (source_alpha <= 0.0) {
-            continue;
-          }
-          auto* destination = tile.pixel(rendered.bounds.x + x, rendered.bounds.y + y);
-          const double destination_alpha = destination[3] / 255.0;
-          const double out_alpha = source_alpha + destination_alpha * (1.0 - source_alpha);
-          for (int channel = 0; channel < 3; ++channel) {
-            const double blended =
-                (source[channel] * source_alpha + destination[channel] * destination_alpha * (1.0 - source_alpha)) /
-                std::max(out_alpha, 1e-6);
-            destination[channel] = static_cast<std::uint8_t>(std::clamp<long>(std::lround(blended), 0, 255));
-          }
-          destination[3] = static_cast<std::uint8_t>(std::clamp<long>(std::lround(out_alpha * 255.0), 0, 255));
-        }
-      }
+    } else {
+      const double fit = std::min(1.0, kMaximumPatternTileSize / std::max(document_width, document_height));
+      const auto pixels = [&](double size) {
+        return static_cast<std::int32_t>(std::clamp<long>(std::lround(size * fit), 1L, kMaximumPatternTileSize));
+      };
+      tile_w = pixels(document_width);
+      tile_h = pixels(document_height);
+      content_transform =
+          detail::multiply(Affine{tile_w / tile_width, 0.0, 0.0, tile_h / tile_height, 0.0, 0.0}, content_to_pattern);
     }
 
-    PatternResource resource;
-    resource.id = generate_pattern_uuid();
-    resource.name = attribute("id", "SVG Pattern");
-    resource.tile = std::move(tile);
-    resource.provenance = PatternProvenance::Authored;
-    document.metadata().patterns.adopt(resource);
+    auto& patterns = document.metadata().patterns;
+    const PatternTileKey key{reinterpret_cast<std::uintptr_t>(image != nullptr ? image : content), tile_w, tile_h,
+                             {content_transform.a, content_transform.b, content_transform.c, content_transform.d,
+                              content_transform.e, content_transform.f},
+                             mirrored};
+    const PatternResource* resource = nullptr;
+    if (const auto found = pattern_tiles.find(key); found != pattern_tiles.end()) {
+      resource = patterns.find(found->second);
+    }
+    std::optional<PixelBuffer> tile;
+    if (resource == nullptr) {
+      if (image != nullptr) {
+        const auto* href = image->attribute("href");
+        tile = href != nullptr ? decode_data_uri_image(*href) : std::nullopt;
+        if (!tile.has_value()) {
+          notice(PATCHY_TRANSLATE_NOOP("QObject", "SVG pattern content beyond plain shapes was skipped"));
+        }
+      } else {
+        tile = rasterize_pattern_tile(*content, tile_w, tile_h, content_transform);
+      }
+      if (!tile.has_value()) {
+        return std::nullopt;
+      }
+    }
+    const double pixel_width = resource != nullptr ? resource->tile.width() : tile->width();
+    const double pixel_height = resource != nullptr ? resource->tile.height() : tile->height();
+    // Document pixels per tile pixel. Whole-pixel tiles land at exactly 1; the rest
+    // is one uniform factor, which is all the placement model has.
+    const double residual_x = document_width / pixel_width;
+    const double residual_y = document_height / pixel_height;
+    if (image != nullptr) {
+      // The image has to reach the document undistorted: stretched by the pattern
+      // (preserveAspectRatio="none" on a cell of another shape) or by the element's
+      // transform, its pixels would need resampling.
+      const auto* aspect = image->attribute("preserveAspectRatio");
+      const bool stretches = aspect != nullptr && lower_ascii(*aspect).find("none") != std::string::npos;
+      const bool cell_matches = std::abs((tile_width / tile_height) / (pixel_width / pixel_height) - 1.0) <= 0.01;
+      if ((!stretches && !cell_matches) || std::abs(residual_x / residual_y - 1.0) > 0.01) {
+        notice(PATCHY_TRANSLATE_NOOP("QObject", "SVG pattern content beyond plain shapes was skipped"));
+        return std::nullopt;
+      }
+    }
+    if (resource == nullptr) {
+      if (mirrored) {
+        // The mirror flips the pattern's second axis; the tile repeats, so its
+        // rows reversed are the same picture seen through the flip.
+        for (std::int32_t y = 0; y < tile->height() / 2; ++y) {
+          auto upper = tile->row(y);
+          auto lower = tile->row(tile->height() - 1 - y);
+          std::swap_ranges(upper.begin(), upper.end(), lower.begin());
+        }
+      }
+      PatternResource created;
+      created.id = generate_pattern_uuid();
+      created.name = attribute("id", "SVG Pattern");
+      created.tile = std::move(*tile);
+      created.provenance = PatternProvenance::Authored;
+      patterns.adopt(created);
+      pattern_tiles[key] = created.id;
+      resource = patterns.find(created.id);
+      if (resource == nullptr) {
+        return std::nullopt;
+      }
+    }
 
     VectorFill fill;
     fill.kind = VectorFillKind::Pattern;
-    fill.pattern_id = resource.id;
-    fill.pattern_name = resource.name;
-    fill.pattern_scale = 1.0;
-    fill.pattern_linked = false;  // SVG tiles anchor to the document origin
-    const double phase_x = object_units ? (bounds.has_value() ? bounds->left : 0.0) + dimension("x", bounds_width)
-                                        : dimension("x", bounds_width);
-    const double phase_y = object_units ? (bounds.has_value() ? bounds->top : 0.0) + dimension("y", bounds_height)
-                                        : dimension("y", bounds_height);
-    fill.pattern_phase_x = phase_x;
-    fill.pattern_phase_y = phase_y;
-    if (!attribute("patternTransform", "").empty()) {
-      const auto transform = parse_transform(attribute("patternTransform", ""));
-      // Similarity transforms map onto the pattern placement model; anything
-      // else is approximated by its rotation + uniform scale.
-      fill.pattern_angle_degrees = std::atan2(transform.b, transform.a) * 180.0 / std::numbers::pi;
-      fill.pattern_scale = std::clamp(std::sqrt(std::abs(detail::determinant(transform))), 0.01, 100.0);
-      fill.pattern_phase_x += transform.e;
-      fill.pattern_phase_y += transform.f;
-      if (std::abs(std::hypot(transform.a, transform.b) - std::hypot(transform.c, transform.d)) > 0.01) {
-        notice(PATCHY_TRANSLATE_NOOP("QObject", "SVG patternTransform skew was approximated"));
-      }
-    }
+    fill.pattern_id = resource->id;
+    fill.pattern_name = resource->name;
+    const bool whole_pixels = std::abs(residual_x - 1.0) < 1e-6 && std::abs(residual_y - 1.0) < 1e-6;
+    fill.pattern_scale = whole_pixels ? 1.0 : std::clamp(std::sqrt(residual_x * residual_y), 0.01, 100.0);
+    // PatternTileSampler turns the pattern counterclockwise for a positive angle
+    // (the Photoshop dial); an SVG rotation is clockwise on the y-down canvas.
+    const double rotation = std::atan2(to_document.b, to_document.a);
+    fill.pattern_angle_degrees = std::abs(rotation) < 1e-9 ? 0.0 : -rotation * 180.0 / std::numbers::pi;
+    fill.pattern_linked = false;  // the grid is anchored in the document, not to the layer
+    const auto anchor = detail::map_point(to_document, tile_x, tile_y);
+    fill.pattern_phase_x = anchor[0];
+    fill.pattern_phase_y = anchor[1];
     return fill;
   }
 
@@ -1504,7 +1758,7 @@ struct Importer {
         return {gradient_fill(*referenced, path, space), 1.0};
       }
       if (referenced->name == "pattern") {
-        if (auto pattern = pattern_fill(*referenced, path); pattern.has_value()) {
+        if (auto pattern = pattern_fill(*referenced, space); pattern.has_value()) {
           return {std::move(*pattern), 1.0};
         }
         notice(PATCHY_TRANSLATE_NOOP("QObject", "An SVG pattern paint was approximated with gray"));
