@@ -10328,6 +10328,55 @@ Mixed selection</source>
     </message>
 </context>
 <context>
+    <name>patchy::ui::LegacyPluginRunDialog</name>
+    <message>
+        <source>Legacy Photoshop Plug-in</source>
+        <translation>従来の Photoshop プラグイン</translation>
+    </message>
+    <message>
+        <source>Classic plug-ins show their preview inside their own window. The layer changes after you click OK.</source>
+        <translation>従来のプラグインはプレビューを自身のウィンドウ内に表示します。レイヤーは OK をクリックした後に変わります。</translation>
+    </message>
+    <message>
+        <source>Show Plug-in Window</source>
+        <translation>プラグインのウィンドウを表示</translation>
+    </message>
+    <message>
+        <source>Brings the plug-in&apos;s window back in front of Patchy.</source>
+        <translation>プラグインのウィンドウを Patchy の前面に戻します。</translation>
+    </message>
+    <message>
+        <source>Starting %1...</source>
+        <translation>%1 を起動しています...</translation>
+    </message>
+    <message>
+        <source>Force Stop Plug-in</source>
+        <translation>プラグインを強制停止</translation>
+    </message>
+    <message>
+        <source>Ends the plug-in without applying it. Use it only if the plug-in&apos;s window has stopped responding.</source>
+        <extracomment>Tooltip of the stop button while a plug-in is loading or waits for the user in its own window.</extracomment>
+        <translation>プラグインを適用せずに終了します。プラグインのウィンドウが応答しなくなった場合にのみ使用してください。</translation>
+    </message>
+    <message>
+        <source>%1 is open in its own window. Adjust its settings there and click its OK button to apply it to this layer.</source>
+        <extracomment>%1 is the plug-in&apos;s name; shown while its own settings window is open.</extracomment>
+        <translation>%1 は独自のウィンドウで開いています。そこで設定を調整し、その OK ボタンをクリックすると、このレイヤーに適用されます。</translation>
+    </message>
+    <message>
+        <source>Applying %1...</source>
+        <translation>%1 を適用しています...</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Stops the plug-in. The layer stays unchanged.</source>
+        <translation>プラグインを停止します。レイヤーは変更されません。</translation>
+    </message>
+</context>
+<context>
     <name>patchy::ui::MainWindow</name>
     <message>
         <source>Rotate &amp;Arbitrary...</source>
@@ -17815,10 +17864,6 @@ Clipped to the layer below</source>
         <translation>選択範囲がアクティブなレイヤーに触れていません。</translation>
     </message>
     <message>
-        <source>Running %1...</source>
-        <translation>%1 を実行中...</translation>
-    </message>
-    <message>
         <source>The layer no longer exists.</source>
         <translation>レイヤーは既に存在しません。</translation>
     </message>
@@ -18063,6 +18108,32 @@ Clipped to the layer below</source>
     <message>
         <source>Units &amp;&amp; Grids</source>
         <translation>単位 &amp;&amp; グリッド</translation>
+    </message>
+    <message>
+        <source>Repeat Last Plug-in</source>
+        <translation>最後のプラグインを再実行</translation>
+    </message>
+    <message>
+        <source>Last Plug-in Settings...</source>
+        <translation>最後のプラグインの設定...</translation>
+    </message>
+    <message>
+        <source>The last plug-in is no longer available</source>
+        <translation>最後のプラグインは利用できなくなりました</translation>
+    </message>
+    <message>
+        <source>Repeat %1</source>
+        <extracomment>Plugins menu; %1 is the plug-in that ran last. Runs it again with its last settings, no dialog.</extracomment>
+        <translation>%1 を再実行</translation>
+    </message>
+    <message>
+        <source>%1 Settings...</source>
+        <extracomment>Plugins menu; %1 is the plug-in that ran last. Opens its settings dialog again, starting from the last settings.</extracomment>
+        <translation>%1 の設定...</translation>
+    </message>
+    <message>
+        <source>Applied %1 (%2 undoes it)</source>
+        <translation>%1 を適用しました (%2 で取り消せます)</translation>
     </message>
 </context>
 <context>

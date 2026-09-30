@@ -887,13 +887,20 @@ private:
   bool register_legacy_plugin_path(const QString& path, QStringList* report = nullptr, bool rebuild_menu = true);
   [[nodiscard]] const LegacyPluginEntry* find_legacy_plugin(std::string_view identifier) const noexcept;
   void rebuild_legacy_plugins_menu();
-  void run_legacy_plugin(QString identifier);
+  // The menu path; `show_dialog` false repeats the plug-in with its last
+  // settings (Plugins > Repeat).
+  void run_legacy_plugin(QString identifier, bool show_dialog = true);
+  // Plugins > Repeat Last Plug-in / Last Plug-in Settings...: the plug-in that
+  // last completed a run this session.
+  void run_last_legacy_plugin(bool show_dialog);
+  void update_legacy_plugin_repeat_actions();
   // Runs `entry` on `layer_id` of `session`, limited to the session's selection.
   // `before_write` runs once, right before the layer is modified (the menu path
   // pushes its undo snapshot there; the script host has its own).
   // `capture_dialog_path` (optional PNG path) saves an image of the plug-in's own
   // dialog while it is up (docs/plugins.md, the README screenshot);
-  // `auto_accept_dialogs` answers whatever dialog appears (unattended runs).
+  // `auto_accept_dialogs` answers whatever dialog appears (unattended runs and
+  // scripts that asked for no dialog); the menu never sets it.
   LegacyPluginApplyStatus apply_legacy_plugin(DocumentSession& session, LayerId layer_id,
                                               const LegacyPluginEntry& entry, bool show_dialog,
                                               const std::function<void()>& before_write, QString* error,
@@ -2112,6 +2119,10 @@ private:
   // The parameter block each plug-in left after its last run, keyed by
   // identifier, so running it again starts from the previous settings.
   std::map<std::string, QByteArray> legacy_plugin_parameters_;
+  // The plug-in whose run last completed this session (Plugins > Repeat).
+  std::string last_legacy_plugin_identifier_;
+  QAction* plugins_repeat_last_action_{nullptr};
+  QAction* plugins_last_settings_action_{nullptr};
   QPageLayout print_page_layout_;
   std::optional<ClipboardPayload> clipboard_;
   struct LayerStyleClipboard {

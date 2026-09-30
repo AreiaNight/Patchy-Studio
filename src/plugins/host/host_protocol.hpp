@@ -14,7 +14,7 @@
 
 namespace patchy::legacy_host {
 
-inline constexpr std::uint32_t kProtocolVersion = 4;
+inline constexpr std::uint32_t kProtocolVersion = 5;
 
 enum MessageType : std::uint32_t {
   kMessageHello = 1,     // both directions: uint32 protocol version, uint32 pointer size in bytes
@@ -22,6 +22,10 @@ enum MessageType : std::uint32_t {
   kMessageProgress = 3,  // host -> Patchy: int32 done, int32 total
   kMessageCancel = 4,    // Patchy -> host: no payload
   kMessageResult = 5,    // host -> Patchy: RunResult
+  // host -> Patchy: int32 selector about to be called (the kSelector* values of
+  // the filter ABI: 1 parameters, 2 prepare, 3 start, 4 continue, 5 finish), so
+  // Patchy can tell "the plug-in is showing its settings" from "it is working".
+  kMessagePhase = 6,
 };
 
 enum RunStatus : std::int32_t {

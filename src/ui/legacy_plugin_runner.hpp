@@ -60,6 +60,13 @@ struct LegacyPluginRunInput {
 
 enum class LegacyPluginRunStatus { Ok, Cancelled, Error };
 
+// The selector the helper is about to call, as reported over the pipe
+// (kMessagePhase): Parameters is where a plug-in shows its settings dialog;
+// Prepare, Start and Continue are the filtering pass (some plug-ins open their
+// dialog from Start instead, so a visible window still means "waiting for the
+// user" there).
+enum class LegacyPluginPhase { Unknown, Parameters, Prepare, Start, Continue, Finish };
+
 struct LegacyPluginRunResult {
   LegacyPluginRunStatus status{LegacyPluginRunStatus::Error};
   QString message;        // translated, for the user
@@ -78,6 +85,11 @@ struct LegacyPluginRunCallbacks {
   // window while one is up, an invalid rect while none is; reported on every
   // pump so the caller can keep its progress box out of the way.
   std::function<void(const QRect&)> plugin_window;
+  // The selector the helper is about to call (see LegacyPluginPhase).
+  std::function<void(LegacyPluginPhase)> phase;
+  // Polled while waiting; true asks the runner to bring the plug-in's largest
+  // visible window to the foreground once (the user lost it behind Patchy).
+  std::function<bool()> raise_plugin_window;
 };
 
 // Blocks (pumping the event loop) until the helper reports a result, exits, or

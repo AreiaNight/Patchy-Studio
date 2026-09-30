@@ -1133,6 +1133,9 @@ RunResult run_filter(const RunRequest& request, const RunnerImage& image, const 
   static const char* const selector_names[] = {"about", "parameters", "prepare", "start", "continue", "finish"};
   const auto call = [&](std::int16_t selector) {
     code = kNoErr;
+    if (callbacks.phase) {
+      callbacks.phase(selector);
+    }
     fault = call_entry_guarded(entry, selector, &state.record, &data, &code);
     refresh_screen_shim();  // modules the plug-in loaded behind our back (COM servers)
     if (trace_enabled()) {
@@ -1185,6 +1188,9 @@ RunResult run_filter(const RunRequest& request, const RunnerImage& image, const 
   }
   if (started && fault == 0) {
     OSErr finish_code = code;
+    if (callbacks.phase) {
+      callbacks.phase(kSelectorFinish);
+    }
     const DWORD finish_fault = call_entry_guarded(entry, kSelectorFinish, &state.record, &data, &finish_code);
     if (finish_fault != 0 && fault == 0) {
       fault = finish_fault;

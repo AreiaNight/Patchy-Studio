@@ -10328,6 +10328,55 @@ RGB：%2, %3, %4</translation>
     </message>
 </context>
 <context>
+    <name>patchy::ui::LegacyPluginRunDialog</name>
+    <message>
+        <source>Legacy Photoshop Plug-in</source>
+        <translation>舊版 Photoshop 增效模組</translation>
+    </message>
+    <message>
+        <source>Classic plug-ins show their preview inside their own window. The layer changes after you click OK.</source>
+        <translation>傳統外掛程式會在自己的視窗中顯示預覽。按下 OK 後圖層才會改變。</translation>
+    </message>
+    <message>
+        <source>Show Plug-in Window</source>
+        <translation>顯示外掛程式視窗</translation>
+    </message>
+    <message>
+        <source>Brings the plug-in&apos;s window back in front of Patchy.</source>
+        <translation>將外掛程式視窗重新移到 Patchy 前面。</translation>
+    </message>
+    <message>
+        <source>Starting %1...</source>
+        <translation>正在啟動 %1...</translation>
+    </message>
+    <message>
+        <source>Force Stop Plug-in</source>
+        <translation>強制停止外掛程式</translation>
+    </message>
+    <message>
+        <source>Ends the plug-in without applying it. Use it only if the plug-in&apos;s window has stopped responding.</source>
+        <extracomment>Tooltip of the stop button while a plug-in is loading or waits for the user in its own window.</extracomment>
+        <translation>不套用並直接結束外掛程式。僅在外掛程式視窗停止回應時使用。</translation>
+    </message>
+    <message>
+        <source>%1 is open in its own window. Adjust its settings there and click its OK button to apply it to this layer.</source>
+        <extracomment>%1 is the plug-in&apos;s name; shown while its own settings window is open.</extracomment>
+        <translation>%1 已在自己的視窗中開啟。請在那裡調整設定，然後按下其 OK 按鈕，將其套用到此圖層。</translation>
+    </message>
+    <message>
+        <source>Applying %1...</source>
+        <translation>正在套用 %1...</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Stops the plug-in. The layer stays unchanged.</source>
+        <translation>停止外掛程式。圖層保持不變。</translation>
+    </message>
+</context>
+<context>
     <name>patchy::ui::MainWindow</name>
     <message>
         <source>Editing layer mask (click to exit)</source>
@@ -17815,10 +17864,6 @@ Y：%2
         <translation>選取範圍未觸及目前圖層。</translation>
     </message>
     <message>
-        <source>Running %1...</source>
-        <translation>正在執行 %1...</translation>
-    </message>
-    <message>
         <source>The layer no longer exists.</source>
         <translation>此圖層已不存在。</translation>
     </message>
@@ -18063,6 +18108,32 @@ Y：%2
     <message>
         <source>Units &amp;&amp; Grids</source>
         <translation>單位 &amp;&amp; 格線</translation>
+    </message>
+    <message>
+        <source>Repeat Last Plug-in</source>
+        <translation>重複上一個外掛程式</translation>
+    </message>
+    <message>
+        <source>Last Plug-in Settings...</source>
+        <translation>上一個外掛程式的設定...</translation>
+    </message>
+    <message>
+        <source>The last plug-in is no longer available</source>
+        <translation>上一個外掛程式已無法使用</translation>
+    </message>
+    <message>
+        <source>Repeat %1</source>
+        <extracomment>Plugins menu; %1 is the plug-in that ran last. Runs it again with its last settings, no dialog.</extracomment>
+        <translation>重複 %1</translation>
+    </message>
+    <message>
+        <source>%1 Settings...</source>
+        <extracomment>Plugins menu; %1 is the plug-in that ran last. Opens its settings dialog again, starting from the last settings.</extracomment>
+        <translation>%1 設定...</translation>
+    </message>
+    <message>
+        <source>Applied %1 (%2 undoes it)</source>
+        <translation>已套用 %1（按 %2 可還原）</translation>
     </message>
 </context>
 <context>

@@ -200,6 +200,12 @@ int run_pipe_mode(const std::wstring& name) {
       session.poll();
       return session.cancelled;
     };
+    callbacks.phase = [&session](std::int32_t selector) {
+      Writer w;
+      w.i32(selector);
+      (void)send_message(session.pipe, kMessagePhase, w.data());
+      session.poll();
+    };
     result = run_filter(request, image, callbacks);
     g_close_pipe = INVALID_HANDLE_VALUE;  // the normal path owns the pipe from here
     UnmapViewOfFile(view);

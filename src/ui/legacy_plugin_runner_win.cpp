@@ -412,6 +412,15 @@ LegacyPluginRunResult run_legacy_plugin_out_of_process(const LegacyPluginRunInpu
         SetForegroundWindow(hwnd);
       }
     }
+    // The user asked for the window back (the "Show Plug-in Window" button):
+    // restore it if minimized and put it in front again.
+    if (largest != nullptr && callbacks.raise_plugin_window && callbacks.raise_plugin_window()) {
+      AllowSetForegroundWindow(helper_pid);
+      if (IsIconic(largest)) {
+        ShowWindow(largest, SW_RESTORE);
+      }
+      SetForegroundWindow(largest);
+    }
     const QRect rect = largest != nullptr ? QRect(QPoint(largest_rect.left, largest_rect.top),
                                                   QPoint(largest_rect.right - 1, largest_rect.bottom - 1))
                                           : QRect();
@@ -512,6 +521,21 @@ LegacyPluginRunResult run_legacy_plugin_out_of_process(const LegacyPluginRunInpu
         const auto total = reader.i32();
         if (callbacks.progress) {
           callbacks.progress(done, total);
+        }
+      } else if (type == kMessagePhase) {
+        Reader reader(payload.data(), payload.size());
+        const auto selector = reader.i32();
+        if (callbacks.phase) {
+          auto phase = LegacyPluginPhase::Unknown;
+          switch (selector) {
+            case 1: phase = LegacyPluginPhase::Parameters; break;
+            case 2: phase = LegacyPluginPhase::Prepare; break;
+            case 3: phase = LegacyPluginPhase::Start; break;
+            case 4: phase = LegacyPluginPhase::Continue; break;
+            case 5: phase = LegacyPluginPhase::Finish; break;
+            default: break;
+          }
+          callbacks.phase(phase);
         }
       } else if (type == kMessageResult) {
         got_result = decode_run_result(payload.data(), payload.size(), run_result);

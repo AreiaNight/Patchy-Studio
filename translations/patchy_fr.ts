@@ -10355,6 +10355,55 @@ RVB : %2, %3, %4</translation>
     </message>
 </context>
 <context>
+    <name>patchy::ui::LegacyPluginRunDialog</name>
+    <message>
+        <source>Legacy Photoshop Plug-in</source>
+        <translation>Module externe Photoshop hérité</translation>
+    </message>
+    <message>
+        <source>Classic plug-ins show their preview inside their own window. The layer changes after you click OK.</source>
+        <translation>Les modules externes classiques affichent leur aperçu dans leur propre fenêtre. Le calque change après un clic sur OK.</translation>
+    </message>
+    <message>
+        <source>Show Plug-in Window</source>
+        <translation>Afficher la fenêtre du module externe</translation>
+    </message>
+    <message>
+        <source>Brings the plug-in&apos;s window back in front of Patchy.</source>
+        <translation>Ramène la fenêtre du module externe devant Patchy.</translation>
+    </message>
+    <message>
+        <source>Starting %1...</source>
+        <translation>Démarrage de %1...</translation>
+    </message>
+    <message>
+        <source>Force Stop Plug-in</source>
+        <translation>Forcer l&apos;arrêt du module externe</translation>
+    </message>
+    <message>
+        <source>Ends the plug-in without applying it. Use it only if the plug-in&apos;s window has stopped responding.</source>
+        <extracomment>Tooltip of the stop button while a plug-in is loading or waits for the user in its own window.</extracomment>
+        <translation>Met fin au module externe sans l&apos;appliquer. À utiliser seulement si la fenêtre du module externe ne répond plus.</translation>
+    </message>
+    <message>
+        <source>%1 is open in its own window. Adjust its settings there and click its OK button to apply it to this layer.</source>
+        <extracomment>%1 is the plug-in&apos;s name; shown while its own settings window is open.</extracomment>
+        <translation>%1 est ouvert dans sa propre fenêtre. Réglez-y ses paramètres et cliquez sur son bouton OK pour l&apos;appliquer à ce calque.</translation>
+    </message>
+    <message>
+        <source>Applying %1...</source>
+        <translation>Application de %1...</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Annuler</translation>
+    </message>
+    <message>
+        <source>Stops the plug-in. The layer stays unchanged.</source>
+        <translation>Arrête le module externe. Le calque reste inchangé.</translation>
+    </message>
+</context>
+<context>
     <name>patchy::ui::MainWindow</name>
     <message>
         <source>Editing layer mask (click to exit)</source>
@@ -17867,10 +17916,6 @@ Y : %2
         <translation>La sélection ne touche pas le calque actif.</translation>
     </message>
     <message>
-        <source>Running %1...</source>
-        <translation>Exécution de %1...</translation>
-    </message>
-    <message>
         <source>The layer no longer exists.</source>
         <translation>Le calque n&apos;existe plus.</translation>
     </message>
@@ -18115,6 +18160,32 @@ Y : %2
     <message>
         <source>Units &amp;&amp; Grids</source>
         <translation>Unités &amp;&amp; grilles</translation>
+    </message>
+    <message>
+        <source>Repeat Last Plug-in</source>
+        <translation>Répéter le dernier module externe</translation>
+    </message>
+    <message>
+        <source>Last Plug-in Settings...</source>
+        <translation>Paramètres du dernier module externe...</translation>
+    </message>
+    <message>
+        <source>The last plug-in is no longer available</source>
+        <translation>Le dernier module externe n&apos;est plus disponible</translation>
+    </message>
+    <message>
+        <source>Repeat %1</source>
+        <extracomment>Plugins menu; %1 is the plug-in that ran last. Runs it again with its last settings, no dialog.</extracomment>
+        <translation>Répéter %1</translation>
+    </message>
+    <message>
+        <source>%1 Settings...</source>
+        <extracomment>Plugins menu; %1 is the plug-in that ran last. Opens its settings dialog again, starting from the last settings.</extracomment>
+        <translation>Paramètres de %1...</translation>
+    </message>
+    <message>
+        <source>Applied %1 (%2 undoes it)</source>
+        <translation>%1 appliqué (%2 pour annuler)</translation>
     </message>
 </context>
 <context>

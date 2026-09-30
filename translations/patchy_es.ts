@@ -10355,6 +10355,55 @@ RGB: %2, %3, %4</translation>
     </message>
 </context>
 <context>
+    <name>patchy::ui::LegacyPluginRunDialog</name>
+    <message>
+        <source>Legacy Photoshop Plug-in</source>
+        <translation>Plugin antiguo de Photoshop</translation>
+    </message>
+    <message>
+        <source>Classic plug-ins show their preview inside their own window. The layer changes after you click OK.</source>
+        <translation>Los plugins clásicos muestran su vista previa en su propia ventana. La capa cambia después de hacer clic en OK.</translation>
+    </message>
+    <message>
+        <source>Show Plug-in Window</source>
+        <translation>Mostrar ventana del plugin</translation>
+    </message>
+    <message>
+        <source>Brings the plug-in&apos;s window back in front of Patchy.</source>
+        <translation>Vuelve a traer la ventana del plugin delante de Patchy.</translation>
+    </message>
+    <message>
+        <source>Starting %1...</source>
+        <translation>Iniciando %1...</translation>
+    </message>
+    <message>
+        <source>Force Stop Plug-in</source>
+        <translation>Forzar detención del plugin</translation>
+    </message>
+    <message>
+        <source>Ends the plug-in without applying it. Use it only if the plug-in&apos;s window has stopped responding.</source>
+        <extracomment>Tooltip of the stop button while a plug-in is loading or waits for the user in its own window.</extracomment>
+        <translation>Termina el plugin sin aplicarlo. Úselo solo si la ventana del plugin ha dejado de responder.</translation>
+    </message>
+    <message>
+        <source>%1 is open in its own window. Adjust its settings there and click its OK button to apply it to this layer.</source>
+        <extracomment>%1 is the plug-in&apos;s name; shown while its own settings window is open.</extracomment>
+        <translation>%1 está abierto en su propia ventana. Ajuste allí su configuración y haga clic en su botón OK para aplicarlo a esta capa.</translation>
+    </message>
+    <message>
+        <source>Applying %1...</source>
+        <translation>Aplicando %1...</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancelar</translation>
+    </message>
+    <message>
+        <source>Stops the plug-in. The layer stays unchanged.</source>
+        <translation>Detiene el plugin. La capa no cambia.</translation>
+    </message>
+</context>
+<context>
     <name>patchy::ui::MainWindow</name>
     <message>
         <source>Editing layer mask (click to exit)</source>
@@ -17867,10 +17916,6 @@ Y: %2
         <translation>La selección no toca la capa activa.</translation>
     </message>
     <message>
-        <source>Running %1...</source>
-        <translation>Ejecutando %1...</translation>
-    </message>
-    <message>
         <source>The layer no longer exists.</source>
         <translation>La capa ya no existe.</translation>
     </message>
@@ -18115,6 +18160,32 @@ Y: %2
     <message>
         <source>Units &amp;&amp; Grids</source>
         <translation>Unidades &amp;&amp; cuadrículas</translation>
+    </message>
+    <message>
+        <source>Repeat Last Plug-in</source>
+        <translation>Repetir el último plugin</translation>
+    </message>
+    <message>
+        <source>Last Plug-in Settings...</source>
+        <translation>Configuración del último plugin...</translation>
+    </message>
+    <message>
+        <source>The last plug-in is no longer available</source>
+        <translation>El último plugin ya no está disponible</translation>
+    </message>
+    <message>
+        <source>Repeat %1</source>
+        <extracomment>Plugins menu; %1 is the plug-in that ran last. Runs it again with its last settings, no dialog.</extracomment>
+        <translation>Repetir %1</translation>
+    </message>
+    <message>
+        <source>%1 Settings...</source>
+        <extracomment>Plugins menu; %1 is the plug-in that ran last. Opens its settings dialog again, starting from the last settings.</extracomment>
+        <translation>Configuración de %1...</translation>
+    </message>
+    <message>
+        <source>Applied %1 (%2 undoes it)</source>
+        <translation>Se aplicó %1 (%2 lo deshace)</translation>
     </message>
 </context>
 <context>

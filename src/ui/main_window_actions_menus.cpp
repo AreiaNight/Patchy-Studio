@@ -1537,6 +1537,23 @@ void MainWindow::build_menu_bar_actions(ActionBuildContext& ctx) {
   }
 
 #ifdef Q_OS_WIN
+  // Photoshop's Ctrl+F / Ctrl+Alt+F for the plug-in that ran last: a plug-in
+  // never previews on the canvas, so "apply, look, undo, adjust" is the loop
+  // and these two keep it short. Their text carries the plug-in's name and
+  // they are enabled by update_legacy_plugin_repeat_actions, not as document
+  // actions (they also need a plug-in that ran).
+  plugins_repeat_last_action_ = plugins_menu->addAction(tr("Repeat Last Plug-in"));
+  plugins_repeat_last_action_->setObjectName(QStringLiteral("pluginsRepeatLastAction"));
+  plugins_repeat_last_action_->setProperty("patchy.channelViewBlocked", true);
+  register_hotkey(plugins_repeat_last_action_, "plugins.repeat_last", QKeySequence(Qt::CTRL | Qt::Key_F));
+  connect(plugins_repeat_last_action_, &QAction::triggered, this, [this] { run_last_legacy_plugin(/*show_dialog=*/false); });
+  plugins_last_settings_action_ = plugins_menu->addAction(tr("Last Plug-in Settings..."));
+  plugins_last_settings_action_->setObjectName(QStringLiteral("pluginsLastSettingsAction"));
+  plugins_last_settings_action_->setProperty("patchy.channelViewBlocked", true);
+  register_hotkey(plugins_last_settings_action_, "plugins.last_settings", QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_F));
+  connect(plugins_last_settings_action_, &QAction::triggered, this, [this] { run_last_legacy_plugin(/*show_dialog=*/true); });
+  register_retranslation([this] { update_legacy_plugin_repeat_actions(); });
+  plugins_menu->addSeparator();
   // The plug-ins folder next to patchy.exe is the one obvious place for .8bf
   // files; both commands exist only where the plug-ins can run (docs/plugins.md).
   auto* open_plugins_folder_action = plugins_menu->addAction(tr("Open Plug-ins &Folder"));

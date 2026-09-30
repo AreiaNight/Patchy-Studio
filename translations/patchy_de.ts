@@ -10355,6 +10355,55 @@ RGB: %2, %3, %4</translation>
     </message>
 </context>
 <context>
+    <name>patchy::ui::LegacyPluginRunDialog</name>
+    <message>
+        <source>Legacy Photoshop Plug-in</source>
+        <translation>Älteres Photoshop-Plug-in</translation>
+    </message>
+    <message>
+        <source>Classic plug-ins show their preview inside their own window. The layer changes after you click OK.</source>
+        <translation>Klassische Plug-ins zeigen ihre Vorschau in ihrem eigenen Fenster. Die Ebene ändert sich, nachdem Sie auf OK klicken.</translation>
+    </message>
+    <message>
+        <source>Show Plug-in Window</source>
+        <translation>Plug-in-Fenster anzeigen</translation>
+    </message>
+    <message>
+        <source>Brings the plug-in&apos;s window back in front of Patchy.</source>
+        <translation>Holt das Fenster des Plug-ins wieder vor Patchy.</translation>
+    </message>
+    <message>
+        <source>Starting %1...</source>
+        <translation>%1 wird gestartet...</translation>
+    </message>
+    <message>
+        <source>Force Stop Plug-in</source>
+        <translation>Plug-in zwangsweise beenden</translation>
+    </message>
+    <message>
+        <source>Ends the plug-in without applying it. Use it only if the plug-in&apos;s window has stopped responding.</source>
+        <extracomment>Tooltip of the stop button while a plug-in is loading or waits for the user in its own window.</extracomment>
+        <translation>Beendet das Plug-in, ohne es anzuwenden. Nur verwenden, wenn das Fenster des Plug-ins nicht mehr reagiert.</translation>
+    </message>
+    <message>
+        <source>%1 is open in its own window. Adjust its settings there and click its OK button to apply it to this layer.</source>
+        <extracomment>%1 is the plug-in&apos;s name; shown while its own settings window is open.</extracomment>
+        <translation>%1 ist in einem eigenen Fenster geöffnet. Passen Sie dort die Einstellungen an und klicken Sie auf dessen OK-Schaltfläche, um es auf diese Ebene anzuwenden.</translation>
+    </message>
+    <message>
+        <source>Applying %1...</source>
+        <translation>%1 wird angewendet...</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Abbrechen</translation>
+    </message>
+    <message>
+        <source>Stops the plug-in. The layer stays unchanged.</source>
+        <translation>Beendet das Plug-in. Die Ebene bleibt unverändert.</translation>
+    </message>
+</context>
+<context>
     <name>patchy::ui::MainWindow</name>
     <message>
         <source>Editing layer mask (click to exit)</source>
@@ -17867,10 +17916,6 @@ Y: %2
         <translation>Die Auswahl berührt die aktive Ebene nicht.</translation>
     </message>
     <message>
-        <source>Running %1...</source>
-        <translation>%1 wird ausgeführt...</translation>
-    </message>
-    <message>
         <source>The layer no longer exists.</source>
         <translation>Die Ebene existiert nicht mehr.</translation>
     </message>
@@ -18115,6 +18160,32 @@ Y: %2
     <message>
         <source>Units &amp;&amp; Grids</source>
         <translation>Einheiten &amp;&amp; Raster</translation>
+    </message>
+    <message>
+        <source>Repeat Last Plug-in</source>
+        <translation>Letztes Plug-in wiederholen</translation>
+    </message>
+    <message>
+        <source>Last Plug-in Settings...</source>
+        <translation>Einstellungen des letzten Plug-ins...</translation>
+    </message>
+    <message>
+        <source>The last plug-in is no longer available</source>
+        <translation>Das letzte Plug-in ist nicht mehr verfügbar</translation>
+    </message>
+    <message>
+        <source>Repeat %1</source>
+        <extracomment>Plugins menu; %1 is the plug-in that ran last. Runs it again with its last settings, no dialog.</extracomment>
+        <translation>%1 wiederholen</translation>
+    </message>
+    <message>
+        <source>%1 Settings...</source>
+        <extracomment>Plugins menu; %1 is the plug-in that ran last. Opens its settings dialog again, starting from the last settings.</extracomment>
+        <translation>Einstellungen von %1...</translation>
+    </message>
+    <message>
+        <source>Applied %1 (%2 undoes it)</source>
+        <translation>%1 angewendet (%2 macht es rückgängig)</translation>
     </message>
 </context>
 <context>
