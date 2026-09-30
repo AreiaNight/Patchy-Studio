@@ -18012,6 +18012,42 @@ Y：%2
         <source>Drag right to zoom in and left to zoom out around the point you pressed. Off: drag a rectangle to zoom to it</source>
         <translation>向右拖曳以按下的點為中心放大，向左拖曳縮小。關閉時，拖出一個矩形以縮放到該區域</translation>
     </message>
+    <message>
+        <source>100%</source>
+        <translation>100%</translation>
+    </message>
+    <message>
+        <source>Fit Screen</source>
+        <translation>顯示全頁</translation>
+    </message>
+    <message>
+        <source>Fill Screen</source>
+        <translation>填滿螢幕</translation>
+    </message>
+    <message>
+        <source>Fi&amp;ll Screen</source>
+        <translation>填滿螢幕(&amp;L)</translation>
+    </message>
+    <message>
+        <source>Zoom In</source>
+        <translation>放大</translation>
+    </message>
+    <message>
+        <source>Zoom Out</source>
+        <translation>縮小</translation>
+    </message>
+    <message>
+        <source>Show the image at actual pixels (View &gt; Actual Pixels)</source>
+        <translation>以實際像素顯示影像 (檢視 &gt; 實際像素)</translation>
+    </message>
+    <message>
+        <source>Fit the whole image in the window (View &gt; Fit on Screen)</source>
+        <translation>使整個影像符合視窗 (檢視 &gt; 顯示全頁)</translation>
+    </message>
+    <message>
+        <source>Zoom until the image fills the window (View &gt; Fill Screen)</source>
+        <translation>縮放直到影像填滿視窗 (檢視 &gt; 填滿螢幕)</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>

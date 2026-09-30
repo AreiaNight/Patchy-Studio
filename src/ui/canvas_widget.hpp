@@ -436,6 +436,13 @@ public:
   // tools/zoomScrubby; default off.
   void set_zoom_scrubby(bool enabled) noexcept;
   [[nodiscard]] bool zoom_scrubby() const noexcept;
+  // Zoom tool click direction (the options-bar Zoom In / Zoom Out toggle,
+  // tools/zoomToolZoomsOut). Alt inverts whichever direction is active.
+  void set_zoom_tool_zooms_out(bool enabled);
+  [[nodiscard]] bool zoom_tool_zooms_out() const noexcept;
+  // Zooms so the document covers the viewport (the larger axis ratio, where
+  // fit_to_view uses the smaller) and centers it.
+  void fill_to_view();
   void refresh_tool_cursor();
   void fit_to_view();
   // Recenters the document in the viewport at the current zoom. Used after
@@ -2081,6 +2088,8 @@ private:
   // The press position clamped onto the document frame (margin presses zoom
   // toward the nearest document edge).
   [[nodiscard]] QPointF zoom_click_anchor(QPointF widget_position) const;
+  // The click direction after Alt inverts the Zoom In / Zoom Out mode.
+  [[nodiscard]] bool zoom_tool_zoom_out_active(Qt::KeyboardModifiers modifiers) const noexcept;
   void begin_brush_adjust_drag(QPoint widget_position, bool from_tablet = false);
   void update_brush_adjust_drag(QPoint widget_position);
   void end_brush_adjust_drag(bool commit);
@@ -2116,6 +2125,7 @@ private:
   QPointF pan_{40.0, 40.0};
   bool wheel_zooms_{true};
   bool zoom_scrubby_{false};
+  bool zoom_tool_zooms_out_{false};
   QScrollBar* horizontal_scroll_bar_{nullptr};
   QScrollBar* vertical_scroll_bar_{nullptr};
   bool syncing_scroll_bars_{false};

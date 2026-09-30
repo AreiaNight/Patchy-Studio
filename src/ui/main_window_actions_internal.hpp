@@ -103,6 +103,7 @@ struct ActionBuildContext {
   QAction* zoom_in{nullptr};
   QAction* zoom_out{nullptr};
   QAction* fit_on_screen{nullptr};
+  QAction* fill_screen{nullptr};
   QAction* zoom_reset{nullptr};
   QAction* selection_edges_action{nullptr};
   QAction* target_path_action{nullptr};

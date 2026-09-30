@@ -207,6 +207,21 @@ void CanvasWidget::fit_to_view() {
   notify_view_changed();
 }
 
+void CanvasWidget::fill_to_view() {
+  if (document_ == nullptr || document_->width() <= 0 || document_->height() <= 0 || width() <= 0 || height() <= 0) {
+    return;
+  }
+
+  zoom_ = std::clamp(std::max(static_cast<double>(width()) / static_cast<double>(document_->width()),
+                              static_cast<double>(height()) / static_cast<double>(document_->height())),
+                     kMinZoom, kMaxZoom);
+  pan_ = QPointF((static_cast<double>(width()) - static_cast<double>(document_->width()) * zoom_) / 2.0,
+                 (static_cast<double>(height()) - static_cast<double>(document_->height()) * zoom_) / 2.0);
+  constrain_pan();
+  update();
+  notify_view_changed();
+}
+
 void CanvasWidget::center_document_in_view() {
   if (document_ == nullptr || document_->width() <= 0 || document_->height() <= 0 || width() <= 0 || height() <= 0) {
     return;
@@ -403,6 +418,25 @@ bool CanvasWidget::zoom_scrubby() const noexcept {
   return zoom_scrubby_;
 }
 
+void CanvasWidget::set_zoom_tool_zooms_out(bool enabled) {
+  if (zoom_tool_zooms_out_ == enabled) {
+    return;
+  }
+  zoom_tool_zooms_out_ = enabled;
+  if (tool_ == CanvasTool::Zoom) {
+    update_tool_cursor();
+    update();
+  }
+}
+
+bool CanvasWidget::zoom_tool_zooms_out() const noexcept {
+  return zoom_tool_zooms_out_;
+}
+
+bool CanvasWidget::zoom_tool_zoom_out_active(Qt::KeyboardModifiers modifiers) const noexcept {
+  return zoom_tool_zooms_out_ != ((modifiers & Qt::AltModifier) != 0);
+}
+
 QPointF CanvasWidget::zoom_click_anchor(QPointF widget_pos) const {
   // A press in the grey margin zooms toward the nearest point on the document
   // frame rather than toward the empty space under the cursor.
@@ -416,9 +450,9 @@ QPointF CanvasWidget::zoom_click_anchor(QPointF widget_pos) const {
 }
 
 void CanvasWidget::draw_zoom_preview(QPainter& painter) const {
-  // No marquee while Alt is held (Alt is a point zoom-out, not a rectangle)
-  // or while a Scrubby Zoom drag is zooming live.
-  if (!zooming_ || zoom_scrubbing_ || (QApplication::keyboardModifiers() & Qt::AltModifier) != 0) {
+  // No marquee while the click would zoom out (Alt, or the Zoom Out mode: a
+  // point zoom, not a rectangle) or while a Scrubby Zoom drag is zooming live.
+  if (!zooming_ || zoom_scrubbing_ || zoom_tool_zoom_out_active(QApplication::keyboardModifiers())) {
     return;
   }
 

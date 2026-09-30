@@ -1457,6 +1457,122 @@ void ui_zoom_tool_scrubby_drag_zooms_live_around_press_point() {
   CHECK(canvas.zoom() > 1.0);
 }
 
+// The Zoom tool's Zoom In / Zoom Out toggle sets the click direction (Alt
+// inverts it), persists as tools/zoomToolZoomsOut, and follows the window into
+// a second document.
+void ui_zoom_tool_direction_buttons_set_click_direction() {
+  SettingsValueRestorer saved_direction(QStringLiteral("tools/zoomToolZoomsOut"));
+  {
+    auto settings = patchy::ui::app_settings();
+    settings.remove(QStringLiteral("tools/zoomToolZoomsOut"));
+    settings.sync();
+  }
+  patchy::ui::MainWindow window;
+  show_window(window);
+  auto* canvas = require_canvas(window);
+  auto* zoom_in_mode = window.findChild<QAction*>(QStringLiteral("zoomInModeAction"));
+  auto* zoom_out_mode = window.findChild<QAction*>(QStringLiteral("zoomOutModeAction"));
+  CHECK(zoom_in_mode != nullptr);
+  CHECK(zoom_out_mode != nullptr);
+  if (zoom_in_mode == nullptr || zoom_out_mode == nullptr) {
+    return;
+  }
+  CHECK(zoom_in_mode->isCheckable());
+  CHECK(zoom_in_mode->isChecked());
+  CHECK(!zoom_out_mode->isChecked());
+  CHECK(!canvas->zoom_tool_zooms_out());
+
+  require_action_by_text(window, QStringLiteral("Zoom"))->trigger();
+  QApplication::processEvents();
+  CHECK(canvas->tool() == patchy::ui::CanvasTool::Zoom);
+  const auto click = [canvas](Qt::KeyboardModifiers modifiers) {
+    const auto at = canvas->widget_position_for_document_point(QPoint(10, 10));
+    send_mouse(*canvas, QEvent::MouseButtonPress, at, Qt::LeftButton, Qt::LeftButton, modifiers);
+    send_mouse(*canvas, QEvent::MouseButtonRelease, at, Qt::LeftButton, Qt::NoButton, modifiers);
+  };
+  canvas->set_zoom(1.0);
+  click(Qt::NoModifier);
+  CHECK(std::abs(canvas->zoom() - 2.0) < 0.001);
+
+  zoom_out_mode->trigger();
+  QApplication::processEvents();
+  CHECK(zoom_out_mode->isChecked());
+  CHECK(!zoom_in_mode->isChecked());
+  CHECK(canvas->zoom_tool_zooms_out());
+  click(Qt::NoModifier);
+  CHECK(std::abs(canvas->zoom() - 1.0) < 0.001);
+  click(Qt::AltModifier);
+  CHECK(std::abs(canvas->zoom() - 2.0) < 0.001);
+
+  patchy::ui::MainWindowTestAccess::save_tool_settings(window);
+  {
+    auto settings = patchy::ui::app_settings();
+    CHECK(settings.value(QStringLiteral("tools/zoomToolZoomsOut"), false).toBool());
+  }
+  patchy::ui::MainWindowTestAccess::create_default_document(window);
+  QApplication::processEvents();
+  auto* second = require_canvas(window);
+  CHECK(second != canvas);
+  CHECK(second->zoom_tool_zooms_out());
+  CHECK(zoom_out_mode->isChecked());
+
+  zoom_in_mode->trigger();
+  QApplication::processEvents();
+  CHECK(!second->zoom_tool_zooms_out());
+}
+
+// The Zoom tool's 100% / Fit Screen / Fill Screen buttons show only for the
+// Zoom tool and set the view like the View menu commands; Fill Screen (a new
+// View command) uses the larger axis ratio where Fit uses the smaller.
+void ui_zoom_options_bar_view_buttons_set_view() {
+  patchy::ui::MainWindow window;
+  show_window(window);
+  auto* canvas = require_canvas(window);
+  auto* actual = window.findChild<QPushButton*>(QStringLiteral("zoomActualPixelsButton"));
+  auto* fit = window.findChild<QPushButton*>(QStringLiteral("zoomFitScreenButton"));
+  auto* fill = window.findChild<QPushButton*>(QStringLiteral("zoomFillScreenButton"));
+  CHECK(actual != nullptr);
+  CHECK(fit != nullptr);
+  CHECK(fill != nullptr);
+  if (actual == nullptr || fit == nullptr || fill == nullptr) {
+    return;
+  }
+  require_action(window, "toolBrushAction")->trigger();
+  QApplication::processEvents();
+  CHECK(!actual->isVisible());
+  CHECK(!fit->isVisible());
+  CHECK(!fill->isVisible());
+  require_action_by_text(window, QStringLiteral("Zoom"))->trigger();
+  QApplication::processEvents();
+  CHECK(actual->isVisible());
+  CHECK(fit->isVisible());
+  CHECK(fill->isVisible());
+  CHECK(actual->isEnabled());
+
+  const auto& document = patchy::ui::MainWindowTestAccess::document(window);
+  const auto doc_width = static_cast<double>(document.width());
+  const auto doc_height = static_cast<double>(document.height());
+  const auto fit_zoom = std::min((canvas->width() - 80.0) / doc_width, (canvas->height() - 80.0) / doc_height);
+  const auto fill_zoom = std::max(canvas->width() / doc_width, canvas->height() / doc_height);
+  CHECK(fill_zoom > fit_zoom);
+
+  canvas->set_zoom(0.37);
+  actual->click();
+  QApplication::processEvents();
+  CHECK(std::abs(canvas->zoom() - 1.0) < 0.001);
+  fit->click();
+  QApplication::processEvents();
+  CHECK(std::abs(canvas->zoom() - fit_zoom) < 0.001);
+  fill->click();
+  QApplication::processEvents();
+  CHECK(std::abs(canvas->zoom() - fill_zoom) < 0.001);
+
+  canvas->set_zoom(0.37);
+  require_action_by_text(window, QStringLiteral("Fill Screen"))->trigger();
+  QApplication::processEvents();
+  CHECK(std::abs(canvas->zoom() - fill_zoom) < 0.001);
+}
+
 void ui_tool_palette_icons_render_sheet() {
   patchy::ui::MainWindow window;
   show_window(window);
@@ -3653,6 +3769,8 @@ std::vector<patchy::test::TestCase> canvas_view_tools_tests() {
        ui_zoom_tool_scrubby_option_persists_and_reaches_canvas},
       {"ui_zoom_tool_scrubby_drag_zooms_live_around_press_point",
        ui_zoom_tool_scrubby_drag_zooms_live_around_press_point},
+      {"ui_zoom_tool_direction_buttons_set_click_direction", ui_zoom_tool_direction_buttons_set_click_direction},
+      {"ui_zoom_options_bar_view_buttons_set_view", ui_zoom_options_bar_view_buttons_set_view},
       {"ui_stamp_and_gradient_flyouts_swap_tools", ui_stamp_and_gradient_flyouts_swap_tools},
       {"ui_tool_cycle_hotkeys_walk_each_flyout", ui_tool_cycle_hotkeys_walk_each_flyout},
       {"ui_tool_flyout_double_click_opens_menu", ui_tool_flyout_double_click_opens_menu},

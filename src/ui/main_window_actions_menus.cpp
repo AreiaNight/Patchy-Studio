@@ -1564,6 +1564,7 @@ void MainWindow::build_menu_bar_actions(ActionBuildContext& ctx) {
   auto* zoom_in = view_menu->addAction(tr("Zoom &In"));
   auto* zoom_out = view_menu->addAction(tr("Zoom &Out"));
   auto* fit_on_screen = view_menu->addAction(tr("&Fit on Screen"));
+  auto* fill_screen = view_menu->addAction(tr("Fi&ll Screen"));
   auto* zoom_reset = view_menu->addAction(tr("&Actual Pixels"));
   view_vector_preview_action_ = view_menu->addAction(tr("Dynamic Vector Preview"));
   view_vector_preview_action_->setObjectName(QStringLiteral("viewVectorPreviewAction"));
@@ -1623,6 +1624,7 @@ void MainWindow::build_menu_bar_actions(ActionBuildContext& ctx) {
   zoom_in->setObjectName(QStringLiteral("viewZoomInAction"));
   zoom_out->setObjectName(QStringLiteral("viewZoomOutAction"));
   fit_on_screen->setObjectName(QStringLiteral("viewFitOnScreenAction"));
+  fill_screen->setObjectName(QStringLiteral("viewFillScreenAction"));
   zoom_reset->setObjectName(QStringLiteral("viewActualPixelsAction"));
   selection_edges_action->setObjectName(QStringLiteral("viewToggleSelectionEdgesAction"));
   target_path_action->setObjectName(QStringLiteral("viewToggleTargetPathAction"));
@@ -1645,6 +1647,7 @@ void MainWindow::build_menu_bar_actions(ActionBuildContext& ctx) {
   zoom_in->setIcon(simple_icon(QStringLiteral("zoomIn")));
   zoom_out->setIcon(simple_icon(QStringLiteral("zoomOut")));
   fit_on_screen->setIcon(simple_icon(QStringLiteral("fit")));
+  fill_screen->setIcon(simple_icon(QStringLiteral("fill")));
   zoom_reset->setIcon(simple_icon(QStringLiteral("1x")));
   selection_edges_action->setIcon(simple_icon(QStringLiteral("SE")));
   view_rulers_action_->setIcon(simple_icon(QStringLiteral("RU")));
@@ -1685,6 +1688,7 @@ void MainWindow::build_menu_bar_actions(ActionBuildContext& ctx) {
   register_hotkey(zoom_in, "view.zoom_in", zoom_in_defaults);
   register_hotkey(zoom_out, "view.zoom_out", QKeySequence::keyBindings(QKeySequence::ZoomOut));
   register_hotkey(fit_on_screen, "view.fit_on_screen", QKeySequence(Qt::CTRL | Qt::Key_0));
+  register_hotkey(fill_screen, "view.fill_screen");
   register_hotkey(zoom_reset, "view.actual_pixels", QKeySequence(Qt::CTRL | Qt::Key_1));
   register_hotkey(selection_edges_action, "view.selection_edges", QKeySequence(Qt::CTRL | Qt::Key_H));
   register_hotkey(target_path_action, "view.target_path",
@@ -1701,6 +1705,7 @@ void MainWindow::build_menu_bar_actions(ActionBuildContext& ctx) {
   connect(zoom_in, &QAction::triggered, this, [this] { canvas_->set_zoom_centered(canvas_->zoom() * 1.25); });
   connect(zoom_out, &QAction::triggered, this, [this] { canvas_->set_zoom_centered(canvas_->zoom() * 0.8); });
   connect(fit_on_screen, &QAction::triggered, this, [this] { canvas_->fit_to_view(); });
+  connect(fill_screen, &QAction::triggered, this, [this] { canvas_->fill_to_view(); });
   connect(zoom_reset, &QAction::triggered, this, [this] { canvas_->set_zoom_centered(1.0); });
   connect(selection_edges_action, &QAction::triggered, this, [this] {
     if (canvas_ != nullptr) {
@@ -1766,7 +1771,8 @@ void MainWindow::build_menu_bar_actions(ActionBuildContext& ctx) {
   connect(new_guide_layout_action, &QAction::triggered, this, [this] { new_guide_layout_dialog(); });
   connect(clear_selected_guides_action, &QAction::triggered, this, [this] { clear_selected_guides(); });
   connect(clear_guides_action, &QAction::triggered, this, [this] { clear_guides(); });
-  for (auto* action : {zoom_in, zoom_out, fit_on_screen, zoom_reset, selection_edges_action, view_rulers_action_,
+  for (auto* action : {zoom_in, zoom_out, fit_on_screen, fill_screen, zoom_reset, selection_edges_action,
+                       view_rulers_action_,
                        view_grid_action_, view_guides_action_, view_snap_action_, view_lock_guides_action_,
                        snap_to_menu->menuAction(), view_snap_guides_action_, view_snap_grid_action_,
                        view_snap_document_action_, view_snap_layers_action_, view_snap_selection_action_,
@@ -1976,6 +1982,7 @@ void MainWindow::build_menu_bar_actions(ActionBuildContext& ctx) {
   ctx.zoom_in = zoom_in;
   ctx.zoom_out = zoom_out;
   ctx.fit_on_screen = fit_on_screen;
+  ctx.fill_screen = fill_screen;
   ctx.zoom_reset = zoom_reset;
   ctx.selection_edges_action = selection_edges_action;
   ctx.target_path_action = target_path_action;

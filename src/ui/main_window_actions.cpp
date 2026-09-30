@@ -391,6 +391,7 @@ void MainWindow::bind_action_translations(ActionBuildContext& ctx) {
       {ctx.zoom_in, QT_TR_NOOP("Zoom &In")},
       {ctx.zoom_out, QT_TR_NOOP("Zoom &Out")},
       {ctx.fit_on_screen, QT_TR_NOOP("&Fit on Screen")},
+      {ctx.fill_screen, QT_TR_NOOP("Fi&ll Screen")},
       {ctx.zoom_reset, QT_TR_NOOP("&Actual Pixels")},
       {ctx.selection_edges_action, QT_TR_NOOP("Show Selection &Edges")},
       {ctx.target_path_action, QT_TR_NOOP("Show Target &Path")},
@@ -444,6 +445,9 @@ void MainWindow::bind_action_translations(ActionBuildContext& ctx) {
       {wand_contiguous_check_, QT_TR_NOOP("Contiguous")},
       {fill_contiguous_check_, QT_TR_NOOP("Contiguous")},
       {zoom_scrubby_check_, QT_TR_NOOP("Scrubby Zoom")},
+      {zoom_actual_pixels_button_, QT_TR_NOOP("100%")},
+      {zoom_fit_screen_button_, QT_TR_NOOP("Fit Screen")},
+      {zoom_fill_screen_button_, QT_TR_NOOP("Fill Screen")},
       {wand_sample_all_layers_check_, QT_TR_NOOP("Sample All Layers")},
       {quick_select_sample_all_layers_check_, QT_TR_NOOP("Sample All Layers")},
       {quick_select_enhance_edge_check_, QT_TR_NOOP("Enhance Edge")},
@@ -503,6 +507,10 @@ void MainWindow::sync_tool_option_controls_from_canvas() {
   set_checked(wand_contiguous_check_, canvas_->wand_contiguous());
   set_checked(fill_contiguous_check_, canvas_->fill_contiguous());
   set_checked(zoom_scrubby_check_, canvas_->zoom_scrubby());
+  if (zoom_in_mode_action_ != nullptr && zoom_out_mode_action_ != nullptr) {
+    zoom_in_mode_action_->setChecked(!canvas_->zoom_tool_zooms_out());
+    zoom_out_mode_action_->setChecked(canvas_->zoom_tool_zooms_out());
+  }
   set_checked(wand_sample_all_layers_check_, canvas_->wand_sample_all_layers());
   set_checked(quick_select_sample_all_layers_check_, canvas_->quick_select_sample_all_layers());
   set_checked(quick_select_enhance_edge_check_, canvas_->quick_select_enhance_edge());

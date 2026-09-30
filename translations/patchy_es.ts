@@ -18064,6 +18064,42 @@ Y: %2
         <source>Drag right to zoom in and left to zoom out around the point you pressed. Off: drag a rectangle to zoom to it</source>
         <translation>Arrastre a la derecha para acercar y a la izquierda para alejar alrededor del punto pulsado. Desactivado: arrastre un rectángulo para ampliarlo</translation>
     </message>
+    <message>
+        <source>100%</source>
+        <translation>100%</translation>
+    </message>
+    <message>
+        <source>Fit Screen</source>
+        <translation>Encajar en pantalla</translation>
+    </message>
+    <message>
+        <source>Fill Screen</source>
+        <translation>Llenar pantalla</translation>
+    </message>
+    <message>
+        <source>Fi&amp;ll Screen</source>
+        <translation>&amp;Llenar pantalla</translation>
+    </message>
+    <message>
+        <source>Zoom In</source>
+        <translation>Aumentar</translation>
+    </message>
+    <message>
+        <source>Zoom Out</source>
+        <translation>Reducir</translation>
+    </message>
+    <message>
+        <source>Show the image at actual pixels (View &gt; Actual Pixels)</source>
+        <translation>Mostrar la imagen a píxeles reales (Vista &gt; Píxeles reales)</translation>
+    </message>
+    <message>
+        <source>Fit the whole image in the window (View &gt; Fit on Screen)</source>
+        <translation>Ajustar toda la imagen a la ventana (Vista &gt; Encajar en pantalla)</translation>
+    </message>
+    <message>
+        <source>Zoom until the image fills the window (View &gt; Fill Screen)</source>
+        <translation>Ampliar hasta que la imagen llene la ventana (Vista &gt; Llenar pantalla)</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>

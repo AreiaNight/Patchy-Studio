@@ -18064,6 +18064,42 @@ Y : %2
         <source>Drag right to zoom in and left to zoom out around the point you pressed. Off: drag a rectangle to zoom to it</source>
         <translation>Faites glisser vers la droite pour zoomer et vers la gauche pour dézoomer autour du point cliqué. Désactivé : tracez un rectangle pour zoomer dessus</translation>
     </message>
+    <message>
+        <source>100%</source>
+        <translation>100 %</translation>
+    </message>
+    <message>
+        <source>Fit Screen</source>
+        <translation>Taille écran</translation>
+    </message>
+    <message>
+        <source>Fill Screen</source>
+        <translation>Remplir l'écran</translation>
+    </message>
+    <message>
+        <source>Fi&amp;ll Screen</source>
+        <translation>Remp&amp;lir l'écran</translation>
+    </message>
+    <message>
+        <source>Zoom In</source>
+        <translation>Zoom avant</translation>
+    </message>
+    <message>
+        <source>Zoom Out</source>
+        <translation>Zoom arrière</translation>
+    </message>
+    <message>
+        <source>Show the image at actual pixels (View &gt; Actual Pixels)</source>
+        <translation>Afficher l'image en pixels réels (Affichage &gt; Pixels réels)</translation>
+    </message>
+    <message>
+        <source>Fit the whole image in the window (View &gt; Fit on Screen)</source>
+        <translation>Afficher l'image entière dans la fenêtre (Affichage &gt; Taille écran)</translation>
+    </message>
+    <message>
+        <source>Zoom until the image fills the window (View &gt; Fill Screen)</source>
+        <translation>Zoomer jusqu'à ce que l'image remplisse la fenêtre (Affichage &gt; Remplir l'écran)</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>

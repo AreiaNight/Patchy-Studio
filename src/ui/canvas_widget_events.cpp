@@ -188,7 +188,7 @@ bool CanvasWidget::eventFilter(QObject* watched, QEvent* event) {
           if (zooming_) {
             update();
           } else {
-            apply_zoom_cursor((modifiers & Qt::AltModifier) != 0);
+            apply_zoom_cursor(zoom_tool_zoom_out_active(modifiers));
           }
         }
       } else if (pen_family_tool_active()) {
@@ -2551,7 +2551,7 @@ void CanvasWidget::mouseReleaseEvent(QMouseEvent* event) {
     zoom_scrubbing_ = zoom_scrub_started_ = false;
     if (document_ != nullptr && !scrubbed) {
       zoom_current_ = clamped_document_point(*document_, document_position(event->pos()));
-      const bool zoom_out = (event->modifiers() & Qt::AltModifier) != 0;
+      const bool zoom_out = zoom_tool_zoom_out_active(event->modifiers());
       const auto widget_drag = (event->pos() - widget_position(zoom_start_)).manhattanLength();
       const auto zoom_rect = normalized_rect(zoom_start_, zoom_current_);
       // Alt is always a point zoom-out, never a marquee. A drag counts as a

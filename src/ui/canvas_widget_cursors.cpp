@@ -297,7 +297,8 @@ void CanvasWidget::apply_zoom_cursor(bool zoom_out) {
   painter.setRenderHint(QPainter::Antialiasing);
   // Two passes: a dark stroke first to lay a halo, then the light ink on top so
   // the magnifier (and its +/- badge) stays legible over any canvas colour. The
-  // badge is a + for zoom in and a - for zoom out (Alt held).
+  // badge is a + for zoom in and a - for zoom out (Alt held, or the Zoom Out
+  // mode without Alt).
   const auto draw = [&](const QPen& pen) {
     painter.setPen(pen);
     painter.drawEllipse(QRect(4, 4, 11, 11));
@@ -395,7 +396,7 @@ void CanvasWidget::update_tool_cursor() {
     return;
   }
   if (tool_ == CanvasTool::Zoom) {
-    apply_zoom_cursor((QApplication::keyboardModifiers() & Qt::AltModifier) != 0);
+    apply_zoom_cursor(zoom_tool_zoom_out_active(QApplication::keyboardModifiers()));
     return;
   }
   if (brush_outline_uses_overlay()) {

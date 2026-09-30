@@ -2859,10 +2859,44 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
     }
   });
 
+  // Zoom tool options (docs/view-navigation.md), Photoshop's row: the Zoom In /
+  // Zoom Out click direction (tools/zoomToolZoomsOut; Alt inverts it), Scrubby
+  // Zoom, then the 100% / Fit Screen / Fill Screen view presets. Every widget
+  // carries optionsBarAllowedWhileLocked: the Zoom tool works while a preview
+  // dialog locks editing, so its row stays enabled then (refresh_options_bar).
+  const auto allow_while_locked = [](QWidget* widget) {
+    widget->setProperty("optionsBarAllowedWhileLocked", true);
+  };
+  zoom_in_mode_action_ =
+      add_option_action(simple_icon(QStringLiteral("zoomIn")), QT_TR_NOOP("Zoom In"), {CanvasTool::Zoom});
+  zoom_in_mode_action_->setObjectName(QStringLiteral("zoomInModeAction"));
+  allow_while_locked(option_actions_.back().first);
+  zoom_out_mode_action_ =
+      add_option_action(simple_icon(QStringLiteral("zoomOut")), QT_TR_NOOP("Zoom Out"), {CanvasTool::Zoom});
+  zoom_out_mode_action_->setObjectName(QStringLiteral("zoomOutModeAction"));
+  allow_while_locked(option_actions_.back().first);
+  auto* zoom_mode_group = new QActionGroup(this);
+  zoom_mode_group->setExclusive(true);
+  for (auto* action : {zoom_in_mode_action_, zoom_out_mode_action_}) {
+    action->setCheckable(true);
+    zoom_mode_group->addAction(action);
+  }
+  zoom_in_mode_action_->setChecked(!canvas_defaults->zoom_tool_zooms_out());
+  zoom_out_mode_action_->setChecked(canvas_defaults->zoom_tool_zooms_out());
+  connect(zoom_mode_group, &QActionGroup::triggered, this, [this](QAction* action) {
+    const bool zooms_out = action == zoom_out_mode_action_;
+    current_zoom_tool_zooms_out_ = zooms_out;
+    if (canvas_ != nullptr) {
+      canvas_->set_zoom_tool_zooms_out(zooms_out);
+      save_tool_settings();
+    }
+  });
+  add_option_separator({CanvasTool::Zoom});
   // Scrubby Zoom (GitHub issue 51, Photoshop's gesture): a persisted view
   // preference (tools/zoomScrubby, default off) mirrored into every session
-  // canvas. See docs/view-navigation.md.
+  // canvas.
   zoom_scrubby_check_ = new CheckGlyphBox(tr("Scrubby Zoom"), toolbar);
+  allow_while_locked(zoom_scrubby_check_);
   zoom_scrubby_check_->setObjectName(QStringLiteral("zoomScrubbyCheck"));
   zoom_scrubby_check_->setChecked(canvas_defaults->zoom_scrubby());
   bind_tooltip(zoom_scrubby_check_,
@@ -2876,6 +2910,36 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
       save_tool_settings();
     }
   });
+  add_option_separator({CanvasTool::Zoom});
+  // The view presets call the canvas directly (the View menu actions do the
+  // same), so the row does not depend on the menu build order.
+  const auto add_zoom_view_button = [this, toolbar, add_option_widget, allow_while_locked](
+                                        const char* source, const QString& object_name, const char* tooltip,
+                                        std::function<void(CanvasWidget&)> apply) {
+    auto* button = new QPushButton(tr(source), toolbar);
+    button->setObjectName(object_name);
+    bind_tooltip(button, tooltip);
+    allow_while_locked(button);
+    add_option_widget(button, {CanvasTool::Zoom});
+    connect(button, &QPushButton::clicked, this, [this, apply] {
+      if (canvas_ != nullptr) {
+        apply(*canvas_);
+      }
+    });
+    return button;
+  };
+  zoom_actual_pixels_button_ =
+      add_zoom_view_button(QT_TR_NOOP("100%"), QStringLiteral("zoomActualPixelsButton"),
+                           QT_TR_NOOP("Show the image at actual pixels (View > Actual Pixels)"),
+                           [](CanvasWidget& canvas) { canvas.set_zoom_centered(1.0); });
+  zoom_fit_screen_button_ =
+      add_zoom_view_button(QT_TR_NOOP("Fit Screen"), QStringLiteral("zoomFitScreenButton"),
+                           QT_TR_NOOP("Fit the whole image in the window (View > Fit on Screen)"),
+                           [](CanvasWidget& canvas) { canvas.fit_to_view(); });
+  zoom_fill_screen_button_ =
+      add_zoom_view_button(QT_TR_NOOP("Fill Screen"), QStringLiteral("zoomFillScreenButton"),
+                           QT_TR_NOOP("Zoom until the image fills the window (View > Fill Screen)"),
+                           [](CanvasWidget& canvas) { canvas.fill_to_view(); });
 
   add_option_label(QT_TR_NOOP("Font:"), {CanvasTool::Text});
   text_font_combo_ = new FontPickerCombo(toolbar);

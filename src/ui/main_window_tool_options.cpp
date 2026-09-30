@@ -2022,6 +2022,8 @@ void MainWindow::load_tool_settings() {
   canvas_->set_fill_contiguous(
       settings.value(QStringLiteral("tools/fillContiguous"), canvas_->fill_contiguous()).toBool());
   canvas_->set_zoom_scrubby(settings.value(QStringLiteral("tools/zoomScrubby"), canvas_->zoom_scrubby()).toBool());
+  canvas_->set_zoom_tool_zooms_out(
+      settings.value(QStringLiteral("tools/zoomToolZoomsOut"), canvas_->zoom_tool_zooms_out()).toBool());
   const auto sync_fill_widget = [this](const QString& spin_name, const QString& slider_name, int value) {
     if (auto* spin = findChild<QSpinBox*>(spin_name); spin != nullptr) {
       QSignalBlocker blocker(spin);
@@ -2176,6 +2178,7 @@ void MainWindow::save_tool_settings() const {
   settings.setValue(QStringLiteral("tools/fillTolerance"), canvas_->fill_tolerance());
   settings.setValue(QStringLiteral("tools/fillContiguous"), canvas_->fill_contiguous());
   settings.setValue(QStringLiteral("tools/zoomScrubby"), canvas_->zoom_scrubby());
+  settings.setValue(QStringLiteral("tools/zoomToolZoomsOut"), canvas_->zoom_tool_zooms_out());
   settings.setValue(QStringLiteral("tools/gradientMethod"), static_cast<int>(canvas_->gradient_method()));
   settings.setValue(QStringLiteral("tools/gradientReverse"), canvas_->gradient_reverse());
   settings.setValue(QStringLiteral("tools/gradientOpacity"), canvas_->gradient_opacity());
@@ -2207,6 +2210,7 @@ void MainWindow::stash_active_brush_settings() {
   current_fill_tolerance_ = canvas_->fill_tolerance();
   current_fill_contiguous_ = canvas_->fill_contiguous();
   current_zoom_scrubby_ = canvas_->zoom_scrubby();
+  current_zoom_tool_zooms_out_ = canvas_->zoom_tool_zooms_out();
   current_quick_select_size_ = canvas_->quick_select_size();
   current_quick_select_sample_all_layers_ = canvas_->quick_select_sample_all_layers();
   current_quick_select_enhance_edge_ = canvas_->quick_select_enhance_edge();
@@ -2463,8 +2467,9 @@ void MainWindow::refresh_options_bar() {
       enabled = enabled && current_marquee_style_ != CanvasWidget::MarqueeStyle::Normal;
     }
     // The Zoom tool stays usable while a preview dialog locks editing, so its
-    // option does too.
-    if (widget->objectName() == QStringLiteral("zoomScrubbyCheck")) {
+    // options row does too (build_options_bar tags those widgets).
+    const bool allowed_while_locked = widget->property("optionsBarAllowedWhileLocked").toBool();
+    if (allowed_while_locked) {
       enabled = has_document;
     }
     if (widget == brush_dynamics_button_ && brush_dynamics_button_ != nullptr) {
@@ -2482,7 +2487,7 @@ void MainWindow::refresh_options_bar() {
     if (auto* button = qobject_cast<QToolButton*>(widget);
         button != nullptr && button->defaultAction() != nullptr) {
       button->defaultAction()->setVisible(visible);
-      button->defaultAction()->setEnabled(edit_allowed);
+      button->defaultAction()->setEnabled(allowed_while_locked ? has_document : edit_allowed);
     }
   }
 
@@ -2648,6 +2653,10 @@ void MainWindow::refresh_options_bar() {
   if (zoom_scrubby_check_ != nullptr && canvas_ != nullptr) {
     QSignalBlocker blocker(zoom_scrubby_check_);
     zoom_scrubby_check_->setChecked(canvas_->zoom_scrubby());
+  }
+  if (zoom_in_mode_action_ != nullptr && zoom_out_mode_action_ != nullptr && canvas_ != nullptr) {
+    zoom_in_mode_action_->setChecked(!canvas_->zoom_tool_zooms_out());
+    zoom_out_mode_action_->setChecked(canvas_->zoom_tool_zooms_out());
   }
   if (wand_sample_all_layers_check_ != nullptr && canvas_ != nullptr) {
     QSignalBlocker blocker(wand_sample_all_layers_check_);

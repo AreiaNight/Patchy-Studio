@@ -283,6 +283,11 @@ void paint_simple_icon_glyph(QPainter& painter, const QString& text, const QColo
     if (text == QStringLiteral("zoomIn")) {
       painter.drawLine(14, 11, 14, 17);
     }
+  } else if (text == QStringLiteral("fill")) {
+    // Fill Screen: the frame with the image pushed out past its edges.
+    painter.drawRect(QRect(7, 9, 18, 14));
+    painter.drawLine(11, 5, 11, 27);
+    painter.drawLine(21, 5, 21, 27);
   } else if (text == QStringLiteral("fit")) {
     painter.drawRect(QRect(7, 9, 18, 14));
     painter.drawLine(7, 9, 12, 9);

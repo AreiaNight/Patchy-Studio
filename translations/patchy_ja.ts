@@ -18012,6 +18012,42 @@ Clipped to the layer below</source>
         <source>Drag right to zoom in and left to zoom out around the point you pressed. Off: drag a rectangle to zoom to it</source>
         <translation>右にドラッグで押した位置を中心に拡大、左にドラッグで縮小します。オフの場合は矩形をドラッグしてその範囲にズームします</translation>
     </message>
+    <message>
+        <source>100%</source>
+        <translation>100%</translation>
+    </message>
+    <message>
+        <source>Fit Screen</source>
+        <translation>画面に合わせる</translation>
+    </message>
+    <message>
+        <source>Fill Screen</source>
+        <translation>画面全体に広げる</translation>
+    </message>
+    <message>
+        <source>Fi&amp;ll Screen</source>
+        <translation>画面全体に広げる(&amp;L)</translation>
+    </message>
+    <message>
+        <source>Zoom In</source>
+        <translation>ズームイン</translation>
+    </message>
+    <message>
+        <source>Zoom Out</source>
+        <translation>ズームアウト</translation>
+    </message>
+    <message>
+        <source>Show the image at actual pixels (View &gt; Actual Pixels)</source>
+        <translation>画像を実際のピクセルサイズで表示します (表示 &gt; 実際のピクセル)</translation>
+    </message>
+    <message>
+        <source>Fit the whole image in the window (View &gt; Fit on Screen)</source>
+        <translation>画像全体をウィンドウに収めます (表示 &gt; 画面に合わせる)</translation>
+    </message>
+    <message>
+        <source>Zoom until the image fills the window (View &gt; Fill Screen)</source>
+        <translation>画像がウィンドウいっぱいになるまでズームします (表示 &gt; 画面全体に広げる)</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>

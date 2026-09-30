@@ -549,6 +549,7 @@ void MainWindow::activate_document_canvas(CanvasWidget* canvas, const std::funct
     canvas_->set_fill_tolerance(current_fill_tolerance_);
     canvas_->set_fill_contiguous(current_fill_contiguous_);
     canvas_->set_zoom_scrubby(current_zoom_scrubby_);
+    canvas_->set_zoom_tool_zooms_out(current_zoom_tool_zooms_out_);
     canvas_->set_quick_select_size(current_quick_select_size_);
     canvas_->set_quick_select_sample_all_layers(current_quick_select_sample_all_layers_);
     canvas_->set_quick_select_enhance_edge(current_quick_select_enhance_edge_);
