@@ -1,5 +1,10 @@
 # Patchy Image Editor
 
+> **This is a fork of [Patchy](https://github.com/SethRobinson/Patchy) by Seth A. Robinson.**
+> It adds Patchy Studio, a Procreate-style interface built on the same editor engine
+> (see [docs/studio.md](docs/studio.md)). Launch with `--classic` for the original interface.
+> The download links and support channels below belong to the original project.
+
 A free, open-source image editor for Windows, macOS, Linux, and the browser.
 Built with a focus on accurate PSD compatibility, keeping text, vectors, masks,
 layer styles, and Smart Objects editable when working with layered Photoshop files.
