@@ -4355,6 +4355,116 @@ void ui_menu_disabled_items_render_grayed() {
   CHECK(count_pixels_close(image, disabled_rect, disabled_text, 24) > 10);  // grayed label
 }
 
+// View rotation (the Studio navigator): pointer input, painting and wheel pans
+// all follow the rotated view, and document pixels land where the user points.
+void ui_canvas_view_rotation_maps_input_and_paint() {
+  patchy::Document document(120, 80, patchy::PixelFormat::rgba8());
+  auto& layer = document.add_pixel_layer("Paint",
+                                         solid_pixels(120, 80, patchy::PixelFormat::rgba8(), QColor(0, 0, 0, 0)));
+  const auto layer_id = layer.id();
+
+  patchy::ui::CanvasWidget canvas;
+  canvas.resize(260, 220);
+  canvas.set_document(&document);
+  canvas.set_tool(patchy::ui::CanvasTool::Brush);
+  canvas.set_primary_color(Qt::black);
+  canvas.set_brush_size(6);
+  canvas.set_brush_opacity(100);
+  canvas.set_brush_softness(0);
+  canvas.set_pen_input_settings(patchy::ui::CanvasWidget::PenInputSettings{});
+  canvas.set_wheel_zooms(false);
+  canvas.show();
+  QApplication::processEvents();
+  canvas.fit_to_view();
+
+  // Normalization and the snap back to straight.
+  canvas.set_view_rotation(270.0);
+  CHECK(std::abs(canvas.view_rotation() + 90.0) < 1e-9);
+  canvas.set_view_rotation(-540.0);
+  CHECK(std::abs(canvas.view_rotation() - 180.0) < 1e-9);
+  canvas.set_view_rotation(0.004);
+  CHECK(canvas.view_rotation() == 0.0);
+
+  canvas.set_view_rotation(90.0);
+  canvas.fit_to_view();
+  QApplication::processEvents();
+  // Fit accounts for the rotation: the turned document's 80 px side now runs
+  // across the 260 px width and its 120 px side down the 220 px height.
+  const auto top_left = canvas.widget_position_for_document_point(QPoint(0, 0));
+  const auto top_right = canvas.widget_position_for_document_point(QPoint(120, 0));
+  CHECK(std::abs(top_right.x() - top_left.x()) <= 1);
+  CHECK(top_right.y() > top_left.y() + 50);
+  CHECK(top_left.y() >= 0 && top_right.y() <= canvas.height());
+
+  // The visible quadrilateral turns with the view.
+  const auto polygon = canvas.visible_document_polygon();
+  CHECK(polygon.size() == 4);
+  const auto top_edge = polygon[1] - polygon[0];
+  CHECK(std::abs(top_edge.x()) < 0.01);
+  CHECK(top_edge.y() < 0.0);
+
+  const auto& pixels = document.find_layer(layer_id)->pixels();
+  const auto painted = [&pixels](int x, int y) { return pixels.pixel(x, y)[3] > 0U; };
+
+  // A mouse drag between two screen points paints between the document points under them.
+  drag(canvas, canvas.widget_position_for_document_point(QPoint(20, 20)),
+       canvas.widget_position_for_document_point(QPoint(60, 20)));
+  CHECK(painted(20, 20));
+  CHECK(painted(40, 20));
+  CHECK(painted(60, 20));
+  CHECK(!painted(40, 60));
+
+  // A pen stroke does too.
+  const auto pen_from = canvas.widget_position_for_document_point(QPoint(20, 60));
+  const auto pen_to = canvas.widget_position_for_document_point(QPoint(90, 60));
+  send_tablet(canvas, QEvent::TabletPress, pen_from, 1.0);
+  send_tablet(canvas, QEvent::TabletMove, pen_to, 1.0, Qt::NoButton, Qt::LeftButton);
+  send_tablet(canvas, QEvent::TabletRelease, pen_to, 0.0, Qt::LeftButton, Qt::NoButton);
+  CHECK(painted(20, 60));
+  CHECK(painted(55, 60));
+  CHECK(painted(90, 60));
+
+  // The rendered view shows the paint at the same screen positions.
+  const auto image = canvas.grab().toImage();
+  const auto screen = canvas.widget_position_for_document_point(QPoint(40, 20));
+  CHECK(qGray(image.pixel(screen)) < 60);
+  const auto blank = canvas.widget_position_for_document_point(QPoint(100, 30));
+  CHECK(qGray(image.pixel(blank)) > 150);
+  save_widget_artifact("ui_canvas_view_rotation", canvas);
+
+  // A wheel step scrolls along the screen axis, not the turned document axis.
+  const auto before = canvas.widget_position_for_document_point(QPoint(60, 40));
+  send_wheel(canvas, canvas.rect().center(), 120);
+  const auto after = canvas.widget_position_for_document_point(QPoint(60, 40));
+  CHECK(std::abs(after.x() - before.x()) > 10);
+  CHECK(std::abs(after.y() - before.y()) <= 1);
+
+  // A horizontal flip mirrors the straight view; input still lands on the
+  // document point under the pointer.
+  canvas.set_view_rotation(0.0);
+  canvas.set_view_flipped(true, false);
+  CHECK(canvas.view_flipped_horizontally() && !canvas.view_flipped_vertically());
+  const auto flipped_left = canvas.widget_position_for_document_point(QPoint(0, 40));
+  const auto flipped_right = canvas.widget_position_for_document_point(QPoint(120, 40));
+  CHECK(flipped_left.x() > flipped_right.x());
+  CHECK(flipped_left.y() == flipped_right.y());
+  drag(canvas, canvas.widget_position_for_document_point(QPoint(100, 10)),
+       canvas.widget_position_for_document_point(QPoint(110, 10)));
+  CHECK(painted(105, 10));
+  CHECK(!painted(15, 10));
+  canvas.set_view_flipped(false, true);
+  const auto flipped_top = canvas.widget_position_for_document_point(QPoint(60, 0));
+  const auto flipped_bottom = canvas.widget_position_for_document_point(QPoint(60, 80));
+  CHECK(flipped_top.y() > flipped_bottom.y());
+  canvas.set_view_flipped(false, false);
+
+  // Straight again: plain mapping.
+  canvas.set_view_rotation(0.0);
+  const auto straight_left = canvas.widget_position_for_document_point(QPoint(0, 0));
+  const auto straight_right = canvas.widget_position_for_document_point(QPoint(120, 0));
+  CHECK(straight_right.y() == straight_left.y());
+}
+
 }  // namespace
 
 std::vector<patchy::test::TestCase> canvas_view_tools_tests() {
@@ -4362,6 +4472,7 @@ std::vector<patchy::test::TestCase> canvas_view_tools_tests() {
       {"ui_startup_defaults_to_round_brush", ui_startup_defaults_to_round_brush},
       {"ui_canvas_wheel_matches_photoshop_navigation", ui_canvas_wheel_matches_photoshop_navigation},
       {"ui_canvas_wheel_zoom_mode_zooms_at_cursor", ui_canvas_wheel_zoom_mode_zooms_at_cursor},
+      {"ui_canvas_view_rotation_maps_input_and_paint", ui_canvas_view_rotation_maps_input_and_paint},
       {"ui_status_bar_zoom_percent_box_edits_zoom", ui_status_bar_zoom_percent_box_edits_zoom},
       {"ui_zoom_tool_double_click_keeps_view_centered_at_actual_pixels",
        ui_zoom_tool_double_click_keeps_view_centered_at_actual_pixels},

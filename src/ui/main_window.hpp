@@ -444,6 +444,7 @@ private:
   friend class StudioShell;
   // Queues a shell refresh after an editor-state change; a no-op without the shell.
   void notify_studio_shell();
+  void notify_studio_view_changed();
 
   // Preferences entry for the stress test: warning dialog, close-all, run,
   // results dialog. The scenario core shared with the CLI path lives in

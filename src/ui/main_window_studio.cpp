@@ -11,6 +11,12 @@ void MainWindow::enable_studio_shell() {
   studio_shell_ = new StudioShell(*this);
 }
 
+void MainWindow::notify_studio_view_changed() {
+  if (studio_shell_ != nullptr && !shutting_down_) {
+    studio_shell_->canvas_view_changed();
+  }
+}
+
 void MainWindow::notify_studio_shell() {
   if (studio_shell_ != nullptr && !shutting_down_) {
     studio_shell_->schedule_refresh();

@@ -18303,6 +18303,10 @@ Y: %2
         <source>Airbrush: build paint while the pointer is held still</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Press on the graph with the pen to check that its pressure reaches Patchy.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -18770,6 +18774,13 @@ Y: %2
     </message>
     <message>
         <source>%1 Copy</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::PressureCurvePreview</name>
+    <message>
+        <source>No pressure</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -19825,10 +19836,6 @@ Y: %2
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Right-hand interface</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Full screen</source>
         <translation type="unfinished"></translation>
     </message>
@@ -19842,6 +19849,38 @@ Y: %2
     </message>
     <message>
         <source>Tips: B, S and E pick Brush, Smudge and Eraser. [ and ] change the brush size. Ctrl+Z undoes, Ctrl+Shift+Z redoes. Space+drag pans, Alt+click picks a color.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Dominant hand</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Right-handed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the left edge</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Left-handed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the right edge</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Navigator</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Flip view horizontally</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Flip view vertically</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -19977,6 +20016,85 @@ Y: %2
     </message>
     <message>
         <source>Opacity</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Clipping mask: clipped to the layer below</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioNavigator</name>
+    <message>
+        <source>Navigator</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Hide the navigator</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Zoom out</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Zoom (double-click for 100%)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Zoom in</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Fit</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Fit the artwork in the window</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>100%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show the artwork at actual pixels</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rotate the view left</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rotate the view (double-click to straighten)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rotate the view right</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>0°</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Straighten the view</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1°</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Flip the view horizontally</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Flip the view vertically</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

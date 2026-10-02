@@ -17,6 +17,7 @@
 #include "core/layer_tree.hpp"
 #include "core/pixel_tools.hpp"
 #include "core/quick_select.hpp"
+#include "ui/display_mips.hpp"
 #include "ui/edit_conversions.hpp"
 #include "ui/image_document_io.hpp"
 #include "ui/qt_geometry.hpp"
@@ -197,9 +198,15 @@ void CanvasWidget::fit_to_view() {
 
   const auto available_width = std::max(1.0, static_cast<double>(width() - 80));
   const auto available_height = std::max(1.0, static_cast<double>(height() - 80));
-  zoom_ = std::clamp(std::min(available_width / static_cast<double>(document_->width()),
-                              available_height / static_cast<double>(document_->height())),
-                     kMinZoom, kMaxZoom);
+  // A rotated view fits the rotated document's bounding box.
+  const auto radians = view_rotation_degrees_ * 3.14159265358979323846 / 180.0;
+  const auto cosine = std::abs(std::cos(radians));
+  const auto sine = std::abs(std::sin(radians));
+  const auto document_width = static_cast<double>(document_->width());
+  const auto document_height = static_cast<double>(document_->height());
+  const auto fitted_width = document_width * cosine + document_height * sine;
+  const auto fitted_height = document_width * sine + document_height * cosine;
+  zoom_ = std::clamp(std::min(available_width / fitted_width, available_height / fitted_height), kMinZoom, kMaxZoom);
   pan_ = QPointF((static_cast<double>(width()) - static_cast<double>(document_->width()) * zoom_) / 2.0,
                  (static_cast<double>(height()) - static_cast<double>(document_->height()) * zoom_) / 2.0);
   constrain_pan();
@@ -276,7 +283,7 @@ bool CanvasWidget::begin_pan_at_global_position(QPoint global_position) {
     return false;
   }
   clear_move_hover_outline();
-  last_mouse_position_ = mapFromGlobal(global_position);
+  last_mouse_position_ = view_point_from_widget(QPointF(mapFromGlobal(global_position))).toPoint();
   panning_ = true;
   setCursor(Qt::ClosedHandCursor);
   return true;
@@ -287,7 +294,7 @@ bool CanvasWidget::pan_to_global_position(QPoint global_position) {
     return false;
   }
   clear_move_hover_outline();
-  const auto position = mapFromGlobal(global_position);
+  const auto position = view_point_from_widget(QPointF(mapFromGlobal(global_position))).toPoint();
   const auto delta = position - last_mouse_position_;
   const auto old_pan = pan_;
   pan_ += QPointF(delta);
@@ -341,6 +348,123 @@ void CanvasWidget::set_scroll_bars_hidden(bool hidden) {
   }
   scroll_bars_hidden_ = hidden;
   sync_scroll_bars();
+}
+
+double CanvasWidget::minimum_zoom() noexcept {
+  return kMinZoom;
+}
+
+double CanvasWidget::maximum_zoom() noexcept {
+  return kMaxZoom;
+}
+
+QPolygonF CanvasWidget::visible_document_polygon() const {
+  const auto w = static_cast<double>(width());
+  const auto h = static_cast<double>(height());
+  QPolygonF polygon;
+  for (const auto& corner : {QPointF(0.0, 0.0), QPointF(w, 0.0), QPointF(w, h), QPointF(0.0, h)}) {
+    polygon << document_position_f(view_point_from_widget(corner));
+  }
+  return polygon;
+}
+
+double CanvasWidget::view_rotation() const noexcept {
+  return view_rotation_degrees_;
+}
+
+void CanvasWidget::set_view_rotation(double degrees) {
+  if (!std::isfinite(degrees)) {
+    return;
+  }
+  degrees = std::fmod(degrees, 360.0);
+  if (degrees <= -180.0) {
+    degrees += 360.0;
+  } else if (degrees > 180.0) {
+    degrees -= 360.0;
+  }
+  // Snap the last hundredth of a degree so a rotation back to straight is
+  // exactly straight and paints through the unrotated path again.
+  if (std::abs(degrees) < 0.01) {
+    degrees = 0.0;
+  }
+  if (std::abs(degrees - view_rotation_degrees_) < 1e-9) {
+    return;
+  }
+  view_rotation_degrees_ = degrees;
+  clear_move_hover_outline();
+  update();
+  notify_view_changed();
+}
+
+void CanvasWidget::set_view_flipped(bool horizontal, bool vertical) {
+  if (horizontal == view_flip_horizontal_ && vertical == view_flip_vertical_) {
+    return;
+  }
+  view_flip_horizontal_ = horizontal;
+  view_flip_vertical_ = vertical;
+  clear_move_hover_outline();
+  update();
+  notify_view_changed();
+}
+
+QTransform CanvasWidget::view_to_widget_transform() const {
+  if (!view_transformed()) {
+    return {};
+  }
+  // About the widget center: mirror in view space first, then rotate, so the
+  // rotation always turns the way the screen shows it.
+  const QPointF center(static_cast<double>(width()) / 2.0, static_cast<double>(height()) / 2.0);
+  QTransform transform;
+  transform.translate(center.x(), center.y());
+  transform.rotate(view_rotation_degrees_);
+  transform.scale(view_flip_horizontal_ ? -1.0 : 1.0, view_flip_vertical_ ? -1.0 : 1.0);
+  transform.translate(-center.x(), -center.y());
+  return transform;
+}
+
+QPointF CanvasWidget::view_point_from_widget(QPointF widget_point) const {
+  return view_transformed() ? view_to_widget_transform().inverted().map(widget_point) : widget_point;
+}
+
+QPointF CanvasWidget::widget_point_from_view(QPointF view_point) const {
+  return view_transformed() ? view_to_widget_transform().map(view_point) : view_point;
+}
+
+void CanvasWidget::center_view_on_document_point(QPointF document_point) {
+  if (document_ == nullptr || !std::isfinite(document_point.x()) || !std::isfinite(document_point.y())) {
+    return;
+  }
+  const auto old_pan = pan_;
+  const QPointF viewport_center(static_cast<double>(width()) / 2.0, static_cast<double>(height()) / 2.0);
+  pan_ = viewport_center - document_point * zoom_;
+  constrain_pan();
+  if ((pan_ - old_pan).manhattanLength() < 0.01) {
+    return;
+  }
+  update();
+  notify_view_changed();
+}
+
+QImage CanvasWidget::overview_image(QSize bound) const {
+  if (render_cache_.isNull() || bound.width() <= 0 || bound.height() <= 0) {
+    return {};
+  }
+  // Halve with the display mip filter while the image stays at least twice the
+  // bound, then finish with one smooth scale.
+  int level = 0;
+  auto width = render_cache_.width();
+  auto height = render_cache_.height();
+  while (width >= bound.width() * 2 && height >= bound.height() * 2) {
+    width = (width + 1) / 2;
+    height = (height + 1) / 2;
+    ++level;
+  }
+  const auto reduced = display_image_at_mip_level(render_cache_, level);
+  return reduced.scaled(bound, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+}
+
+qint64 CanvasWidget::overview_image_key() const noexcept {
+  return render_cache_.cacheKey();
 }
 
 void CanvasWidget::sync_scroll_bars() {
@@ -407,6 +531,11 @@ void CanvasWidget::handle_scroll_bar_value_changed(Qt::Orientation orientation, 
 }
 
 QPoint CanvasWidget::widget_position_for_document_point(QPoint document_position) const {
+  // Callers place real widgets or send real events there, so this is a screen
+  // position: rotated with the view.
+  if (view_transformed()) {
+    return widget_point_from_view(QPointF(widget_position(document_position))).toPoint();
+  }
   return widget_position(document_position);
 }
 

@@ -18297,6 +18297,10 @@ Y: %2
         <source>Airbrush: build paint while the pointer is held still</source>
         <translation>喷枪: 指针停留不动时持续堆积颜料</translation>
     </message>
+    <message>
+        <source>Press on the graph with the pen to check that its pressure reaches Patchy.</source>
+        <translation>用笔按压图表，检查压感是否传到 Patchy。</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -18764,6 +18768,13 @@ Y: %2
     <message>
         <source>%1 Copy</source>
         <translation>%1 拷贝</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::PressureCurvePreview</name>
+    <message>
+        <source>No pressure</source>
+        <translation>无压力</translation>
     </message>
 </context>
 <context>
@@ -19818,10 +19829,6 @@ Y: %2
         <translation>浅色界面</translation>
     </message>
     <message>
-        <source>Right-hand interface</source>
-        <translation>右手界面</translation>
-    </message>
-    <message>
         <source>Full screen</source>
         <translation>全屏</translation>
     </message>
@@ -19836,6 +19843,38 @@ Y: %2
     <message>
         <source>Tips: B, S and E pick Brush, Smudge and Eraser. [ and ] change the brush size. Ctrl+Z undoes, Ctrl+Shift+Z redoes. Space+drag pans, Alt+click picks a color.</source>
         <translation>提示：B、S、E 分别选择画笔、涂抹和橡皮擦。[ 和 ] 调整画笔大小。Ctrl+Z 撤销，Ctrl+Shift+Z 重做。空格+拖动平移视图，Alt+单击拾取颜色。</translation>
+    </message>
+    <message>
+        <source>Dominant hand</source>
+        <translation>惯用手</translation>
+    </message>
+    <message>
+        <source>Right-handed</source>
+        <translation>右手</translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the left edge</source>
+        <translation>侧边栏和导航器位于左侧边缘</translation>
+    </message>
+    <message>
+        <source>Left-handed</source>
+        <translation>左手</translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the right edge</source>
+        <translation>侧边栏和导航器位于右侧边缘</translation>
+    </message>
+    <message>
+        <source>Navigator</source>
+        <translation>导航器</translation>
+    </message>
+    <message>
+        <source>Flip view horizontally</source>
+        <translation>水平翻转视图</translation>
+    </message>
+    <message>
+        <source>Flip view vertically</source>
+        <translation>垂直翻转视图</translation>
     </message>
 </context>
 <context>
@@ -19971,6 +20010,85 @@ Y: %2
     <message>
         <source>Opacity</source>
         <translation>不透明度</translation>
+    </message>
+    <message>
+        <source>Clipping mask: clipped to the layer below</source>
+        <translation>剪贴蒙版：剪贴到下方图层</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioNavigator</name>
+    <message>
+        <source>Navigator</source>
+        <translation>导航器</translation>
+    </message>
+    <message>
+        <source>Hide the navigator</source>
+        <translation>隐藏导航器</translation>
+    </message>
+    <message>
+        <source>Zoom out</source>
+        <translation>缩小</translation>
+    </message>
+    <message>
+        <source>Zoom (double-click for 100%)</source>
+        <translation>缩放（双击恢复 100%）</translation>
+    </message>
+    <message>
+        <source>Zoom in</source>
+        <translation>放大</translation>
+    </message>
+    <message>
+        <source>Fit</source>
+        <translation>适合</translation>
+    </message>
+    <message>
+        <source>Fit the artwork in the window</source>
+        <translation>使作品适合窗口</translation>
+    </message>
+    <message>
+        <source>100%</source>
+        <translation>100%</translation>
+    </message>
+    <message>
+        <source>Show the artwork at actual pixels</source>
+        <translation>以实际像素显示作品</translation>
+    </message>
+    <message>
+        <source>%1%</source>
+        <translation>%1%</translation>
+    </message>
+    <message>
+        <source>Rotate the view left</source>
+        <translation>向左旋转视图</translation>
+    </message>
+    <message>
+        <source>Rotate the view (double-click to straighten)</source>
+        <translation>旋转视图（双击摆正）</translation>
+    </message>
+    <message>
+        <source>Rotate the view right</source>
+        <translation>向右旋转视图</translation>
+    </message>
+    <message>
+        <source>0°</source>
+        <translation>0°</translation>
+    </message>
+    <message>
+        <source>Straighten the view</source>
+        <translation>摆正视图</translation>
+    </message>
+    <message>
+        <source>%1°</source>
+        <translation>%1°</translation>
+    </message>
+    <message>
+        <source>Flip the view horizontally</source>
+        <translation>水平翻转视图</translation>
+    </message>
+    <message>
+        <source>Flip the view vertically</source>
+        <translation>垂直翻转视图</translation>
     </message>
 </context>
 <context>

@@ -19,6 +19,7 @@
 #include "core/layer.hpp"
 
 #include <QColor>
+#include <QPoint>
 #include <QObject>
 #include <QPixmap>
 #include <QPointer>
@@ -47,6 +48,7 @@ class StudioBubble;
 class StudioColorButton;
 class StudioGallery;
 class StudioIconButton;
+class StudioNavigator;
 class StudioPopover;
 class StudioSlider;
 enum class CanvasTool;
@@ -116,8 +118,16 @@ public:
   void show_gallery();
   void hide_gallery();
 
-  [[nodiscard]] bool right_handed() const noexcept { return right_handed_; }
-  void set_right_handed(bool enabled);
+  // Handedness: a left-handed artist gets the side bar and the navigator on the
+  // right edge, away from the drawing hand; right-handed (the default) keeps them
+  // on the left.
+  [[nodiscard]] bool left_handed() const noexcept { return controls_on_right_; }
+  void set_left_handed(bool left_handed);
+  // The navigator panel (studio_navigator.hpp); shown while a document is open.
+  [[nodiscard]] bool navigator_enabled() const noexcept { return navigator_enabled_; }
+  void set_navigator_enabled(bool enabled);
+  // MainWindow calls this on every pan, zoom and rotation step of the active canvas.
+  void canvas_view_changed();
   void set_light_interface(bool enabled);
   [[nodiscard]] bool light_interface() const;
   void toggle_full_screen();
@@ -141,6 +151,7 @@ private:
   void refresh_tool_buttons();
   void refresh_side_bar();
   void refresh_mode_bars();
+  void refresh_navigator();
 
   void toggle_panel(Panel panel, StudioIconButton* anchor);
   void open_panel(Panel panel, QWidget* anchor);
@@ -185,13 +196,18 @@ private:
   StudioPopover* selection_bar_{nullptr};
   StudioPopover* transform_bar_{nullptr};
   StudioGallery* gallery_{nullptr};
+  StudioNavigator* navigator_{nullptr};
+  bool navigator_enabled_{true};
+  // Where the user dragged the navigator (host coordinates); unset keeps it in
+  // the default bottom corner on the side-bar side.
+  std::optional<QPoint> navigator_position_;
 
   // The tool to return to after a one-shot eyedropper pick or leaving Selection.
   std::optional<CanvasTool> return_tool_;
   bool eyedropper_one_shot_{false};
   QColor last_primary_;
   std::vector<QColor> color_history_;
-  bool right_handed_{false};
+  bool controls_on_right_{false};
   bool refreshing_{false};
   std::size_t last_session_count_{0};
 };

@@ -732,6 +732,77 @@ void ui_pen_tip_paints_after_dropped_barrel_release() {
   CHECK(painted_pixels > 0);
 }
 
+// Stray straight lines: pointer events that do not belong to the pen stroke must
+// never extend it. Covers a plain mouse move injected mid-stroke, a lost tablet
+// release followed by hover moves, and mouse events synthesized from touch.
+void ui_pen_stroke_ignores_foreign_pointer_events() {
+  patchy::Document document(160, 96, patchy::PixelFormat::rgba8());
+  auto& layer = document.add_pixel_layer("Paint",
+                                         solid_pixels(160, 96, patchy::PixelFormat::rgba8(), QColor(0, 0, 0, 0)));
+  const auto layer_id = layer.id();
+
+  patchy::ui::CanvasWidget canvas;
+  canvas.resize(240, 160);
+  canvas.set_document(&document);
+  canvas.set_tool(patchy::ui::CanvasTool::Brush);
+  canvas.set_primary_color(Qt::black);
+  canvas.set_brush_size(6);
+  canvas.set_brush_opacity(100);
+  canvas.set_brush_softness(0);
+  canvas.set_pen_input_settings(patchy::ui::CanvasWidget::PenInputSettings{});
+  canvas.show();
+  QApplication::processEvents();
+
+  const auto& pixels = document.find_layer(layer_id)->pixels();
+  const auto painted = [&pixels](int x, int y) { return pixels.pixel(x, y)[3] > 0U; };
+  const auto widget_point = [&canvas](int x, int y) {
+    return canvas.widget_position_for_document_point(QPoint(x, y));
+  };
+
+  // 1. A mouse move at an unrelated position arrives mid-stroke.
+  send_tablet(canvas, QEvent::TabletPress, widget_point(20, 20), 1.0);
+  send_tablet(canvas, QEvent::TabletMove, widget_point(30, 20), 1.0, Qt::NoButton, Qt::LeftButton);
+  send_mouse(canvas, QEvent::MouseMove, widget_point(140, 80), Qt::NoButton, Qt::LeftButton);
+  send_tablet(canvas, QEvent::TabletMove, widget_point(40, 20), 1.0, Qt::NoButton, Qt::LeftButton);
+  send_tablet(canvas, QEvent::TabletRelease, widget_point(40, 20), 0.0, Qt::LeftButton, Qt::NoButton);
+  CHECK(painted(30, 20));
+  CHECK(!painted(140, 80));
+  CHECK(!painted(90, 50));
+
+  // 2. The tablet release is lost; the pen hovers away and lands elsewhere.
+  send_tablet(canvas, QEvent::TabletPress, widget_point(20, 60), 1.0);
+  send_tablet(canvas, QEvent::TabletMove, widget_point(30, 60), 1.0, Qt::NoButton, Qt::LeftButton);
+  send_tablet(canvas, QEvent::TabletMove, widget_point(80, 70), 0.0, Qt::NoButton, Qt::NoButton);
+  send_tablet(canvas, QEvent::TabletMove, widget_point(130, 80), 0.0, Qt::NoButton, Qt::NoButton);
+  send_tablet(canvas, QEvent::TabletPress, widget_point(130, 80), 1.0);
+  send_tablet(canvas, QEvent::TabletRelease, widget_point(130, 80), 0.0, Qt::LeftButton, Qt::NoButton);
+  CHECK(painted(25, 60));
+  CHECK(painted(130, 80));
+  CHECK(!painted(80, 70));
+
+  // 3. Mouse events synthesized from a touch screen paint nothing.
+  static const QPointingDevice touch_device(QStringLiteral("Patchy test touch screen"), 4711,
+                                            QInputDevice::DeviceType::TouchScreen,
+                                            QPointingDevice::PointerType::Finger,
+                                            QInputDevice::Capability::Position, 10, 0);
+  const auto send_touch_mouse = [&canvas](QEvent::Type type, QPoint position, Qt::MouseButton button,
+                                          Qt::MouseButtons buttons) {
+    QMouseEvent event(type, QPointF(position), QPointF(canvas.mapToGlobal(position)), button, buttons,
+                      Qt::NoModifier, &touch_device);
+    QApplication::sendEvent(&canvas, &event);
+    QApplication::processEvents();
+  };
+  send_touch_mouse(QEvent::MouseButtonPress, widget_point(100, 20), Qt::LeftButton, Qt::LeftButton);
+  send_touch_mouse(QEvent::MouseMove, widget_point(120, 30), Qt::NoButton, Qt::LeftButton);
+  send_touch_mouse(QEvent::MouseButtonRelease, widget_point(120, 30), Qt::LeftButton, Qt::NoButton);
+  CHECK(!painted(100, 20));
+  CHECK(!painted(120, 30));
+
+  // A real mouse still paints once the pen has left.
+  drag(canvas, widget_point(60, 40), widget_point(70, 40));
+  CHECK(painted(65, 40));
+}
+
 void ui_pen_swap_colors_action_routes_to_callback() {
   patchy::Document document(64, 64, patchy::PixelFormat::rgba8());
   document.add_pixel_layer("Paint", solid_pixels(64, 64, patchy::PixelFormat::rgba8(), QColor(0, 0, 0, 0)));
@@ -846,6 +917,7 @@ std::vector<patchy::test::TestCase> pen_tablet_input_tests() {
       {"ui_pen_button_sets_clone_source", ui_pen_button_sets_clone_source},
       {"ui_pen_tip_paints_after_dropped_barrel_release",
        ui_pen_tip_paints_after_dropped_barrel_release},
+      {"ui_pen_stroke_ignores_foreign_pointer_events", ui_pen_stroke_ignores_foreign_pointer_events},
       {"ui_pen_swap_colors_action_routes_to_callback",
        ui_pen_swap_colors_action_routes_to_callback},
       {"ui_pen_tilt_shape_can_elongate_brush_dabs",

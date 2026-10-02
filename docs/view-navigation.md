@@ -6,7 +6,7 @@ Read this before changing the Zoom tool, the pen ZoomCanvas drag, or wheel zoom.
 
 - Zoom is a continuous `double` (`CanvasWidget::zoom_`), clamped to `kMinZoom` 0.05 and `kMaxZoom` 128 (src/ui/canvas_widget_view.cpp). There is no preset-level table; menu Zoom In/Out multiply by 1.25 and 0.8 through `set_zoom_centered`, which UI presets must use (header comment in canvas_widget.hpp).
 - `zoom_at_widget_point(widget_position, factor)` is the anchored helper: it keeps the document point under `widget_position` fixed, clamps, recomputes the pan, and calls `update_tool_cursor()`, `update()`, and `notify_view_changed()` on every step. A gesture cursor set before calling it is overwritten immediately, so drag-zoom gestures keep the tool cursor (the pen gesture's `SizeVerCursor` never sticks for this reason; cosmetic, unfixed).
-- Wheel: Alt+wheel and the `input/wheelZooms` preference zoom at the cursor by 1.1 / 0.9 (canvas_widget_events.cpp); a macOS pinch uses `1 + value()`.
+- Wheel: Alt+wheel and the `input/wheelZooms` preference zoom at the cursor by 1.1 / 0.9 (canvas_widget_events.cpp). Touchpad gestures (pinch and the rest) are swallowed: the app takes no touch input (see [studio.md](studio.md)).
 
 ## Zoom tool (Z, `tools.zoom`)
 
@@ -32,3 +32,29 @@ The pen button action `PenButtonAction::ZoomCanvas` (docs/tools.md pen section; 
 - `ui_zoom_tool_direction_buttons_set_click_direction` (toggle default, click 2x / 0.5x, Alt inversion, `tools/zoomToolZoomsOut`, second document), `ui_zoom_options_bar_view_buttons_set_view` (visibility, 100%, Fit, Fill against the axis-ratio formulas, the View > Fill Screen action), `ui_zoom_tool_scrubby_option_persists_and_reaches_canvas` (checkbox default, visibility, `tools/zoomScrubby`, second document), `ui_zoom_tool_scrubby_drag_zooms_live_around_press_point` (1.01 per pixel, anchor invariance, click and Alt-click unchanged, Alt drag scrubs, vertical travel inert, option off restores the marquee), `ui_shape_flyout_and_zoom_tool_work` (marquee, button double-click), `ui_options_bar_tracks_active_tool` (the checkbox hides for other tools), all in tests/ui/canvas_view_tools_tests.cpp.
 - `ui_pen_zoom_button_drag_changes_zoom_without_painting` (tests/ui/pen_tablet_input_tests.cpp) pins the pen gesture through the shared helper.
 - `ui_zoom_tool_double_click_keeps_view_centered_at_actual_pixels`, `ui_image_resize_recenters_view_and_zoom_double_click_shows_document`, `ui_zoom_preset_recovers_parked_view`, `ui_canvas_wheel_zoom_mode_zooms_at_cursor`, `ui_status_bar_zoom_percent_box_edits_zoom` cover the rest of the zoom surface.
+
+## View rotation and flip
+
+`CanvasWidget::set_view_rotation` turns the whole view about the widget center (degrees
+clockwise, normalized to (-180, 180], snapped to 0 within 0.01); `set_view_flipped`
+mirrors it horizontally and/or vertically. The transform mirrors in view space first, then
+rotates, so rotation always turns the way the screen shows. Document pixels never change
+and nothing enters undo. Every pan/zoom formula, hit test and paint call keeps
+working in the unrotated "view space"; the rotation exists at three edges only:
+
+- Input: `event()` re-sends mouse and wheel events with `view_point_from_widget`
+  positions (`dispatch_rotated_pointer_event`), and `pen_input_sample_from_tablet_event`
+  maps tablet positions. `dispatch_tablet_as_mouse` calls the handlers directly, so its
+  events are never mapped twice; the parked processing-wait release is mapped back to the
+  screen before its replay. Wheel pans rotate the step back so they follow screen axes.
+- Paint: `paintEvent` sets one painter transform (`view_to_widget_transform`) and widens
+  the exposed rect to the view-space bounds of the widget. A partial update names a screen
+  rect, so a rotated view follows any partial paint with a full one. Rulers and the
+  processing overlay reset the transform and stay on screen axes.
+- Public mapping: `widget_position_for_document_point` returns screen positions (rotated),
+  because callers place widgets or send real events there; `visible_document_polygon`
+  returns the turned viewport. `fit_to_view` fits the rotated document's bounding box.
+
+The inline text editor is a plain child widget and cannot turn or mirror, so opening it
+straightens and unflips the view (`MainWindow::add_text_at`). OS cursors stay upright. Test:
+`ui_canvas_view_rotation_maps_input_and_paint`.

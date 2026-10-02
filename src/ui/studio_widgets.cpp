@@ -279,6 +279,18 @@ void paint_studio_icon(QPainter& painter, StudioIcon icon, const QRectF& rect, c
         painter.drawEllipse(QPointF(x, 12.0), 1.2, 1.2);
       }
       break;
+    case StudioIcon::Minus:
+      painter.drawLine(QPointF(5.0, 12.0), QPointF(19.0, 12.0));
+      break;
+    case StudioIcon::RotateRight: {
+      // Rotate (a counter-clockwise turn) mirrored about the vertical center line.
+      QPainterPath arc;
+      arc.arcMoveTo(QRectF(4.5, 4.5, 15.0, 15.0), 60.0);
+      arc.arcTo(QRectF(4.5, 4.5, 15.0, 15.0), 60.0, 280.0);
+      painter.drawPath(arc);
+      draw_arrow_head(painter, QPointF(15.8, 5.6), QPointF(13.0, 4.6), 3.0);
+      break;
+    }
   }
   painter.restore();
 }

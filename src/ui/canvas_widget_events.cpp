@@ -38,7 +38,6 @@
 #include <QMenu>
 #include <QMetaObject>
 #include <QMouseEvent>
-#include <QNativeGestureEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPixmap>
@@ -222,7 +221,53 @@ bool CanvasWidget::eventFilter(QObject* watched, QEvent* event) {
   return QWidget::eventFilter(watched, event);
 }
 
+bool CanvasWidget::dispatch_rotated_pointer_event(QEvent* event) {
+  switch (event->type()) {
+    case QEvent::MouseButtonPress:
+    case QEvent::MouseButtonRelease:
+    case QEvent::MouseButtonDblClick:
+    case QEvent::MouseMove: {
+      const auto* mouse = static_cast<QMouseEvent*>(event);
+      QMouseEvent mapped(mouse->type(), view_point_from_widget(mouse->position()), mouse->scenePosition(),
+                         mouse->globalPosition(), mouse->button(), mouse->buttons(), mouse->modifiers(),
+                         mouse->pointingDevice());
+      mapped.setTimestamp(mouse->timestamp());
+      switch (mouse->type()) {
+        case QEvent::MouseButtonPress:
+          mousePressEvent(&mapped);
+          break;
+        case QEvent::MouseButtonRelease:
+          mouseReleaseEvent(&mapped);
+          break;
+        case QEvent::MouseButtonDblClick:
+          mouseDoubleClickEvent(&mapped);
+          break;
+        default:
+          mouseMoveEvent(&mapped);
+          break;
+      }
+      event->setAccepted(mapped.isAccepted());
+      return true;
+    }
+    case QEvent::Wheel: {
+      const auto* wheel = static_cast<QWheelEvent*>(event);
+      QWheelEvent mapped(view_point_from_widget(wheel->position()), wheel->globalPosition(), wheel->pixelDelta(),
+                         wheel->angleDelta(), wheel->buttons(), wheel->modifiers(), wheel->phase(),
+                         wheel->inverted(), Qt::MouseEventNotSynthesized, wheel->pointingDevice());
+      mapped.setTimestamp(wheel->timestamp());
+      wheelEvent(&mapped);
+      event->setAccepted(mapped.isAccepted());
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
 bool CanvasWidget::event(QEvent* event) {
+  if (view_transformed() && dispatch_rotated_pointer_event(event)) {
+    return true;
+  }
   if (event->type() == QEvent::ShortcutOverride) {
     if (processing_render_wait_active_) {
       // A blocking processing wait is live and the canvas has focus (every
@@ -253,14 +298,10 @@ bool CanvasWidget::event(QEvent* event) {
     }
   }
   if (event->type() == QEvent::NativeGesture) {
-    const auto* gesture = static_cast<QNativeGestureEvent*>(event);
-    if (gesture->gestureType() == Qt::ZoomNativeGesture) {
-      // macOS trackpad pinch: value() is this step's incremental scale delta. Zoom about
-      // the pointer exactly like Alt+wheel (Photoshop-mac behavior).
-      zoom_at_widget_point(gesture->position(), 1.0 + gesture->value());
-      event->accept();
-      return true;
-    }
+    // Touchpad gestures (pinch, rotate, swipe) are touch input, which Patchy Studio
+    // does not take: a resting palm read as a pinch zoomed the view mid-stroke.
+    event->accept();
+    return true;
   }
   return QWidget::event(event);
 }
@@ -305,11 +346,12 @@ void CanvasWidget::wheelEvent(QWheelEvent* event) {
   const bool pan_vertically =
       wheel_zooms_ ? (event->modifiers() & Qt::ShiftModifier) == 0
                    : (event->modifiers() & Qt::ControlModifier) != 0;
-  if (pan_vertically) {
-    pan_.ry() += static_cast<double>(primary_delta) * kWheelPanScale;
-  } else {
-    pan_.rx() += static_cast<double>(primary_delta) * kWheelPanScale;
-  }
+  const auto step = static_cast<double>(primary_delta) * kWheelPanScale;
+  const QPointF screen_delta = pan_vertically ? QPointF(0.0, step) : QPointF(step, 0.0);
+  // The wheel scrolls along the screen axes; pan_ lives in view space, so a
+  // rotated view turns the step back by the view rotation.
+  pan_ += view_transformed() ? view_point_from_widget(screen_delta) - view_point_from_widget(QPointF(0.0, 0.0))
+                         : screen_delta;
   constrain_pan();
   event->accept();
   if (pan_ != old_pan) {
@@ -330,6 +372,10 @@ void CanvasWidget::resizeEvent(QResizeEvent* event) {
 }
 
 void CanvasWidget::mousePressEvent(QMouseEvent* event) {
+  if (should_drop_foreign_mouse_event(*event)) {
+    event->accept();
+    return;
+  }
   if (processing_render_wait_active_) {
     // A blocking processing wait is live (undo snapshot or accurate-patch
     // render mid-commit). Desktop defers user input for the duration, but
@@ -1210,6 +1256,10 @@ void CanvasWidget::mousePressEvent(QMouseEvent* event) {
 }
 
 void CanvasWidget::mouseMoveEvent(QMouseEvent* event) {
+  if (should_drop_foreign_mouse_event(*event)) {
+    event->accept();
+    return;
+  }
   if (processing_render_wait_active_) {
     // Re-entrant input during a processing wait (see mousePressEvent): a
     // move delivered mid-commit would keep driving the drag and shift
@@ -1860,6 +1910,10 @@ void CanvasWidget::leaveEvent(QEvent* event) {
 }
 
 void CanvasWidget::mouseReleaseEvent(QMouseEvent* event) {
+  if (should_drop_foreign_mouse_event(*event)) {
+    event->accept();
+    return;
+  }
   if (processing_render_wait_active_) {
     // Never drop a release (the gesture that owns the press would stay
     // latched, e.g. painting_ mid-brush-stroke) and never re-post it (a
@@ -2704,6 +2758,10 @@ void CanvasWidget::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void CanvasWidget::mouseDoubleClickEvent(QMouseEvent* event) {
+  if (should_drop_foreign_mouse_event(*event)) {
+    event->accept();
+    return;
+  }
   if (processing_render_wait_active_) {
     // Re-entrant input during a processing wait (see mousePressEvent).
     event->accept();

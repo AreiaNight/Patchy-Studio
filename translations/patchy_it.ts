@@ -8610,7 +8610,7 @@ RGB: %2, %3, %4</translation>
     </message>
     <message>
         <source>Open the classic Patchy interface instead of Patchy Studio.</source>
-        <translation>Apre l'interfaccia classica di Patchy invece di Patchy Studio.</translation>
+        <translation>Apre l&apos;interfaccia classica di Patchy invece di Patchy Studio.</translation>
     </message>
 </context>
 <context>
@@ -18349,6 +18349,10 @@ Y: %2
         <source>Airbrush: build paint while the pointer is held still</source>
         <translation>Aerografo: accumula colore mentre il puntatore rimane fermo</translation>
     </message>
+    <message>
+        <source>Press on the graph with the pen to check that its pressure reaches Patchy.</source>
+        <translation>Premi sul grafico con la penna per verificare che la sua pressione arrivi a Patchy.</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -18817,6 +18821,13 @@ Y: %2
     <message>
         <source>%1 Copy</source>
         <translation>%1 copia</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::PressureCurvePreview</name>
+    <message>
+        <source>No pressure</source>
+        <translation>Nessuna pressione</translation>
     </message>
 </context>
 <context>
@@ -19871,10 +19882,6 @@ Y: %2
         <translation>Interfaccia chiara</translation>
     </message>
     <message>
-        <source>Right-hand interface</source>
-        <translation>Interfaccia per destrimani</translation>
-    </message>
-    <message>
         <source>Full screen</source>
         <translation>Schermo intero</translation>
     </message>
@@ -19889,6 +19896,38 @@ Y: %2
     <message>
         <source>Tips: B, S and E pick Brush, Smudge and Eraser. [ and ] change the brush size. Ctrl+Z undoes, Ctrl+Shift+Z redoes. Space+drag pans, Alt+click picks a color.</source>
         <translation>Suggerimenti: B, S ed E scelgono Pennello, Sfumino e Gomma. [ e ] cambiano la dimensione del pennello. Ctrl+Z annulla, Ctrl+Maiusc+Z ripete. Spazio+trascina sposta la vista, Alt+clic preleva un colore.</translation>
+    </message>
+    <message>
+        <source>Dominant hand</source>
+        <translation>Mano dominante</translation>
+    </message>
+    <message>
+        <source>Right-handed</source>
+        <translation>Destrorso</translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the left edge</source>
+        <translation>Barra laterale e navigatore sul bordo sinistro</translation>
+    </message>
+    <message>
+        <source>Left-handed</source>
+        <translation>Mancino</translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the right edge</source>
+        <translation>Barra laterale e navigatore sul bordo destro</translation>
+    </message>
+    <message>
+        <source>Navigator</source>
+        <translation>Navigatore</translation>
+    </message>
+    <message>
+        <source>Flip view horizontally</source>
+        <translation>Rifletti vista orizzontalmente</translation>
+    </message>
+    <message>
+        <source>Flip view vertically</source>
+        <translation>Rifletti vista verticalmente</translation>
     </message>
 </context>
 <context>
@@ -20024,6 +20063,85 @@ Y: %2
     <message>
         <source>Opacity</source>
         <translation>Opacità</translation>
+    </message>
+    <message>
+        <source>Clipping mask: clipped to the layer below</source>
+        <translation>Maschera di ritaglio: ritagliato sul livello sottostante</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioNavigator</name>
+    <message>
+        <source>Navigator</source>
+        <translation>Navigatore</translation>
+    </message>
+    <message>
+        <source>Hide the navigator</source>
+        <translation>Nascondi il navigatore</translation>
+    </message>
+    <message>
+        <source>Zoom out</source>
+        <translation>Zoom indietro</translation>
+    </message>
+    <message>
+        <source>Zoom (double-click for 100%)</source>
+        <translation>Zoom (doppio clic per 100%)</translation>
+    </message>
+    <message>
+        <source>Zoom in</source>
+        <translation>Zoom avanti</translation>
+    </message>
+    <message>
+        <source>Fit</source>
+        <translation>Adatta</translation>
+    </message>
+    <message>
+        <source>Fit the artwork in the window</source>
+        <translation>Adatta l&apos;immagine alla finestra</translation>
+    </message>
+    <message>
+        <source>100%</source>
+        <translation>100%</translation>
+    </message>
+    <message>
+        <source>Show the artwork at actual pixels</source>
+        <translation>Mostra l&apos;immagine in pixel effettivi</translation>
+    </message>
+    <message>
+        <source>%1%</source>
+        <translation>%1%</translation>
+    </message>
+    <message>
+        <source>Rotate the view left</source>
+        <translation>Ruota la vista a sinistra</translation>
+    </message>
+    <message>
+        <source>Rotate the view (double-click to straighten)</source>
+        <translation>Ruota la vista (doppio clic per raddrizzare)</translation>
+    </message>
+    <message>
+        <source>Rotate the view right</source>
+        <translation>Ruota la vista a destra</translation>
+    </message>
+    <message>
+        <source>0°</source>
+        <translation>0°</translation>
+    </message>
+    <message>
+        <source>Straighten the view</source>
+        <translation>Raddrizza la vista</translation>
+    </message>
+    <message>
+        <source>%1°</source>
+        <translation>%1°</translation>
+    </message>
+    <message>
+        <source>Flip the view horizontally</source>
+        <translation>Rifletti la vista orizzontalmente</translation>
+    </message>
+    <message>
+        <source>Flip the view vertically</source>
+        <translation>Rifletti la vista verticalmente</translation>
     </message>
 </context>
 <context>

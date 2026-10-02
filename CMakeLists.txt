@@ -1176,6 +1176,8 @@ ${PATCHY_LUPDATE_MANIFEST_SOURCES}
       src/ui/studio_panels.cpp
       src/ui/studio_gallery.hpp
       src/ui/studio_gallery.cpp
+      src/ui/studio_navigator.hpp
+      src/ui/studio_navigator.cpp
       src/ui/main_window_studio.cpp
       src/ui/smart_object_render.hpp
       src/ui/smart_object_render.cpp

@@ -416,6 +416,7 @@ public:
   explicit CanvasWidget(QWidget* parent = nullptr);
 
   void set_document(Document* document);
+  [[nodiscard]] const Document* document() const noexcept { return document_; }
   [[nodiscard]] bool pointer_gesture_active() const noexcept;
   [[nodiscard]] double zoom() const noexcept;
   void set_zoom(double zoom);
@@ -452,6 +453,29 @@ public:
   void fit_to_view();
   // Patchy Studio hides the pan scroll bars; panning stays on Space-drag and the wheel.
   void set_scroll_bars_hidden(bool hidden);
+  // Navigator support (Patchy Studio, docs/studio.md).
+  [[nodiscard]] static double minimum_zoom() noexcept;
+  [[nodiscard]] static double maximum_zoom() noexcept;
+  // The document-space quadrilateral the viewport shows: the widget's corners
+  // in order top-left, top-right, bottom-right, bottom-left.
+  [[nodiscard]] QPolygonF visible_document_polygon() const;
+  // Pans so `document_point` sits under the viewport center; zoom is unchanged.
+  void center_view_on_document_point(QPointF document_point);
+  // The committed composite from the render cache, scaled to fit `bound`; null
+  // before the first render. overview_image_key() changes whenever that cache does.
+  [[nodiscard]] QImage overview_image(QSize bound) const;
+  [[nodiscard]] qint64 overview_image_key() const noexcept;
+  // View rotation: the whole canvas view turns about the widget center, like
+  // Photoshop's Rotate View. Document pixels never change. Degrees clockwise,
+  // normalized to (-180, 180]; 0 is the unrotated view.
+  [[nodiscard]] double view_rotation() const noexcept;
+  void set_view_rotation(double degrees);
+  // View flip: mirrors the view across the widget's vertical (horizontal flip)
+  // or horizontal (vertical flip) center line, a quick check of a drawing's
+  // proportions. Like rotation, view only: pixels and undo are untouched.
+  [[nodiscard]] bool view_flipped_horizontally() const noexcept { return view_flip_horizontal_; }
+  [[nodiscard]] bool view_flipped_vertically() const noexcept { return view_flip_vertical_; }
+  void set_view_flipped(bool horizontal, bool vertical);
   // Recenters the document in the viewport at the current zoom. Used after
   // operations that change document geometry (crop, image/canvas resize,
   // canvas rotate), where the stale pan could otherwise leave the remaining
@@ -1267,7 +1291,7 @@ public:
 
 protected:
   // ShortcutOverride (canvas-owned Backspace/Delete during magnetic traces and guide
-  // editing) + macOS trackpad pinch zoom (QNativeGestureEvent).
+  // editing); swallows touchpad gestures (QNativeGestureEvent).
   bool event(QEvent* event) override;
   void paintEvent(QPaintEvent* event) override;
   void wheelEvent(QWheelEvent* event) override;
@@ -2141,10 +2165,35 @@ private:
   bool handle_opacity_digit_key(int key, Qt::KeyboardModifiers modifiers, bool auto_repeat);
   bool perform_pen_button_action(PenButtonAction action, const PenInputSample& sample);
   bool dispatch_tablet_as_mouse(QTabletEvent* event, const PenInputSample& sample);
+  // Rotated or flipped view: every pan/zoom formula, hit test and paint call
+  // works in the untransformed "view space". Pointer positions enter it once, at
+  // event() and in the tablet sample builder; paintEvent leaves it through one
+  // painter transform.
+  [[nodiscard]] bool view_transformed() const noexcept {
+    return view_rotation_degrees_ != 0.0 || view_flip_horizontal_ || view_flip_vertical_;
+  }
+  [[nodiscard]] QTransform view_to_widget_transform() const;
+  [[nodiscard]] QPointF view_point_from_widget(QPointF widget_point) const;
+  [[nodiscard]] QPointF widget_point_from_view(QPointF view_point) const;
+  // Re-sends a mouse or wheel event with its position in view space; false for
+  // other events.
+  bool dispatch_rotated_pointer_event(QEvent* event);
+  // Ends a pen stroke whose tablet release never arrived, at the stroke's last
+  // tip position, so nothing joins it to wherever the pen lands next.
+  void finish_pen_stroke_at_last_position();
+  // True when a mouse event that did not come from dispatch_tablet_as_mouse must be
+  // dropped: touch input (screens, touchpads, fingers) and any pointer event that
+  // arrives while a pen stroke owns the canvas. Drivers and the window system
+  // inject such events at unrelated positions, and painting them drew straight
+  // lines across the artwork.
+  [[nodiscard]] bool should_drop_foreign_mouse_event(const QMouseEvent& event);
 
   Document* document_{nullptr};
   double zoom_{1.0};
   QPointF pan_{40.0, 40.0};
+  double view_rotation_degrees_{0.0};
+  bool view_flip_horizontal_{false};
+  bool view_flip_vertical_{false};
   bool wheel_zooms_{true};
   bool zoom_scrubby_{false};
   bool zoom_tool_zooms_out_{false};
@@ -2660,6 +2709,10 @@ private:
   qint64 last_tablet_event_ms_{-1};
   Qt::MouseButton mouse_pen_action_button_{Qt::NoButton};
   bool handling_tablet_event_{false};
+  // A tablet press started the current left-button gesture and its release has
+  // not arrived yet; pen_stroke_last_position_ is its latest tip position.
+  bool pen_stroke_active_{false};
+  QPointF pen_stroke_last_position_{};
   bool pen_button_suppressing_paint_{false};
   bool pen_zoom_dragging_{false};
   // Shared by the pen ZoomCanvas drag and Scrubby Zoom (canvas_widget_events.cpp).

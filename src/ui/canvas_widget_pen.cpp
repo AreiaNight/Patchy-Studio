@@ -118,8 +118,10 @@ void CanvasWidget::tabletEvent(QTabletEvent* event) {
 
 CanvasWidget::PenInputSample CanvasWidget::pen_input_sample_from_tablet_event(const QTabletEvent& event) const {
   PenInputSample sample;
-  sample.widget_position = event.position();
-  sample.document_position = document_position_f(event.position());
+  // View space (see view_point_from_widget): identical to the widget position
+  // unless the view is rotated.
+  sample.widget_position = view_point_from_widget(event.position());
+  sample.document_position = document_position_f(sample.widget_position);
   sample.button = event.button();
   sample.buttons = event.buttons();
   sample.modifiers = event.modifiers();
@@ -399,17 +401,29 @@ bool CanvasWidget::dispatch_tablet_as_mouse(QTabletEvent* event, const PenInputS
   } else {
     switch (event->type()) {
       case QEvent::TabletPress:
+        // The previous stroke's release was lost: close it where the tip left
+        // the surface before this press starts a new one.
+        if (pen_stroke_active_) {
+          finish_pen_stroke_at_last_position();
+        }
         button = Qt::LeftButton;
         buttons = Qt::LeftButton;
         break;
-      case QEvent::TabletMove:
+      case QEvent::TabletMove: {
         button = Qt::NoButton;
         buttons = sample.buttons;
-        if (painting_ || (sample.buttons & Qt::LeftButton) != 0 ||
-            (sample.pressure_available && sample.pressure > 0.0F)) {
+        const bool tip_down =
+            (sample.buttons & Qt::LeftButton) != 0 || (sample.pressure_available && sample.pressure > 0.0F);
+        if (tip_down) {
           buttons |= Qt::LeftButton;
+        } else if (pen_stroke_active_) {
+          // A hover move with the stroke still open means the release was lost.
+          // Extending the stroke here would paint the hover path, a straight
+          // line from the lift-off point to wherever the pen lands next.
+          finish_pen_stroke_at_last_position();
         }
         break;
+      }
       case QEvent::TabletRelease:
         button = Qt::LeftButton;
         buttons = Qt::NoButton;
@@ -419,25 +433,78 @@ bool CanvasWidget::dispatch_tablet_as_mouse(QTabletEvent* event, const PenInputS
     }
   }
 
-  QMouseEvent mouse_event(mouse_type, sample.widget_position,
-                          QPointF(mapToGlobal(sample.widget_position.toPoint())), button, buttons,
+  QMouseEvent mouse_event(mouse_type, sample.widget_position, event->globalPosition(), button, buttons,
                           sample.modifiers);
   handling_tablet_event_ = true;
   switch (mouse_type) {
     case QEvent::MouseButtonPress:
       mousePressEvent(&mouse_event);
+      if (button == Qt::LeftButton) {
+        pen_stroke_active_ = true;
+        pen_stroke_last_position_ = sample.widget_position;
+      }
       break;
     case QEvent::MouseMove:
       mouseMoveEvent(&mouse_event);
+      if (pen_stroke_active_ && (buttons & Qt::LeftButton) != 0) {
+        pen_stroke_last_position_ = sample.widget_position;
+      }
       break;
     case QEvent::MouseButtonRelease:
       mouseReleaseEvent(&mouse_event);
+      if (button == Qt::LeftButton) {
+        pen_stroke_active_ = false;
+      }
       break;
     default:
       handling_tablet_event_ = false;
       return false;
   }
   handling_tablet_event_ = false;
+  return true;
+}
+
+void CanvasWidget::finish_pen_stroke_at_last_position() {
+  if (!pen_stroke_active_) {
+    return;
+  }
+  pen_stroke_active_ = false;
+  const auto position = pen_stroke_last_position_;
+  QMouseEvent release(QEvent::MouseButtonRelease, position,
+                      QPointF(mapToGlobal(widget_point_from_view(position).toPoint())), Qt::LeftButton,
+                      Qt::NoButton, Qt::NoModifier);
+  const bool was_handling_tablet_event = handling_tablet_event_;
+  handling_tablet_event_ = true;
+  mouseReleaseEvent(&release);
+  handling_tablet_event_ = was_handling_tablet_event;
+}
+
+bool CanvasWidget::should_drop_foreign_mouse_event(const QMouseEvent& event) {
+  if (handling_tablet_event_) {
+    return false;
+  }
+  // Touch is not an input Patchy Studio paints with: a palm or finger on a
+  // touch screen or touchpad must never reach a tool.
+  if (const auto* device = event.pointingDevice(); device != nullptr) {
+    const auto type = device->type();
+    if (type == QInputDevice::DeviceType::TouchScreen || type == QInputDevice::DeviceType::TouchPad ||
+        device->pointerType() == QPointingDevice::PointerType::Finger) {
+      return true;
+    }
+  }
+  if (!pen_stroke_active_) {
+    return false;
+  }
+  if (!pen_recently_in_proximity()) {
+    // The pen left without a release a while ago; the mouse takes over again.
+    finish_pen_stroke_at_last_position();
+    return false;
+  }
+  if (event.type() == QEvent::MouseButtonRelease && event.button() == Qt::LeftButton) {
+    // Some drivers deliver the tip release as a plain mouse release; honor it,
+    // but at the pen's own last position rather than the event's.
+    finish_pen_stroke_at_last_position();
+  }
   return true;
 }
 

@@ -18349,6 +18349,10 @@ Y: %2
         <source>Airbrush: build paint while the pointer is held still</source>
         <translation>Airbrush: Farbe aufbauen, solange der Zeiger stillgehalten wird</translation>
     </message>
+    <message>
+        <source>Press on the graph with the pen to check that its pressure reaches Patchy.</source>
+        <translation>Drücken Sie mit dem Stift auf die Grafik, um zu prüfen, ob sein Druck bei Patchy ankommt.</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -18817,6 +18821,13 @@ Y: %2
     <message>
         <source>%1 Copy</source>
         <translation>%1 Kopie</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::PressureCurvePreview</name>
+    <message>
+        <source>No pressure</source>
+        <translation>Kein Druck</translation>
     </message>
 </context>
 <context>
@@ -19871,10 +19882,6 @@ Y: %2
         <translation>Helle Oberfläche</translation>
     </message>
     <message>
-        <source>Right-hand interface</source>
-        <translation>Rechtshänder-Oberfläche</translation>
-    </message>
-    <message>
         <source>Full screen</source>
         <translation>Vollbild</translation>
     </message>
@@ -19889,6 +19896,38 @@ Y: %2
     <message>
         <source>Tips: B, S and E pick Brush, Smudge and Eraser. [ and ] change the brush size. Ctrl+Z undoes, Ctrl+Shift+Z redoes. Space+drag pans, Alt+click picks a color.</source>
         <translation>Tipps: B, S und E wählen Pinsel, Wischfinger und Radiergummi. [ und ] ändern die Pinselgröße. Strg+Z macht rückgängig, Strg+Umschalt+Z wiederholt. Leertaste+Ziehen verschiebt die Ansicht, Alt+Klick nimmt eine Farbe auf.</translation>
+    </message>
+    <message>
+        <source>Dominant hand</source>
+        <translation>Dominante Hand</translation>
+    </message>
+    <message>
+        <source>Right-handed</source>
+        <translation>Rechtshänder</translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the left edge</source>
+        <translation>Seitenleiste und Navigator am linken Rand</translation>
+    </message>
+    <message>
+        <source>Left-handed</source>
+        <translation>Linkshänder</translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the right edge</source>
+        <translation>Seitenleiste und Navigator am rechten Rand</translation>
+    </message>
+    <message>
+        <source>Navigator</source>
+        <translation>Navigator</translation>
+    </message>
+    <message>
+        <source>Flip view horizontally</source>
+        <translation>Ansicht horizontal spiegeln</translation>
+    </message>
+    <message>
+        <source>Flip view vertically</source>
+        <translation>Ansicht vertikal spiegeln</translation>
     </message>
 </context>
 <context>
@@ -20024,6 +20063,85 @@ Y: %2
     <message>
         <source>Opacity</source>
         <translation>Deckkraft</translation>
+    </message>
+    <message>
+        <source>Clipping mask: clipped to the layer below</source>
+        <translation>Schnittmaske: an die Ebene darunter geschnitten</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioNavigator</name>
+    <message>
+        <source>Navigator</source>
+        <translation>Navigator</translation>
+    </message>
+    <message>
+        <source>Hide the navigator</source>
+        <translation>Navigator ausblenden</translation>
+    </message>
+    <message>
+        <source>Zoom out</source>
+        <translation>Verkleinern</translation>
+    </message>
+    <message>
+        <source>Zoom (double-click for 100%)</source>
+        <translation>Zoom (Doppelklick für 100 %)</translation>
+    </message>
+    <message>
+        <source>Zoom in</source>
+        <translation>Vergrößern</translation>
+    </message>
+    <message>
+        <source>Fit</source>
+        <translation>Einpassen</translation>
+    </message>
+    <message>
+        <source>Fit the artwork in the window</source>
+        <translation>Bild in das Fenster einpassen</translation>
+    </message>
+    <message>
+        <source>100%</source>
+        <translation>100 %</translation>
+    </message>
+    <message>
+        <source>Show the artwork at actual pixels</source>
+        <translation>Bild in tatsächlichen Pixeln anzeigen</translation>
+    </message>
+    <message>
+        <source>%1%</source>
+        <translation>%1 %</translation>
+    </message>
+    <message>
+        <source>Rotate the view left</source>
+        <translation>Ansicht nach links drehen</translation>
+    </message>
+    <message>
+        <source>Rotate the view (double-click to straighten)</source>
+        <translation>Ansicht drehen (Doppelklick zum Geraderichten)</translation>
+    </message>
+    <message>
+        <source>Rotate the view right</source>
+        <translation>Ansicht nach rechts drehen</translation>
+    </message>
+    <message>
+        <source>0°</source>
+        <translation>0°</translation>
+    </message>
+    <message>
+        <source>Straighten the view</source>
+        <translation>Ansicht gerade ausrichten</translation>
+    </message>
+    <message>
+        <source>%1°</source>
+        <translation>%1°</translation>
+    </message>
+    <message>
+        <source>Flip the view horizontally</source>
+        <translation>Ansicht horizontal spiegeln</translation>
+    </message>
+    <message>
+        <source>Flip the view vertically</source>
+        <translation>Ansicht vertikal spiegeln</translation>
     </message>
 </context>
 <context>

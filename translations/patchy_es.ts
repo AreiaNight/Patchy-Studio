@@ -18349,6 +18349,10 @@ Y: %2
         <source>Airbrush: build paint while the pointer is held still</source>
         <translation>Aerógrafo: acumular pintura mientras el puntero se mantiene quieto</translation>
     </message>
+    <message>
+        <source>Press on the graph with the pen to check that its pressure reaches Patchy.</source>
+        <translation>Presiona sobre la gráfica con la pluma para comprobar que su presión llega a Patchy.</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -18817,6 +18821,13 @@ Y: %2
     <message>
         <source>%1 Copy</source>
         <translation>%1 copia</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::PressureCurvePreview</name>
+    <message>
+        <source>No pressure</source>
+        <translation>Sin presión</translation>
     </message>
 </context>
 <context>
@@ -19871,10 +19882,6 @@ Y: %2
         <translation>Interfaz clara</translation>
     </message>
     <message>
-        <source>Right-hand interface</source>
-        <translation>Interfaz para diestros</translation>
-    </message>
-    <message>
         <source>Full screen</source>
         <translation>Pantalla completa</translation>
     </message>
@@ -19889,6 +19896,38 @@ Y: %2
     <message>
         <source>Tips: B, S and E pick Brush, Smudge and Eraser. [ and ] change the brush size. Ctrl+Z undoes, Ctrl+Shift+Z redoes. Space+drag pans, Alt+click picks a color.</source>
         <translation>Consejos: B, S y E eligen Pincel, Difuminar y Borrador. [ y ] cambian el tamaño del pincel. Ctrl+Z deshace, Ctrl+Mayús+Z rehace. Espacio+arrastrar desplaza la vista y Alt+clic toma un color.</translation>
+    </message>
+    <message>
+        <source>Dominant hand</source>
+        <translation>Mano dominante</translation>
+    </message>
+    <message>
+        <source>Right-handed</source>
+        <translation>Diestro</translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the left edge</source>
+        <translation>Barra lateral y navegador en el borde izquierdo</translation>
+    </message>
+    <message>
+        <source>Left-handed</source>
+        <translation>Zurdo</translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the right edge</source>
+        <translation>Barra lateral y navegador en el borde derecho</translation>
+    </message>
+    <message>
+        <source>Navigator</source>
+        <translation>Navegador</translation>
+    </message>
+    <message>
+        <source>Flip view horizontally</source>
+        <translation>Voltear vista horizontalmente</translation>
+    </message>
+    <message>
+        <source>Flip view vertically</source>
+        <translation>Voltear vista verticalmente</translation>
     </message>
 </context>
 <context>
@@ -20024,6 +20063,85 @@ Y: %2
     <message>
         <source>Opacity</source>
         <translation>Opacidad</translation>
+    </message>
+    <message>
+        <source>Clipping mask: clipped to the layer below</source>
+        <translation>Máscara de recorte: recortada a la capa de abajo</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioNavigator</name>
+    <message>
+        <source>Navigator</source>
+        <translation>Navegador</translation>
+    </message>
+    <message>
+        <source>Hide the navigator</source>
+        <translation>Ocultar el navegador</translation>
+    </message>
+    <message>
+        <source>Zoom out</source>
+        <translation>Reducir</translation>
+    </message>
+    <message>
+        <source>Zoom (double-click for 100%)</source>
+        <translation>Zoom (doble clic para 100 %)</translation>
+    </message>
+    <message>
+        <source>Zoom in</source>
+        <translation>Aumentar</translation>
+    </message>
+    <message>
+        <source>Fit</source>
+        <translation>Ajustar</translation>
+    </message>
+    <message>
+        <source>Fit the artwork in the window</source>
+        <translation>Ajustar la obra a la ventana</translation>
+    </message>
+    <message>
+        <source>100%</source>
+        <translation>100 %</translation>
+    </message>
+    <message>
+        <source>Show the artwork at actual pixels</source>
+        <translation>Mostrar la obra en píxeles reales</translation>
+    </message>
+    <message>
+        <source>%1%</source>
+        <translation>%1 %</translation>
+    </message>
+    <message>
+        <source>Rotate the view left</source>
+        <translation>Rotar la vista a la izquierda</translation>
+    </message>
+    <message>
+        <source>Rotate the view (double-click to straighten)</source>
+        <translation>Rotar la vista (doble clic para enderezar)</translation>
+    </message>
+    <message>
+        <source>Rotate the view right</source>
+        <translation>Rotar la vista a la derecha</translation>
+    </message>
+    <message>
+        <source>0°</source>
+        <translation>0°</translation>
+    </message>
+    <message>
+        <source>Straighten the view</source>
+        <translation>Enderezar la vista</translation>
+    </message>
+    <message>
+        <source>%1°</source>
+        <translation>%1°</translation>
+    </message>
+    <message>
+        <source>Flip the view horizontally</source>
+        <translation>Voltear la vista horizontalmente</translation>
+    </message>
+    <message>
+        <source>Flip the view vertically</source>
+        <translation>Voltear la vista verticalmente</translation>
     </message>
 </context>
 <context>

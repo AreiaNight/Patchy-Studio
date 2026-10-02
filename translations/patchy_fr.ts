@@ -8610,7 +8610,7 @@ RVB : %2, %3, %4</translation>
     </message>
     <message>
         <source>Open the classic Patchy interface instead of Patchy Studio.</source>
-        <translation>Ouvre l'interface classique de Patchy au lieu de Patchy Studio.</translation>
+        <translation>Ouvre l&apos;interface classique de Patchy au lieu de Patchy Studio.</translation>
     </message>
 </context>
 <context>
@@ -18349,6 +18349,10 @@ Y : %2
         <source>Airbrush: build paint while the pointer is held still</source>
         <translation>Aérographe : accumule la peinture tant que le pointeur reste immobile</translation>
     </message>
+    <message>
+        <source>Press on the graph with the pen to check that its pressure reaches Patchy.</source>
+        <translation>Appuyez sur le graphique avec le stylet pour vérifier que sa pression parvient à Patchy.</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -18817,6 +18821,13 @@ Y : %2
     <message>
         <source>%1 Copy</source>
         <translation>%1 copie</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::PressureCurvePreview</name>
+    <message>
+        <source>No pressure</source>
+        <translation>Aucune pression</translation>
     </message>
 </context>
 <context>
@@ -19871,10 +19882,6 @@ Y : %2
         <translation>Interface claire</translation>
     </message>
     <message>
-        <source>Right-hand interface</source>
-        <translation>Interface pour droitier</translation>
-    </message>
-    <message>
         <source>Full screen</source>
         <translation>Plein écran</translation>
     </message>
@@ -19889,6 +19896,38 @@ Y : %2
     <message>
         <source>Tips: B, S and E pick Brush, Smudge and Eraser. [ and ] change the brush size. Ctrl+Z undoes, Ctrl+Shift+Z redoes. Space+drag pans, Alt+click picks a color.</source>
         <translation>Astuces : B, S et E choisissent Pinceau, Doigt et Gomme. [ et ] changent la taille du pinceau. Ctrl+Z annule, Ctrl+Maj+Z rétablit. Espace+glisser fait défiler la vue, Alt+clic prélève une couleur.</translation>
+    </message>
+    <message>
+        <source>Dominant hand</source>
+        <translation>Main dominante</translation>
+    </message>
+    <message>
+        <source>Right-handed</source>
+        <translation>Droitier</translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the left edge</source>
+        <translation>Barre latérale et navigateur sur le bord gauche</translation>
+    </message>
+    <message>
+        <source>Left-handed</source>
+        <translation>Gaucher</translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the right edge</source>
+        <translation>Barre latérale et navigateur sur le bord droit</translation>
+    </message>
+    <message>
+        <source>Navigator</source>
+        <translation>Navigateur</translation>
+    </message>
+    <message>
+        <source>Flip view horizontally</source>
+        <translation>Retourner la vue horizontalement</translation>
+    </message>
+    <message>
+        <source>Flip view vertically</source>
+        <translation>Retourner la vue verticalement</translation>
     </message>
 </context>
 <context>
@@ -20004,7 +20043,7 @@ Y : %2
     </message>
     <message>
         <source>Screen size</source>
-        <translation>Taille de l'écran</translation>
+        <translation>Taille de l&apos;écran</translation>
     </message>
     <message>
         <source>Custom size...</source>
@@ -20024,6 +20063,85 @@ Y : %2
     <message>
         <source>Opacity</source>
         <translation>Opacité</translation>
+    </message>
+    <message>
+        <source>Clipping mask: clipped to the layer below</source>
+        <translation>Masque d&apos;écrêtage : écrêté sur le calque inférieur</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioNavigator</name>
+    <message>
+        <source>Navigator</source>
+        <translation>Navigateur</translation>
+    </message>
+    <message>
+        <source>Hide the navigator</source>
+        <translation>Masquer le navigateur</translation>
+    </message>
+    <message>
+        <source>Zoom out</source>
+        <translation>Zoom arrière</translation>
+    </message>
+    <message>
+        <source>Zoom (double-click for 100%)</source>
+        <translation>Zoom (double-clic pour 100 %)</translation>
+    </message>
+    <message>
+        <source>Zoom in</source>
+        <translation>Zoom avant</translation>
+    </message>
+    <message>
+        <source>Fit</source>
+        <translation>Ajuster</translation>
+    </message>
+    <message>
+        <source>Fit the artwork in the window</source>
+        <translation>Ajuster l&apos;illustration à la fenêtre</translation>
+    </message>
+    <message>
+        <source>100%</source>
+        <translation>100 %</translation>
+    </message>
+    <message>
+        <source>Show the artwork at actual pixels</source>
+        <translation>Afficher l&apos;illustration en pixels réels</translation>
+    </message>
+    <message>
+        <source>%1%</source>
+        <translation>%1 %</translation>
+    </message>
+    <message>
+        <source>Rotate the view left</source>
+        <translation>Faire pivoter la vue vers la gauche</translation>
+    </message>
+    <message>
+        <source>Rotate the view (double-click to straighten)</source>
+        <translation>Faire pivoter la vue (double-clic pour la redresser)</translation>
+    </message>
+    <message>
+        <source>Rotate the view right</source>
+        <translation>Faire pivoter la vue vers la droite</translation>
+    </message>
+    <message>
+        <source>0°</source>
+        <translation>0°</translation>
+    </message>
+    <message>
+        <source>Straighten the view</source>
+        <translation>Redresser la vue</translation>
+    </message>
+    <message>
+        <source>%1°</source>
+        <translation>%1°</translation>
+    </message>
+    <message>
+        <source>Flip the view horizontally</source>
+        <translation>Retourner la vue horizontalement</translation>
+    </message>
+    <message>
+        <source>Flip the view vertically</source>
+        <translation>Retourner la vue verticalement</translation>
     </message>
 </context>
 <context>
