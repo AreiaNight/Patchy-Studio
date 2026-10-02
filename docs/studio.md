@@ -62,6 +62,17 @@ their rows only when a signature of what they show changes.
 - A press on the canvas closes an open panel. Esc closes it too.
 - A newly opened document hides the gallery; closing the last one shows it.
 
+## Input
+
+The app takes no touch input. `main.cpp` turns off
+`Qt::AA_SynthesizeMouseForUnhandledTouchEvents`, the canvas swallows touchpad gestures
+(`QNativeGestureEvent`), and `CanvasWidget::should_drop_foreign_mouse_event` drops mouse
+events from touch devices and every non-tablet mouse event while a pen stroke is open. A
+stroke whose tablet release is lost ends at its last tip position on the next hover move or
+press (`finish_pen_stroke_at_last_position`). Before this, a hover after a lost release, or
+a pointer event injected mid-stroke, painted a straight line across the artwork. Test:
+`ui_pen_stroke_ignores_foreign_pointer_events`.
+
 ## Settings and coexistence
 
 Studio stores preferences in `PatchyStudio.ini` beside classic Patchy's `Patchy.ini`

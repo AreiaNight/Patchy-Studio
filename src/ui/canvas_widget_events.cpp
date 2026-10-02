@@ -38,7 +38,6 @@
 #include <QMenu>
 #include <QMetaObject>
 #include <QMouseEvent>
-#include <QNativeGestureEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPixmap>
@@ -253,14 +252,10 @@ bool CanvasWidget::event(QEvent* event) {
     }
   }
   if (event->type() == QEvent::NativeGesture) {
-    const auto* gesture = static_cast<QNativeGestureEvent*>(event);
-    if (gesture->gestureType() == Qt::ZoomNativeGesture) {
-      // macOS trackpad pinch: value() is this step's incremental scale delta. Zoom about
-      // the pointer exactly like Alt+wheel (Photoshop-mac behavior).
-      zoom_at_widget_point(gesture->position(), 1.0 + gesture->value());
-      event->accept();
-      return true;
-    }
+    // Touchpad gestures (pinch, rotate, swipe) are touch input, which Patchy Studio
+    // does not take: a resting palm read as a pinch zoomed the view mid-stroke.
+    event->accept();
+    return true;
   }
   return QWidget::event(event);
 }
@@ -330,6 +325,10 @@ void CanvasWidget::resizeEvent(QResizeEvent* event) {
 }
 
 void CanvasWidget::mousePressEvent(QMouseEvent* event) {
+  if (should_drop_foreign_mouse_event(*event)) {
+    event->accept();
+    return;
+  }
   if (processing_render_wait_active_) {
     // A blocking processing wait is live (undo snapshot or accurate-patch
     // render mid-commit). Desktop defers user input for the duration, but
@@ -1210,6 +1209,10 @@ void CanvasWidget::mousePressEvent(QMouseEvent* event) {
 }
 
 void CanvasWidget::mouseMoveEvent(QMouseEvent* event) {
+  if (should_drop_foreign_mouse_event(*event)) {
+    event->accept();
+    return;
+  }
   if (processing_render_wait_active_) {
     // Re-entrant input during a processing wait (see mousePressEvent): a
     // move delivered mid-commit would keep driving the drag and shift
@@ -1860,6 +1863,10 @@ void CanvasWidget::leaveEvent(QEvent* event) {
 }
 
 void CanvasWidget::mouseReleaseEvent(QMouseEvent* event) {
+  if (should_drop_foreign_mouse_event(*event)) {
+    event->accept();
+    return;
+  }
   if (processing_render_wait_active_) {
     // Never drop a release (the gesture that owns the press would stay
     // latched, e.g. painting_ mid-brush-stroke) and never re-post it (a
@@ -2704,6 +2711,10 @@ void CanvasWidget::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void CanvasWidget::mouseDoubleClickEvent(QMouseEvent* event) {
+  if (should_drop_foreign_mouse_event(*event)) {
+    event->accept();
+    return;
+  }
   if (processing_render_wait_active_) {
     // Re-entrant input during a processing wait (see mousePressEvent).
     event->accept();

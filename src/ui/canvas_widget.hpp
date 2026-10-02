@@ -1267,7 +1267,7 @@ public:
 
 protected:
   // ShortcutOverride (canvas-owned Backspace/Delete during magnetic traces and guide
-  // editing) + macOS trackpad pinch zoom (QNativeGestureEvent).
+  // editing); swallows touchpad gestures (QNativeGestureEvent).
   bool event(QEvent* event) override;
   void paintEvent(QPaintEvent* event) override;
   void wheelEvent(QWheelEvent* event) override;
@@ -2141,6 +2141,15 @@ private:
   bool handle_opacity_digit_key(int key, Qt::KeyboardModifiers modifiers, bool auto_repeat);
   bool perform_pen_button_action(PenButtonAction action, const PenInputSample& sample);
   bool dispatch_tablet_as_mouse(QTabletEvent* event, const PenInputSample& sample);
+  // Ends a pen stroke whose tablet release never arrived, at the stroke's last
+  // tip position, so nothing joins it to wherever the pen lands next.
+  void finish_pen_stroke_at_last_position();
+  // True when a mouse event that did not come from dispatch_tablet_as_mouse must be
+  // dropped: touch input (screens, touchpads, fingers) and any pointer event that
+  // arrives while a pen stroke owns the canvas. Drivers and the window system
+  // inject such events at unrelated positions, and painting them drew straight
+  // lines across the artwork.
+  [[nodiscard]] bool should_drop_foreign_mouse_event(const QMouseEvent& event);
 
   Document* document_{nullptr};
   double zoom_{1.0};
@@ -2660,6 +2669,10 @@ private:
   qint64 last_tablet_event_ms_{-1};
   Qt::MouseButton mouse_pen_action_button_{Qt::NoButton};
   bool handling_tablet_event_{false};
+  // A tablet press started the current left-button gesture and its release has
+  // not arrived yet; pen_stroke_last_position_ is its latest tip position.
+  bool pen_stroke_active_{false};
+  QPointF pen_stroke_last_position_{};
   bool pen_button_suppressing_paint_{false};
   bool pen_zoom_dragging_{false};
   // Shared by the pen ZoomCanvas drag and Scrubby Zoom (canvas_widget_events.cpp).

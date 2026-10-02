@@ -6,7 +6,7 @@ Read this before changing the Zoom tool, the pen ZoomCanvas drag, or wheel zoom.
 
 - Zoom is a continuous `double` (`CanvasWidget::zoom_`), clamped to `kMinZoom` 0.05 and `kMaxZoom` 128 (src/ui/canvas_widget_view.cpp). There is no preset-level table; menu Zoom In/Out multiply by 1.25 and 0.8 through `set_zoom_centered`, which UI presets must use (header comment in canvas_widget.hpp).
 - `zoom_at_widget_point(widget_position, factor)` is the anchored helper: it keeps the document point under `widget_position` fixed, clamps, recomputes the pan, and calls `update_tool_cursor()`, `update()`, and `notify_view_changed()` on every step. A gesture cursor set before calling it is overwritten immediately, so drag-zoom gestures keep the tool cursor (the pen gesture's `SizeVerCursor` never sticks for this reason; cosmetic, unfixed).
-- Wheel: Alt+wheel and the `input/wheelZooms` preference zoom at the cursor by 1.1 / 0.9 (canvas_widget_events.cpp); a macOS pinch uses `1 + value()`.
+- Wheel: Alt+wheel and the `input/wheelZooms` preference zoom at the cursor by 1.1 / 0.9 (canvas_widget_events.cpp). Touchpad gestures (pinch and the rest) are swallowed: the app takes no touch input (see [studio.md](studio.md)).
 
 ## Zoom tool (Z, `tools.zoom`)
 

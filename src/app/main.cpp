@@ -374,6 +374,10 @@ int main(int argc, char* argv[]) {
   }
 #endif
   apply_gui_scale_factor();
+  // Patchy Studio takes no touch input. Without mouse events synthesized from touch, a palm
+  // or finger on a touch screen can never reach the canvas and paint a stray line. Must be
+  // set before the application object exists.
+  QCoreApplication::setAttribute(Qt::AA_SynthesizeMouseForUnhandledTouchEvents, false);
   PatchyApplication app(argc, argv);
   // Qt adopts the user's locale for the C runtime on Unix (setlocale(LC_ALL, "")), which turns
   // every strtod/to_string in the file codecs decimal-comma under de_DE and friends and
