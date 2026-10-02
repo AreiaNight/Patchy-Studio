@@ -8610,7 +8610,7 @@ RGB: %2, %3, %4</translation>
     </message>
     <message>
         <source>Open the classic Patchy interface instead of Patchy Studio.</source>
-        <translation>Apre l'interfaccia classica di Patchy invece di Patchy Studio.</translation>
+        <translation>Apre l&apos;interfaccia classica di Patchy invece di Patchy Studio.</translation>
     </message>
 </context>
 <context>
@@ -19871,10 +19871,6 @@ Y: %2
         <translation>Interfaccia chiara</translation>
     </message>
     <message>
-        <source>Right-hand interface</source>
-        <translation>Interfaccia per destrimani</translation>
-    </message>
-    <message>
         <source>Full screen</source>
         <translation>Schermo intero</translation>
     </message>
@@ -19889,6 +19885,30 @@ Y: %2
     <message>
         <source>Tips: B, S and E pick Brush, Smudge and Eraser. [ and ] change the brush size. Ctrl+Z undoes, Ctrl+Shift+Z redoes. Space+drag pans, Alt+click picks a color.</source>
         <translation>Suggerimenti: B, S ed E scelgono Pennello, Sfumino e Gomma. [ e ] cambiano la dimensione del pennello. Ctrl+Z annulla, Ctrl+Maiusc+Z ripete. Spazio+trascina sposta la vista, Alt+clic preleva un colore.</translation>
+    </message>
+    <message>
+        <source>Dominant hand</source>
+        <translation>Mano dominante</translation>
+    </message>
+    <message>
+        <source>Right-handed</source>
+        <translation>Destrorso</translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the left edge</source>
+        <translation>Barra laterale e navigatore sul bordo sinistro</translation>
+    </message>
+    <message>
+        <source>Left-handed</source>
+        <translation>Mancino</translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the right edge</source>
+        <translation>Barra laterale e navigatore sul bordo destro</translation>
+    </message>
+    <message>
+        <source>Navigator</source>
+        <translation>Navigatore</translation>
     </message>
 </context>
 <context>
@@ -20024,6 +20044,49 @@ Y: %2
     <message>
         <source>Opacity</source>
         <translation>Opacità</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioNavigator</name>
+    <message>
+        <source>Navigator</source>
+        <translation>Navigatore</translation>
+    </message>
+    <message>
+        <source>Hide the navigator</source>
+        <translation>Nascondi il navigatore</translation>
+    </message>
+    <message>
+        <source>Zoom out</source>
+        <translation>Zoom indietro</translation>
+    </message>
+    <message>
+        <source>Zoom (double-click for 100%)</source>
+        <translation>Zoom (doppio clic per 100%)</translation>
+    </message>
+    <message>
+        <source>Zoom in</source>
+        <translation>Zoom avanti</translation>
+    </message>
+    <message>
+        <source>Fit</source>
+        <translation>Adatta</translation>
+    </message>
+    <message>
+        <source>Fit the artwork in the window</source>
+        <translation>Adatta l&apos;immagine alla finestra</translation>
+    </message>
+    <message>
+        <source>100%</source>
+        <translation>100%</translation>
+    </message>
+    <message>
+        <source>Show the artwork at actual pixels</source>
+        <translation>Mostra l&apos;immagine in pixel effettivi</translation>
+    </message>
+    <message>
+        <source>%1%</source>
+        <translation>%1%</translation>
     </message>
 </context>
 <context>

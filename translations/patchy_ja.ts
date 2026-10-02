@@ -19818,10 +19818,6 @@ Clipped to the layer below</source>
         <translation>ライトインターフェイス</translation>
     </message>
     <message>
-        <source>Right-hand interface</source>
-        <translation>右利き用インターフェイス</translation>
-    </message>
-    <message>
         <source>Full screen</source>
         <translation>フルスクリーン</translation>
     </message>
@@ -19836,6 +19832,30 @@ Clipped to the layer below</source>
     <message>
         <source>Tips: B, S and E pick Brush, Smudge and Eraser. [ and ] change the brush size. Ctrl+Z undoes, Ctrl+Shift+Z redoes. Space+drag pans, Alt+click picks a color.</source>
         <translation>ヒント: B、S、E でブラシ、指先、消しゴムを選択します。[ と ] でブラシサイズを変更します。Ctrl+Z で取り消し、Ctrl+Shift+Z でやり直し。Space+ドラッグで表示を移動、Alt+クリックで色を取得します。</translation>
+    </message>
+    <message>
+        <source>Dominant hand</source>
+        <translation>利き手</translation>
+    </message>
+    <message>
+        <source>Right-handed</source>
+        <translation>右利き</translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the left edge</source>
+        <translation>サイドバーとナビゲーターを左端に表示</translation>
+    </message>
+    <message>
+        <source>Left-handed</source>
+        <translation>左利き</translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the right edge</source>
+        <translation>サイドバーとナビゲーターを右端に表示</translation>
+    </message>
+    <message>
+        <source>Navigator</source>
+        <translation>ナビゲーター</translation>
     </message>
 </context>
 <context>
@@ -19971,6 +19991,49 @@ Clipped to the layer below</source>
     <message>
         <source>Opacity</source>
         <translation>不透明度</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioNavigator</name>
+    <message>
+        <source>Navigator</source>
+        <translation>ナビゲーター</translation>
+    </message>
+    <message>
+        <source>Hide the navigator</source>
+        <translation>ナビゲーターを隠す</translation>
+    </message>
+    <message>
+        <source>Zoom out</source>
+        <translation>ズームアウト</translation>
+    </message>
+    <message>
+        <source>Zoom (double-click for 100%)</source>
+        <translation>ズーム（ダブルクリックで 100%）</translation>
+    </message>
+    <message>
+        <source>Zoom in</source>
+        <translation>ズームイン</translation>
+    </message>
+    <message>
+        <source>Fit</source>
+        <translation>全体表示</translation>
+    </message>
+    <message>
+        <source>Fit the artwork in the window</source>
+        <translation>作品をウィンドウに合わせる</translation>
+    </message>
+    <message>
+        <source>100%</source>
+        <translation>100%</translation>
+    </message>
+    <message>
+        <source>Show the artwork at actual pixels</source>
+        <translation>作品を実際のピクセルで表示</translation>
+    </message>
+    <message>
+        <source>%1%</source>
+        <translation>%1%</translation>
     </message>
 </context>
 <context>

@@ -16,6 +16,7 @@ Procreate-like face instead of the Photoshop-style chrome. Launching the app ope
 | `ui/studio_panels.{hpp,cpp}` | The dropping panels: Brush Library, Layers, Colors, Actions, Adjustments. They reach the editor only through `StudioShell`'s public bridge. |
 | `ui/studio_gallery.{hpp,cpp}` | The gallery of open and recent artwork, the New canvas presets, and the thumbnail cache. |
 | `ui/studio_widgets.{hpp,cpp}` | Painted primitives: line icons, icon/color buttons, pill sliders, the value bubble, `StudioPopover`, and the shared panel QSS. |
+| `ui/studio_navigator.{hpp,cpp}` | The navigator panel: overview thumbnail with the viewport outline, zoom row, Fit and 100%. |
 | `ui/main_window_studio.cpp` | `MainWindow::enable_studio_shell` and `notify_studio_shell`. |
 
 ## How the shell drives the editor
@@ -73,12 +74,30 @@ press (`finish_pen_stroke_at_last_position`). Before this, a hover after a lost 
 a pointer event injected mid-stroke, painted a straight line across the artwork. Test:
 `ui_pen_stroke_ignores_foreign_pointer_events`.
 
+## Navigator and handedness
+
+The navigator floats in the bottom corner on the side-bar side; the side bar centers in
+the space above it. It drives the active canvas through its view API only
+(`visible_document_polygon`, `center_view_on_document_point`, `set_zoom_centered`,
+`fit_to_view`), so it never touches the document or undo. MainWindow's
+`handle_canvas_view_changed` calls `notify_studio_view_changed()` on every pan and zoom
+step, which only repaints the navigator. The overview comes from the canvas render cache
+(`overview_image`), polled every 400 ms while visible and rebuilt only when
+`overview_image_key()` or the document size changed, never mid-stroke. The zoom slider
+is log-scaled between the canvas zoom limits; a double-click resets to 100%.
+
+Actions > Prefs offers Dominant hand as two explicit choices. Left-handed moves the side
+bar and the navigator to the right edge. The old single "Right-hand interface" switch
+read as "for right-handed people" in translation while it actually moved the controls
+right, so it was replaced.
+
 ## Settings and coexistence
 
 Studio stores preferences in `PatchyStudio.ini` beside classic Patchy's `Patchy.ini`
 (`app_settings()`), so window layout, dock state and recent files never leak between the
 two apps, while the brush library folder is shared. Studio keys (persisted identifiers):
-`studio/rightHanded`, `studio/colorHistory`. Its single-instance channel is
+`studio/rightHanded` (true = side bar on the right, the left-handed layout),
+`studio/colorHistory`, `studio/navigatorVisible`. Its single-instance channel is
 `PatchyStudio-SingleInstance-<user>`. On Windows the shell keeps the native window frame
 (`use_custom_window_chrome` is off when Studio was requested), because the classic custom
 frame lives in the menu bar Studio hides.

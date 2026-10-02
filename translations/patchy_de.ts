@@ -19871,10 +19871,6 @@ Y: %2
         <translation>Helle Oberfläche</translation>
     </message>
     <message>
-        <source>Right-hand interface</source>
-        <translation>Rechtshänder-Oberfläche</translation>
-    </message>
-    <message>
         <source>Full screen</source>
         <translation>Vollbild</translation>
     </message>
@@ -19889,6 +19885,30 @@ Y: %2
     <message>
         <source>Tips: B, S and E pick Brush, Smudge and Eraser. [ and ] change the brush size. Ctrl+Z undoes, Ctrl+Shift+Z redoes. Space+drag pans, Alt+click picks a color.</source>
         <translation>Tipps: B, S und E wählen Pinsel, Wischfinger und Radiergummi. [ und ] ändern die Pinselgröße. Strg+Z macht rückgängig, Strg+Umschalt+Z wiederholt. Leertaste+Ziehen verschiebt die Ansicht, Alt+Klick nimmt eine Farbe auf.</translation>
+    </message>
+    <message>
+        <source>Dominant hand</source>
+        <translation>Dominante Hand</translation>
+    </message>
+    <message>
+        <source>Right-handed</source>
+        <translation>Rechtshänder</translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the left edge</source>
+        <translation>Seitenleiste und Navigator am linken Rand</translation>
+    </message>
+    <message>
+        <source>Left-handed</source>
+        <translation>Linkshänder</translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the right edge</source>
+        <translation>Seitenleiste und Navigator am rechten Rand</translation>
+    </message>
+    <message>
+        <source>Navigator</source>
+        <translation>Navigator</translation>
     </message>
 </context>
 <context>
@@ -20024,6 +20044,49 @@ Y: %2
     <message>
         <source>Opacity</source>
         <translation>Deckkraft</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioNavigator</name>
+    <message>
+        <source>Navigator</source>
+        <translation>Navigator</translation>
+    </message>
+    <message>
+        <source>Hide the navigator</source>
+        <translation>Navigator ausblenden</translation>
+    </message>
+    <message>
+        <source>Zoom out</source>
+        <translation>Verkleinern</translation>
+    </message>
+    <message>
+        <source>Zoom (double-click for 100%)</source>
+        <translation>Zoom (Doppelklick für 100 %)</translation>
+    </message>
+    <message>
+        <source>Zoom in</source>
+        <translation>Vergrößern</translation>
+    </message>
+    <message>
+        <source>Fit</source>
+        <translation>Einpassen</translation>
+    </message>
+    <message>
+        <source>Fit the artwork in the window</source>
+        <translation>Bild in das Fenster einpassen</translation>
+    </message>
+    <message>
+        <source>100%</source>
+        <translation>100 %</translation>
+    </message>
+    <message>
+        <source>Show the artwork at actual pixels</source>
+        <translation>Bild in tatsächlichen Pixeln anzeigen</translation>
+    </message>
+    <message>
+        <source>%1%</source>
+        <translation>%1 %</translation>
     </message>
 </context>
 <context>

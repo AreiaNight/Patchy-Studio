@@ -19825,10 +19825,6 @@ Y: %2
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Right-hand interface</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Full screen</source>
         <translation type="unfinished"></translation>
     </message>
@@ -19842,6 +19838,30 @@ Y: %2
     </message>
     <message>
         <source>Tips: B, S and E pick Brush, Smudge and Eraser. [ and ] change the brush size. Ctrl+Z undoes, Ctrl+Shift+Z redoes. Space+drag pans, Alt+click picks a color.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Dominant hand</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Right-handed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the left edge</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Left-handed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Side bar and navigator on the right edge</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Navigator</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -19977,6 +19997,49 @@ Y: %2
     </message>
     <message>
         <source>Opacity</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioNavigator</name>
+    <message>
+        <source>Navigator</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Hide the navigator</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Zoom out</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Zoom (double-click for 100%)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Zoom in</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Fit</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Fit the artwork in the window</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>100%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show the artwork at actual pixels</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1%</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

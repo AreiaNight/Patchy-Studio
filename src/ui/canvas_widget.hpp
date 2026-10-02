@@ -416,6 +416,7 @@ public:
   explicit CanvasWidget(QWidget* parent = nullptr);
 
   void set_document(Document* document);
+  [[nodiscard]] const Document* document() const noexcept { return document_; }
   [[nodiscard]] bool pointer_gesture_active() const noexcept;
   [[nodiscard]] double zoom() const noexcept;
   void set_zoom(double zoom);
@@ -452,6 +453,18 @@ public:
   void fit_to_view();
   // Patchy Studio hides the pan scroll bars; panning stays on Space-drag and the wheel.
   void set_scroll_bars_hidden(bool hidden);
+  // Navigator support (Patchy Studio, docs/studio.md).
+  [[nodiscard]] static double minimum_zoom() noexcept;
+  [[nodiscard]] static double maximum_zoom() noexcept;
+  // The document-space quadrilateral the viewport shows: the widget's corners
+  // in order top-left, top-right, bottom-right, bottom-left.
+  [[nodiscard]] QPolygonF visible_document_polygon() const;
+  // Pans so `document_point` sits under the viewport center; zoom is unchanged.
+  void center_view_on_document_point(QPointF document_point);
+  // The committed composite from the render cache, scaled to fit `bound`; null
+  // before the first render. overview_image_key() changes whenever that cache does.
+  [[nodiscard]] QImage overview_image(QSize bound) const;
+  [[nodiscard]] qint64 overview_image_key() const noexcept;
   // Recenters the document in the viewport at the current zoom. Used after
   // operations that change document geometry (crop, image/canvas resize,
   // canvas rotate), where the stale pan could otherwise leave the remaining

@@ -12823,6 +12823,7 @@ void MainWindow::handle_canvas_view_changed(CanvasWidget* canvas) {
     return;
   }
   refresh_document_info();
+  notify_studio_view_changed();
   auto* editor = canvas->findChild<QTextEdit*>(QStringLiteral("inlineTextEditor"));
   if (editor == nullptr || editor->property(kTextEditorFinishedProperty).toBool()) {
     return;

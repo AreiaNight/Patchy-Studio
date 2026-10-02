@@ -19,12 +19,16 @@
 #include <QAbstractButton>
 #include <QApplication>
 #include <QDockWidget>
+#include <QLabel>
 #include <QListWidget>
 #include <QMenuBar>
+#include <QPolygonF>
 #include <QPushButton>
 #include <QScopeGuard>
 #include <QSpinBox>
 #include <QToolBar>
+
+#include <cmath>
 
 namespace {
 
@@ -223,6 +227,125 @@ void ui_studio_shell_paints_undoes_and_transforms() {
   CHECK(!transform_bar->isVisible());
 }
 
+QPushButton* prefs_toggle(MainWindow& window, const QString& text) {
+  for (auto* button : window.findChildren<QPushButton*>()) {
+    if (button->isCheckable() && button->text() == text) {
+      return button;
+    }
+  }
+  return nullptr;
+}
+
+QPointF polygon_center(const QPolygonF& polygon) {
+  QPointF sum;
+  for (const auto& point : polygon) {
+    sum += point;
+  }
+  return polygon.isEmpty() ? sum : sum / polygon.size();
+}
+
+// The navigator sits in the bottom corner on the side-bar side, follows the
+// Dominant hand choice, zooms through its buttons and slider, pans the view
+// from the thumbnail, and hides from its close button and the Prefs toggle.
+void ui_studio_navigator_zooms_pans_and_follows_handedness() {
+  const auto studio = request_studio();
+  MainWindow window;
+  window.enable_studio_shell();
+  show_window(window);
+  process_events_for(60);
+  auto* canvas = MainWindowTestAccess::canvas(window);
+  CHECK(canvas != nullptr);
+  auto* navigator = window.findChild<QWidget*>(QStringLiteral("studioNavigator"));
+  CHECK(navigator != nullptr);
+  if (!navigator->isVisible()) {
+    // A previous run may have left it hidden; the Prefs toggle brings it back.
+    click(studio_button(window, "studioActionsButton"));
+    auto* toggle = prefs_toggle(window, QStringLiteral("Navigator"));
+    CHECK(toggle != nullptr);
+    toggle->click();
+    process_events_for(30);
+    click(studio_button(window, "studioActionsButton"));
+  }
+  CHECK(navigator->isVisible());
+  auto* host = navigator->parentWidget();
+  auto* side_bar = window.findChild<QWidget*>(QStringLiteral("studioSideBar"));
+  CHECK(host != nullptr && side_bar != nullptr);
+
+  // Dominant hand: right-handed keeps both on the left, left-handed moves both right.
+  click(studio_button(window, "studioActionsButton"));
+  auto* left_hand = studio_button(window, "studioHandLeft");
+  auto* right_hand = studio_button(window, "studioHandRight");
+  click(right_hand);
+  CHECK(right_hand->isChecked() && !left_hand->isChecked());
+  CHECK(navigator->geometry().center().x() < host->width() / 2);
+  CHECK(side_bar->geometry().center().x() < host->width() / 2);
+  CHECK(navigator->geometry().bottom() <= host->height());
+  CHECK(side_bar->geometry().bottom() <= navigator->geometry().top());
+  click(left_hand);
+  CHECK(left_hand->isChecked() && !right_hand->isChecked());
+  CHECK(navigator->geometry().center().x() > host->width() / 2);
+  CHECK(side_bar->geometry().center().x() > host->width() / 2);
+  for (auto* button : window.findChildren<QPushButton*>()) {
+    if (button->property("studioRole").toString() == QStringLiteral("tab") && button->text() == QStringLiteral("Prefs")) {
+      button->click();
+    }
+  }
+  process_events_for(30);
+  save_widget_artifact("studio-navigator-left-handed", window);
+  click(right_hand);
+  click(studio_button(window, "studioActionsButton"));
+  CHECK(navigator->geometry().center().x() < host->width() / 2);
+
+  // Zoom buttons, the label, the slider and its double-click reset.
+  canvas->set_zoom_centered(1.0);
+  process_events_for(30);
+  click(studio_button(window, "studioNavigatorZoomIn"));
+  CHECK(std::abs(canvas->zoom() - 1.25) < 0.01);
+  auto* zoom_label = window.findChild<QLabel*>(QStringLiteral("studioNavigatorZoomLabel"));
+  CHECK(zoom_label != nullptr && zoom_label->text() == QStringLiteral("125%"));
+  click(studio_button(window, "studioNavigatorZoomOut"));
+  CHECK(std::abs(canvas->zoom() - 1.0) < 0.01);
+  auto* zoom_slider = window.findChild<QWidget*>(QStringLiteral("studioNavigatorZoomSlider"));
+  CHECK(zoom_slider != nullptr);
+  const QPoint slider_end(zoom_slider->width() - 2, zoom_slider->height() / 2);
+  send_mouse(*zoom_slider, QEvent::MouseButtonPress, slider_end, Qt::LeftButton, Qt::LeftButton);
+  send_mouse(*zoom_slider, QEvent::MouseButtonRelease, slider_end, Qt::LeftButton, Qt::NoButton);
+  process_events_for(30);
+  CHECK(canvas->zoom() > 32.0);
+  send_mouse(*zoom_slider, QEvent::MouseButtonDblClick, slider_end, Qt::LeftButton, Qt::LeftButton);
+  process_events_for(30);
+  CHECK(std::abs(canvas->zoom() - 1.0) < 0.01);
+
+  // A press in the thumbnail centers the view there.
+  canvas->set_zoom_centered(6.0);
+  process_events_for(60);
+  auto* view = window.findChild<QWidget*>(QStringLiteral("studioNavigatorView"));
+  CHECK(view != nullptr);
+  const auto before = polygon_center(canvas->visible_document_polygon());
+  const QPoint near_corner(14, 14);
+  send_mouse(*view, QEvent::MouseButtonPress, near_corner, Qt::LeftButton, Qt::LeftButton);
+  send_mouse(*view, QEvent::MouseButtonRelease, near_corner, Qt::LeftButton, Qt::NoButton);
+  process_events_for(30);
+  const auto after = polygon_center(canvas->visible_document_polygon());
+  CHECK(after.x() < before.x() && after.y() < before.y());
+  process_events_for(500);
+  save_widget_artifact("studio-navigator", window);
+
+  // Fit brings the whole artwork back.
+  click(studio_button(window, "studioNavigatorFit"));
+  CHECK(canvas->zoom() < 6.0);
+
+  // The close button hides it and the Prefs toggle shows it again.
+  click(studio_button(window, "studioNavigatorClose"));
+  CHECK(!navigator->isVisible());
+  click(studio_button(window, "studioActionsButton"));
+  auto* toggle = prefs_toggle(window, QStringLiteral("Navigator"));
+  CHECK(toggle != nullptr && !toggle->isChecked());
+  toggle->click();
+  process_events_for(30);
+  CHECK(navigator->isVisible());
+}
+
 }  // namespace
 
 std::vector<patchy::test::TestCase> studio_shell_tests() {
@@ -230,5 +353,7 @@ std::vector<patchy::test::TestCase> studio_shell_tests() {
       {"ui_studio_shell_hides_classic_chrome_and_drives_tools", ui_studio_shell_hides_classic_chrome_and_drives_tools},
       {"ui_studio_shell_panels_open_and_edit", ui_studio_shell_panels_open_and_edit},
       {"ui_studio_shell_paints_undoes_and_transforms", ui_studio_shell_paints_undoes_and_transforms},
+      {"ui_studio_navigator_zooms_pans_and_follows_handedness",
+       ui_studio_navigator_zooms_pans_and_follows_handedness},
   };
 }

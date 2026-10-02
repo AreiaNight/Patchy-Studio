@@ -887,8 +887,36 @@ public:
            };
            add_toggle(tr("Light interface"), shell_.light_interface(),
                       [this](bool on) { shell_.set_light_interface(on); });
-           add_toggle(tr("Right-hand interface"), shell_.right_handed(),
-                      [this](bool on) { shell_.set_right_handed(on); });
+           // Handedness as two explicit choices: a single "right-hand" switch read
+           // as either "for right-handed people" or "controls on the right".
+           auto* hand_label = new QLabel(tr("Dominant hand"), page);
+           hand_label->setProperty("studioRole", QStringLiteral("muted"));
+           list->addWidget(hand_label);
+           auto* hand_row = new QHBoxLayout;
+           hand_row->setSpacing(6);
+           auto* hand_group = new QButtonGroup(page);
+           hand_group->setExclusive(true);
+           const auto add_hand = [this, page, hand_row, hand_group](const QString& text, const QString& tip,
+                                                                   const char* name, bool left) {
+             auto* button = new QPushButton(text, page);
+             button->setObjectName(QLatin1String(name));
+             button->setToolTip(tip);
+             button->setCheckable(true);
+             button->setChecked(shell_.left_handed() == left);
+             button->setCursor(Qt::PointingHandCursor);
+             hand_group->addButton(button);
+             hand_row->addWidget(button, 1);
+             connect(button, &QPushButton::toggled, this, [this, left](bool on) {
+               if (on) {
+                 shell_.set_left_handed(left);
+               }
+             });
+           };
+           add_hand(tr("Right-handed"), tr("Side bar and navigator on the left edge"), "studioHandRight", false);
+           add_hand(tr("Left-handed"), tr("Side bar and navigator on the right edge"), "studioHandLeft", true);
+           list->addLayout(hand_row);
+           add_toggle(tr("Navigator"), shell_.navigator_enabled(),
+                      [this](bool on) { shell_.set_navigator_enabled(on); });
            add_toggle(tr("Full screen"), shell_.full_screen(), [this](bool) { shell_.toggle_full_screen(); });
            list->addWidget(make_command_row(shell_, page, QStringLiteral("file.preferences")));
          }},

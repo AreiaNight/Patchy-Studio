@@ -17,6 +17,7 @@
 #include "core/layer_tree.hpp"
 #include "core/pixel_tools.hpp"
 #include "core/quick_select.hpp"
+#include "ui/display_mips.hpp"
 #include "ui/edit_conversions.hpp"
 #include "ui/image_document_io.hpp"
 #include "ui/qt_geometry.hpp"
@@ -341,6 +342,61 @@ void CanvasWidget::set_scroll_bars_hidden(bool hidden) {
   }
   scroll_bars_hidden_ = hidden;
   sync_scroll_bars();
+}
+
+double CanvasWidget::minimum_zoom() noexcept {
+  return kMinZoom;
+}
+
+double CanvasWidget::maximum_zoom() noexcept {
+  return kMaxZoom;
+}
+
+QPolygonF CanvasWidget::visible_document_polygon() const {
+  const auto w = static_cast<double>(width());
+  const auto h = static_cast<double>(height());
+  QPolygonF polygon;
+  for (const auto& corner : {QPointF(0.0, 0.0), QPointF(w, 0.0), QPointF(w, h), QPointF(0.0, h)}) {
+    polygon << document_position_f(corner);
+  }
+  return polygon;
+}
+
+void CanvasWidget::center_view_on_document_point(QPointF document_point) {
+  if (document_ == nullptr || !std::isfinite(document_point.x()) || !std::isfinite(document_point.y())) {
+    return;
+  }
+  const auto old_pan = pan_;
+  const QPointF viewport_center(static_cast<double>(width()) / 2.0, static_cast<double>(height()) / 2.0);
+  pan_ = viewport_center - document_point * zoom_;
+  constrain_pan();
+  if ((pan_ - old_pan).manhattanLength() < 0.01) {
+    return;
+  }
+  update();
+  notify_view_changed();
+}
+
+QImage CanvasWidget::overview_image(QSize bound) const {
+  if (render_cache_.isNull() || bound.width() <= 0 || bound.height() <= 0) {
+    return {};
+  }
+  // Halve with the display mip filter while the image stays at least twice the
+  // bound, then finish with one smooth scale.
+  int level = 0;
+  auto width = render_cache_.width();
+  auto height = render_cache_.height();
+  while (width >= bound.width() * 2 && height >= bound.height() * 2) {
+    width = (width + 1) / 2;
+    height = (height + 1) / 2;
+    ++level;
+  }
+  const auto reduced = display_image_at_mip_level(render_cache_, level);
+  return reduced.scaled(bound, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+}
+
+qint64 CanvasWidget::overview_image_key() const noexcept {
+  return render_cache_.cacheKey();
 }
 
 void CanvasWidget::sync_scroll_bars() {
