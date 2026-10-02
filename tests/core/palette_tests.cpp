@@ -1,6 +1,7 @@
 #include "color/color_management.hpp"
 #include "core/adjustment_layer.hpp"
 #include "core/blend_math.hpp"
+#include "core/color_wheel.hpp"
 #include "core/document.hpp"
 #include "core/layer_metadata.hpp"
 #include "core/layer_tree.hpp"
@@ -843,9 +844,128 @@ void document_palette_editing_copies_and_syncs_indexed_mirror() {
 
 }  // namespace
 
+// Color Wheel math (core/color_wheel): HSV round trips, the painter's RYB remap, every field
+// shape's color <-> point inverse, and Tone Lock keeping OKLab lightness inside sRGB.
+void color_wheel_math_round_trips_and_tone_lock_keeps_lightness() {
+  using namespace patchy;
+  const auto close = [](double a, double b, double tolerance) { return std::abs(a - b) <= tolerance; };
+  const auto same_rgb = [&close](WheelRgb a, WheelRgb b, double tolerance) {
+    return close(a.r, b.r, tolerance) && close(a.g, b.g, tolerance) && close(a.b, b.b, tolerance);
+  };
+
+  // HSV round trip over a grid.
+  for (int r = 0; r <= 255; r += 51) {
+    for (int g = 0; g <= 255; g += 51) {
+      for (int b = 0; b <= 255; b += 51) {
+        const WheelRgb color{r / 255.0, g / 255.0, b / 255.0};
+        CHECK(same_rgb(wheel_hsv_to_rgb(wheel_rgb_to_hsv(color)), color, 1e-9));
+      }
+    }
+  }
+
+  // RGB is the identity; RYB puts yellow a third of the way round and blue two thirds, keeps
+  // red, and inverts exactly. Painter's complements sit opposite each other.
+  CHECK(close(wheel_angle_for_hue(200.0, ColorWheelModel::Rgb), 200.0, 1e-12));
+  CHECK(close(wheel_angle_for_hue(0.0, ColorWheelModel::Ryb), 0.0, 1e-12));
+  CHECK(close(wheel_angle_for_hue(60.0, ColorWheelModel::Ryb), 120.0, 1e-12));   // yellow
+  CHECK(close(wheel_angle_for_hue(240.0, ColorWheelModel::Ryb), 240.0, 1e-12));  // blue
+  CHECK(close(wheel_angle_for_hue(30.0, ColorWheelModel::Ryb) + 180.0, wheel_angle_for_hue(240.0, ColorWheelModel::Ryb), 1e-12));  // orange / blue
+  double previous_angle = -1.0;
+  for (int hue = 0; hue < 360; ++hue) {
+    const auto angle = wheel_angle_for_hue(hue, ColorWheelModel::Ryb);
+    CHECK(angle > previous_angle);  // monotone
+    previous_angle = angle;
+    CHECK(close(wheel_hue_for_angle(angle, ColorWheelModel::Ryb), hue, 1e-9));
+  }
+
+  // Each shape: field_point then field_color returns the color (same hue), and points stay
+  // inside the shape. Clamping pulls outside points onto it.
+  for (const auto shape : {ColorWheelShape::Square, ColorWheelShape::Triangle, ColorWheelShape::Diamond}) {
+    for (const auto& color : {WheelRgb{0.9, 0.35, 0.16}, WheelRgb{0.1, 0.4, 0.8}, WheelRgb{0.2, 0.2, 0.2},
+                              WheelRgb{1.0, 1.0, 1.0}, WheelRgb{0.0, 0.0, 0.0}, WheelRgb{0.5, 1.0, 0.0}}) {
+      const auto hsv = wheel_rgb_to_hsv(color);
+      const auto point = wheel_field_point(shape, color);
+      CHECK(wheel_field_contains(shape, point));
+      CHECK(same_rgb(wheel_field_color(shape, hsv.h, point), color, 1e-9));
+    }
+    const auto clamped = wheel_field_clamp(shape, {3.0, -2.0});
+    CHECK(wheel_field_contains(shape, clamped));
+    CHECK(!wheel_field_contains(shape, {0.99, 0.99}));
+  }
+  // Corners mean what the panel says: square top-right is the pure hue, triangle and diamond
+  // tops are white, bottoms black.
+  CHECK(same_rgb(wheel_field_color(ColorWheelShape::Square, 0.0, {1.0, 1.0}), {1.0, 0.0, 0.0}, 1e-9));
+  CHECK(same_rgb(wheel_field_color(ColorWheelShape::Triangle, 120.0, {1.0, 0.0}), {0.0, 1.0, 0.0}, 1e-9));
+  CHECK(same_rgb(wheel_field_color(ColorWheelShape::Diamond, 240.0, {0.0, 1.0}), {1.0, 1.0, 1.0}, 1e-9));
+  CHECK(same_rgb(wheel_field_color(ColorWheelShape::Diamond, 240.0, {0.0, -1.0}), {0.0, 0.0, 0.0}, 1e-9));
+  CHECK(same_rgb(wheel_field_color(ColorWheelShape::Diamond, 240.0, {1.0, 0.0}), {0.0, 0.0, 1.0}, 1e-9));
+
+  // Tone Lock: the candidate's hue at the reference lightness, always inside sRGB.
+  const WheelRgb dark_red{0.35, 0.05, 0.05};
+  const auto reference_lightness = wheel_perceptual_lightness(dark_red);
+  for (int hue = 0; hue < 360; hue += 15) {
+    const auto candidate = wheel_hsv_to_rgb({static_cast<double>(hue), 1.0, 1.0});
+    const auto locked = wheel_tone_locked(candidate, dark_red);
+    CHECK(locked.r >= 0.0 && locked.r <= 1.0 && locked.g >= 0.0 && locked.g <= 1.0 && locked.b >= 0.0 &&
+          locked.b <= 1.0);
+    CHECK(close(wheel_perceptual_lightness(locked), reference_lightness, 0.002));
+    if (wheel_rgb_to_hsv(locked).s > 0.05) {
+      const auto locked_hue = wheel_rgb_to_hsv(locked).h;
+      const auto delta = std::abs(std::remainder(locked_hue - hue, 360.0));
+      CHECK(delta < 20.0);  // OKLab hue lines bend slightly against HSV; the family is kept
+    }
+  }
+  // A candidate already at the reference lightness comes back unchanged.
+  CHECK(same_rgb(wheel_tone_locked(dark_red, dark_red), dark_red, 1e-6));
+}
+
+// Harmony angles in ring space and the spread inverse used by marker drags.
+void color_wheel_harmonies_place_markers_and_invert_spread() {
+  using namespace patchy;
+  const auto close = [](double a, double b) { return std::abs(std::remainder(a - b, 360.0)) < 1e-9; };
+  CHECK(wheel_harmony_count(ColorHarmony::None) == 0);
+  CHECK(wheel_harmony_count(ColorHarmony::Complementary) == 1);
+  CHECK(wheel_harmony_count(ColorHarmony::Square) == 3);
+  CHECK(close(wheel_harmony_angle(ColorHarmony::Complementary, 10.0, 30.0, 0), 190.0));
+  CHECK(close(wheel_harmony_angle(ColorHarmony::Triadic, 350.0, 30.0, 0), 110.0));
+  CHECK(close(wheel_harmony_angle(ColorHarmony::Triadic, 350.0, 30.0, 1), 230.0));
+  CHECK(close(wheel_harmony_angle(ColorHarmony::Analogous, 0.0, 25.0, 0), 335.0));
+  CHECK(close(wheel_harmony_angle(ColorHarmony::Analogous, 0.0, 25.0, 1), 25.0));
+  CHECK(close(wheel_harmony_angle(ColorHarmony::SplitComplementary, 40.0, 20.0, 0), 200.0));
+  CHECK(close(wheel_harmony_angle(ColorHarmony::SplitComplementary, 40.0, 20.0, 1), 240.0));
+  CHECK(close(wheel_harmony_angle(ColorHarmony::Rectangle, 0.0, 60.0, 0), 60.0));
+  CHECK(close(wheel_harmony_angle(ColorHarmony::Rectangle, 0.0, 60.0, 1), 180.0));
+  CHECK(close(wheel_harmony_angle(ColorHarmony::Rectangle, 0.0, 60.0, 2), 240.0));
+  CHECK(close(wheel_harmony_angle(ColorHarmony::Square, 45.0, 30.0, 2), 315.0));
+  // Spread clamps to its range.
+  CHECK(close(wheel_harmony_angle(ColorHarmony::Analogous, 0.0, 400.0, 1), kHarmonySpreadMax));
+  // Dragging a marker to an angle recovers the spread that puts it there.
+  for (const auto harmony : {ColorHarmony::Analogous, ColorHarmony::SplitComplementary, ColorHarmony::Rectangle}) {
+    CHECK(wheel_harmony_has_spread(harmony));
+    for (int index = 0; index < wheel_harmony_count(harmony); ++index) {
+      if (harmony == ColorHarmony::Rectangle && index == 1) {
+        continue;  // the rectangle's complement is fixed
+      }
+      const auto angle = wheel_harmony_angle(harmony, 73.0, 41.0, index);
+      CHECK(std::abs(wheel_harmony_spread_for_angle(harmony, 73.0, index, angle) - 41.0) < 1e-9);
+    }
+  }
+  CHECK(!wheel_harmony_has_spread(ColorHarmony::Triadic));
+  CHECK(wheel_harmony_spread_for_angle(ColorHarmony::Analogous, 0.0, 1, 170.0) == kHarmonySpreadMax);
+  // On the RYB ring the complement of red is green, the painter's pair.
+  const auto complement = wheel_hue_for_angle(
+      wheel_harmony_angle(ColorHarmony::Complementary, wheel_angle_for_hue(0.0, ColorWheelModel::Ryb), 30.0, 0),
+      ColorWheelModel::Ryb);
+  CHECK(std::abs(complement - 120.0) < 1e-9);
+}
+
 std::vector<patchy::test::TestCase> palette_tests() {
   return {
       {"palette_names_round_trip_gpl_and_psd", palette_names_round_trip_gpl_and_psd},
+      {"color_wheel_math_round_trips_and_tone_lock_keeps_lightness",
+       color_wheel_math_round_trips_and_tone_lock_keeps_lightness},
+      {"color_wheel_harmonies_place_markers_and_invert_spread",
+       color_wheel_harmonies_place_markers_and_invert_spread},
       {"palette_lut_snaps_within_quantization_bound_and_is_idempotent",
        palette_lut_snaps_within_quantization_bound_and_is_idempotent},
       {"palette_snap_pixel_thresholds_alpha_and_ignores_low_channel_buffers",

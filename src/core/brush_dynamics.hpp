@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <vector>
 
 namespace patchy {
 
@@ -28,7 +30,22 @@ enum class BrushTextureStyle : std::uint8_t {
   FineGrain = 0,
   Canvas,
   Speckle,
+  Pattern,  // a Pattern Library tile's luminance (BrushDynamics::texture_pattern_id)
 };
+
+class PixelBuffer;
+
+// A pattern tile reduced to the one static grayscale mask Brush Texture may use: Rec. 709
+// luminance composited over white (transparent pattern pixels leave paint untouched), tiled
+// from the document origin. Built once per stroke by the host; never modulated by input.
+struct BrushTextureMask {
+  std::int32_t width{0};
+  std::int32_t height{0};
+  std::vector<std::uint8_t> values;  // row-major, 255 = full paint
+};
+
+// Empty mask for an empty or non-8-bit tile. Integer math, deterministic everywhere.
+[[nodiscard]] BrushTextureMask brush_texture_mask_from_tile(const PixelBuffer& tile);
 
 // Photoshop-style per-dab brush tip dynamics (Shape Dynamics + Scattering + Transfer).
 // Default-constructed = disabled: the stamp engine takes its historical path bit-for-bit and
@@ -74,9 +91,13 @@ struct BrushDynamics {
   double texture_depth{0.5};
   bool texture_invert{false};
   std::uint32_t texture_seed{0x5A17C9E3U};
+  // Photoshop pattern id of a Pattern Library entry for BrushTextureStyle::Pattern. A missing
+  // pattern falls back to the Fine Grain family (seeded by texture_seed) rather than no texture.
+  std::string texture_pattern_id{};
 
-  // One fixed secondary computed mask. It is deliberately not a component graph: a single
-  // repeated round mask combines with the primary coverage using multiplication.
+  // One fixed secondary computed mask. It is deliberately not a component graph: round
+  // secondary dabs laid along the stroke path (DualBrushTrail) combine with the primary
+  // coverage using multiplication.
   bool dual_brush_enabled{false};
   double dual_brush_size{0.5};      // secondary diameter / primary diameter, 0.05..4
   double dual_brush_hardness{1.0};  // 0..1

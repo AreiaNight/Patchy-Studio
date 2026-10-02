@@ -90,6 +90,7 @@ QString automation_storage_dir(QString requested) {
   switch (style) {
     case patchy::BrushTextureStyle::Canvas: return QStringLiteral("canvas");
     case patchy::BrushTextureStyle::Speckle: return QStringLiteral("speckle");
+    case patchy::BrushTextureStyle::Pattern: return QStringLiteral("pattern");
     case patchy::BrushTextureStyle::FineGrain: break;
   }
   return QStringLiteral("fineGrain");
@@ -98,6 +99,7 @@ QString automation_storage_dir(QString requested) {
 [[nodiscard]] patchy::BrushTextureStyle texture_style_from_token(const QString& token) {
   if (token == QStringLiteral("canvas")) return patchy::BrushTextureStyle::Canvas;
   if (token == QStringLiteral("speckle")) return patchy::BrushTextureStyle::Speckle;
+  if (token == QStringLiteral("pattern")) return patchy::BrushTextureStyle::Pattern;
   return patchy::BrushTextureStyle::FineGrain;
 }
 
@@ -544,6 +546,7 @@ namespace {
          a.texture_enabled == b.texture_enabled && a.texture_style == b.texture_style &&
          a.texture_scale == b.texture_scale && a.texture_depth == b.texture_depth &&
          a.texture_invert == b.texture_invert && a.texture_seed == b.texture_seed &&
+         a.texture_pattern_id == b.texture_pattern_id &&
          a.dual_brush_enabled == b.dual_brush_enabled &&
          a.dual_brush_size == b.dual_brush_size &&
          a.dual_brush_hardness == b.dual_brush_hardness &&
@@ -736,6 +739,7 @@ QJsonObject brush_dynamics_to_json(const patchy::BrushDynamics& dynamics) {
   object.insert(QStringLiteral("textureDepth"), dynamics.texture_depth);
   object.insert(QStringLiteral("textureInvert"), dynamics.texture_invert);
   object.insert(QStringLiteral("textureSeed"), static_cast<double>(dynamics.texture_seed));
+  object.insert(QStringLiteral("texturePattern"), QString::fromStdString(dynamics.texture_pattern_id));
   object.insert(QStringLiteral("dualBrushEnabled"), dynamics.dual_brush_enabled);
   object.insert(QStringLiteral("dualBrushSize"), dynamics.dual_brush_size);
   object.insert(QStringLiteral("dualBrushHardness"), dynamics.dual_brush_hardness);
@@ -818,6 +822,7 @@ patchy::BrushDynamics brush_dynamics_from_json(const QJsonObject& object) {
   dynamics.texture_depth =
       clamp_fraction(object.value(QStringLiteral("textureDepth")).toDouble(0.5));
   dynamics.texture_invert = object.value(QStringLiteral("textureInvert")).toBool(false);
+  dynamics.texture_pattern_id = object.value(QStringLiteral("texturePattern")).toString().trimmed().toStdString();
   dynamics.texture_seed = static_cast<std::uint32_t>(std::clamp(
       object.value(QStringLiteral("textureSeed")).toDouble(0x5A17C9E3U), 0.0,
       static_cast<double>(std::numeric_limits<std::uint32_t>::max())));
@@ -902,6 +907,7 @@ bool brush_dynamics_is_default(const patchy::BrushDynamics& dynamics) {
          dynamics.texture_depth == defaults.texture_depth &&
          dynamics.texture_invert == defaults.texture_invert &&
          dynamics.texture_seed == defaults.texture_seed &&
+         dynamics.texture_pattern_id == defaults.texture_pattern_id &&
          dynamics.dual_brush_enabled == defaults.dual_brush_enabled &&
          dynamics.dual_brush_size == defaults.dual_brush_size &&
          dynamics.dual_brush_hardness == defaults.dual_brush_hardness &&

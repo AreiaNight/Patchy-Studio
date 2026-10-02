@@ -453,6 +453,34 @@ struct ThemePalette {
   QColor icon_folder_fill;
   QColor icon_success;
   QColor icon_surface;
+
+  // Patchy Studio: the Procreate-style shell (studio_*.cpp). Its chrome floats
+  // over the canvas, so the bars and panels are translucent and the accent is
+  // the one blue that marks the active tool, layer, and brush.
+  QColor studio_bar_bg;
+  QColor studio_bar_border;
+  QColor studio_icon;
+  QColor studio_icon_hover;
+  QColor studio_accent;
+  QColor studio_text;
+  QColor studio_text_muted;
+  QColor studio_panel_bg;
+  QColor studio_panel_border;
+  QColor studio_row_bg;
+  QColor studio_row_hover_bg;
+  QColor studio_row_selected_bg;
+  QColor studio_row_selected_text;
+  QColor studio_separator;
+  QColor studio_slider_track;
+  QColor studio_slider_fill;
+  QColor studio_slider_thumb;
+  QColor studio_gallery_bg;
+  QColor studio_card_bg;
+  QColor studio_card_border;
+  QColor studio_card_hover_border;
+  QColor studio_shadow;
+  QColor studio_bubble_bg;
+  QColor studio_bubble_text;
 };
 
 [[nodiscard]] const ThemePalette& dark_palette();

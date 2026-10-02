@@ -2,6 +2,7 @@
 
 #include "core/brush_dynamics.hpp"
 
+#include <unordered_map>
 #include <cstdint>
 #include <vector>
 
@@ -54,9 +55,32 @@ void soften_scaled_brush_tip(ScaledBrushTip& tip, int feather_pixels);
 // dab placement is uniform along the whole stroke instead of clustering at segment joins. Also
 // owns the per-stroke dynamics state: the RNG (seeded from EditOptions::brush_dynamics.seed on
 // the stroke's first dab) and the fade/direction context. Reset by assigning a fresh struct.
+// Dual Brush secondary dabs laid along the stroke path (Photoshop stamps the secondary brush
+// along the stroke with its own spacing, then intersects it with the primary). One fixed
+// computed mask per stroke: round dabs from the static size/hardness/spacing settings, no
+// component graph (docs/legal-constraints.md). Cells bucket the centers so a primary dab only
+// visits the secondary dabs near it.
+struct DualBrushTrail {
+  struct Dab {
+    double x{0.0};
+    double y{0.0};
+    double radius{0.5};
+  };
+  bool started{false};
+  double residual_distance{0.0};  // path distance from the next segment's start to the next dab
+  double cell_size{0.0};
+  double max_radius{0.0};
+  std::unordered_map<std::uint64_t, std::vector<Dab>> cells;
+};
+
 struct BrushTipStrokeState {
   bool initialized{false};
   double residual_distance{0.0};  // distance from the next segment's start to the next dab
+  // The base spacing residual_distance was measured against. When the base size changes
+  // between segments (global pen pressure), the residual rescales with it so the next dab
+  // keeps the same relative cadence instead of landing a whole old-size step away.
+  double residual_base_spacing{0.0};
+  DualBrushTrail dual_trail;
   BrushDynamicsRng rng;
   BrushDynamicsStrokeContext dynamics;
 };

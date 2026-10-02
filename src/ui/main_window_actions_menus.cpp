@@ -83,6 +83,7 @@
 #include <QAbstractSpinBox>
 #include <QAbstractTextDocumentLayout>
 #include <QAction>
+#include <QCursor>
 #include <QActionGroup>
 #include <QApplication>
 #include <QBrush>
@@ -1864,6 +1865,20 @@ void MainWindow::build_menu_bar_actions(ActionBuildContext& ctx) {
   cascade_windows_action_->setVisible(false);
 #endif
 
+  window_menu->addSeparator();
+
+  auto* color_wheel_action = window_menu->addAction(QString());
+  color_wheel_action->setObjectName(QStringLiteral("windowColorWheelAction"));
+  bind_action_text(color_wheel_action, QT_TR_NOOP("Color Wheel"));
+  color_wheel_action->setCheckable(true);
+  color_wheel_action->setMenuRole(QAction::NoRole);
+  register_hotkey(color_wheel_action, "window.color_wheel", QKeySequence());
+  connect(color_wheel_action, &QAction::triggered, this, [this](bool checked) { set_color_wheel_panel_visible(checked); });
+  auto* color_wheel_hud_action = window_menu->addAction(QString());
+  color_wheel_hud_action->setObjectName(QStringLiteral("windowColorWheelHudAction"));
+  bind_action_text(color_wheel_hud_action, QT_TR_NOOP("Color Wheel at Pointer"));
+  register_hotkey(color_wheel_hud_action, "window.color_wheel_hud", QKeySequence());
+  connect(color_wheel_hud_action, &QAction::triggered, this, [this] { show_color_wheel_hud(QCursor::pos()); });
   window_menu->addSeparator();
 
   auto* screen_size_menu = window_menu->addMenu(tr("Set Screen Size"));

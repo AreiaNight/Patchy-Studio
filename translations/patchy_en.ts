@@ -8597,6 +8597,10 @@ RGB: %2, %3, %4</source>
         <source>Import Notes</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Open the classic Patchy interface instead of Patchy Studio.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>ScannerImport</name>
@@ -9262,6 +9266,18 @@ RGB: %2, %3, %4</source>
     </message>
     <message>
         <source>Reset the tip shape and all dynamics to defaults</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pattern</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pattern:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Missing pattern</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -10198,6 +10214,112 @@ RGB: %2, %3, %4</source>
     </message>
     <message>
         <source>Delete channel</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::ColorWheelHud</name>
+    <message>
+        <source>Keep the wheel on screen between strokes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::ColorWheelPanel</name>
+    <message>
+        <source>New color (top) and previous color (bottom). Click the previous color to go back to it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Triangle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Diamond</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Shape of the field inside the ring</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>RGB</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Painter&apos;s RYB</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Wheel layout: RGB, or the painter&apos;s red, yellow and blue wheel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tone Lock</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Keep the lightness while you change the hue, so shadows stay shadows</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save Current Color Here</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No Harmony</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Complementary</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Analogous</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Triadic</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Split Complementary</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rectangle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Color harmony: markers on the ring follow the main color; drag an outer marker to widen or narrow analogous, split and rectangle harmonies</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Harmony colors. Click one to use it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save the current color</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Saved colors. Click one to use it, click an empty slot to save the current color there, right-click for more.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Hex code of the new color. Type a code and press Enter to use it.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -11888,14 +12010,6 @@ RGB: %2, %3, %4</source>
     </message>
     <message>
         <source>Flow:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Airbrush</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Build paint while the pointer is held still</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -18161,6 +18275,34 @@ Y: %2
         <source>The placed position or size is out of range</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Pressure curve:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>How pen pressure maps to brush size, opacity and brush dynamics. Negative values feel firmer (more pressure for the same result), positive values feel softer. 0 is linear.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Color Wheel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Color Wheel at Pointer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Foreground: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show color wheel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Airbrush: build paint while the pointer is held still</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -19649,6 +19791,335 @@ Y: %2
     </message>
     <message>
         <source>Free · Windows, macOS &amp; Linux</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioActionsPanel</name>
+    <message>
+        <source>Actions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add text</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Canvas</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Share</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Prefs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Light interface</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Right-hand interface</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Full screen</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Help</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>About Patchy Studio</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tips: B, S and E pick Brush, Smudge and Eraser. [ and ] change the brush size. Ctrl+Z undoes, Ctrl+Shift+Z redoes. Space+drag pans, Alt+click picks a color.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioAdjustmentsPanel</name>
+    <message>
+        <source>Adjustments</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioBrushLibraryPanel</name>
+    <message>
+        <source>Brush Library</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Import brushes (.abr)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Brush settings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>All brushes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Basic</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Round</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioColorPanel</name>
+    <message>
+        <source>Colors</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>History</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Colors you paint with appear here.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioGallery</name>
+    <message>
+        <source>Patchy Studio</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open a file from disk</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>New canvas</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>OPEN</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>RECENT</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tap + to start a new canvas, or Import to open a file.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>4K</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>A4 (300 PPI)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Comic page</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sketch</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 × %2 px</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Screen size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Custom size...</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioLayersPanel</name>
+    <message>
+        <source>Layers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>New layer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioShell</name>
+    <message>
+        <source>Gallery</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show the gallery of open and recent artwork</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Actions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Adjustments</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Transform</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Paint (tap again for the Brush Library)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Smudge (tap again for the Brush Library)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Erase (tap again for the Brush Library)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Layers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Colors</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Brush size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Brush opacity</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Eyedropper: pick a color from the canvas</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 px</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Automatic</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Freehand</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rectangle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ellipse</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Subtract</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Invert</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy &amp; Paste</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Expand</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Freeform</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Warp</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Flip Horizontal</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Flip Vertical</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>New canvas</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -1,4 +1,5 @@
 #include "color/color_management.hpp"
+#include "core/pen_pressure.hpp"
 #include "core/adjustment_layer.hpp"
 #include "core/blend_math.hpp"
 #include "core/document.hpp"
@@ -58,6 +59,7 @@
 #include "local_psd_fixtures.hpp"
 #include "synthetic_dng.hpp"
 
+#include <cstdio>
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -734,7 +736,6 @@ void tool_brush_tip_size_control_pressure_scales_dabs() {
     auto options = tool_options(0, 0, 0);
     options.brush_size = 9;
     options.brush_tip = &scaled;
-    options.brush_tip_spacing = 2.0;  // dabs at x=10 and x=28
     options.brush_dynamics.size_control = patchy::BrushDynamicControl::PenPressure;
     options.brush_dynamics.minimum_diameter = 0.5;
     options.brush_dynamics.pen_pressure = pressure;
@@ -742,7 +743,8 @@ void tool_brush_tip_size_control_pressure_scales_dabs() {
     auto document = make_tool_document();
     const auto layer = active_tool_layer(document);
     patchy::BrushTipStrokeState state;
-    CHECK(!patchy::paint_brush_segment(document, layer, 10.0, 20.0, 30.0, 20.0, options, false, state).empty());
+    // One dab: spacing follows each dab's size, so a longer stroke packs shrunk dabs closer.
+    CHECK(!patchy::paint_brush_segment(document, layer, 10.0, 20.0, 10.0, 20.0, options, false, state).empty());
     const auto& pixels = document.find_layer(layer)->pixels();
     std::int32_t min_x = 1000;
     std::int32_t max_x = -1000;
@@ -876,6 +878,151 @@ void tool_brush_texture_and_dual_brush_render_deterministically() {
   };
   CHECK(painted_alpha_count(dual_pixels) < painted_alpha_count(plain));
 
+}
+
+// Dual Brush lays its secondary dabs along the stroke path with their own spacing (Photoshop
+// semantics) instead of repeating one lattice inside every primary dab: a horizontal stroke
+// with a small secondary paints only a band around the path line, gapped at the secondary
+// spacing, and the marks continue across segments without restarting.
+// Brush Texture's Pattern grain: a Pattern Library tile reduced to its luminance over white,
+// tiled from the document origin at the texture scale. A missing tile falls back to Fine Grain.
+void tool_brush_texture_pattern_uses_tile_luminance() {
+  // Mask: black stays 0, white 255, transparent reads as white (paint untouched).
+  patchy::PixelBuffer tile(3, 1, patchy::PixelFormat::rgba8());
+  const std::uint8_t texels[3][4] = {{0, 0, 0, 255}, {255, 255, 255, 255}, {0, 0, 0, 0}};
+  for (int x = 0; x < 3; ++x) {
+    std::copy(texels[x], texels[x] + 4, tile.pixel(x, 0));
+  }
+  const auto mask = patchy::brush_texture_mask_from_tile(tile);
+  CHECK(mask.width == 3 && mask.height == 1);
+  CHECK(mask.values == std::vector<std::uint8_t>({0, 255, 255}));
+  CHECK(patchy::brush_texture_mask_from_tile(patchy::PixelBuffer{}).values.empty());
+
+  // A 2x2 black/white checker at scale 1 and full depth paints a checker, anchored at (0, 0).
+  patchy::PixelBuffer checker(2, 2, patchy::PixelFormat::rgba8());
+  for (int y = 0; y < 2; ++y) {
+    for (int x = 0; x < 2; ++x) {
+      const std::uint8_t value = (x + y) % 2 == 0 ? 0 : 255;
+      auto* px = checker.pixel(x, y);
+      px[0] = px[1] = px[2] = value;
+      px[3] = 255;
+    }
+  }
+  const auto checker_mask = patchy::brush_texture_mask_from_tile(checker);
+  const auto tip = make_solid_scaled_tip(15);
+  const auto paint = [&tip](const patchy::BrushDynamics& dynamics, const patchy::BrushTextureMask* texture) {
+    auto document = make_tool_document();
+    const auto layer_id = active_tool_layer(document);
+    auto options = tool_options(20, 20, 20);
+    options.brush_size = tip.width;
+    options.brush_tip = &tip;
+    options.brush_dynamics = dynamics;
+    options.brush_texture_mask = texture;
+    patchy::BrushTipStrokeState state;
+    CHECK(!patchy::paint_brush_segment(document, layer_id, 24.0, 24.0, 24.0, 24.0, options, false, state).empty());
+    const auto data = std::as_const(*document.find_layer(layer_id)).pixels().data();
+    return std::vector<std::uint8_t>(data.begin(), data.end());
+  };
+  patchy::BrushDynamics pattern;
+  pattern.texture_enabled = true;
+  pattern.texture_style = patchy::BrushTextureStyle::Pattern;
+  pattern.texture_pattern_id = "checker";
+  pattern.texture_depth = 1.0;
+  pattern.texture_scale = 1.0;
+  const auto painted = paint(pattern, &checker_mask);
+  const auto alpha = [&painted](int x, int y) {
+    return painted[(static_cast<std::size_t>(y) * 64U + static_cast<std::size_t>(x)) * 4U + 3U];
+  };
+  for (int y = 21; y <= 27; ++y) {
+    for (int x = 21; x <= 27; ++x) {
+      CHECK(((x + y) % 2 == 0) ? alpha(x, y) == 0U : alpha(x, y) == 255U);
+    }
+  }
+  // Scale 2 doubles the texel size.
+  pattern.texture_scale = 2.0;
+  const auto doubled = paint(pattern, &checker_mask);
+  CHECK(doubled[(24U * 64U + 24U) * 4U + 3U] == 0U);  // (24, 24) -> texel (12, 12): black
+  CHECK(doubled[(24U * 64U + 25U) * 4U + 3U] == 0U);  // (25, 24) -> texel (12, 12)
+  CHECK(doubled[(24U * 64U + 26U) * 4U + 3U] == 255U);  // (26, 24) -> texel (13, 12): white
+  pattern.texture_scale = 1.0;
+  // Invert swaps the checker.
+  pattern.texture_invert = true;
+  const auto inverted = paint(pattern, &checker_mask);
+  CHECK(inverted[(24U * 64U + 24U) * 4U + 3U] == 255U);
+  pattern.texture_invert = false;
+
+  // Without a resolved tile the Pattern grain paints exactly like Fine Grain with the same seed.
+  auto fine = pattern;
+  fine.texture_style = patchy::BrushTextureStyle::FineGrain;
+  fine.texture_pattern_id.clear();
+  CHECK(paint(pattern, nullptr) == paint(fine, nullptr));
+  CHECK(paint(pattern, nullptr) != painted);
+}
+
+void tool_dual_brush_secondary_marks_follow_the_stroke_path() {
+  const auto tip = make_solid_scaled_tip(21);
+  const auto paint = [&tip](const std::vector<std::pair<double, double>>& path) {
+    auto document = make_tool_document();
+    const auto layer_id = active_tool_layer(document);
+    auto options = tool_options(0, 0, 0);
+    options.brush_size = tip.width;
+    options.brush_tip = &tip;
+    options.brush_tip_spacing = 0.25;
+    options.brush_dynamics.dual_brush_enabled = true;
+    options.brush_dynamics.dual_brush_size = 0.2;  // about 4 px secondary dabs
+    options.brush_dynamics.dual_brush_hardness = 1.0;
+    options.brush_dynamics.dual_brush_spacing = 2.0;  // one every ~8.4 px of path
+    options.brush_dynamics.seed = 3;
+    patchy::BrushTipStrokeState state;
+    for (std::size_t i = 1; i < path.size(); ++i) {
+      (void)patchy::paint_brush_segment(document, layer_id, path[i - 1].first, 24.0, path[i].first, 24.0,
+                                        options, false, state);
+    }
+    const auto& pixels = std::as_const(document).find_layer(layer_id)->pixels();
+    return std::vector<std::uint8_t>(pixels.data().begin(), pixels.data().end());
+  };
+  const auto alpha_at = [](const std::vector<std::uint8_t>& bytes, int x, int y) {
+    return bytes[(static_cast<std::size_t>(y) * 64U + static_cast<std::size_t>(x)) * 4U + 3U];
+  };
+
+  const auto single = paint({{10.0, 0.0}, {54.0, 0.0}});
+  int painted = 0;
+  int far_from_path = 0;
+  for (int y = 0; y < 48; ++y) {
+    for (int x = 0; x < 64; ++x) {
+      if (alpha_at(single, x, y) > 0U) {
+        ++painted;
+        far_from_path += std::abs(y - 24) > 3 ? 1 : 0;
+      }
+    }
+  }
+  CHECK(painted > 0);
+  CHECK(far_from_path == 0);  // the per-dab lattice painted secondary dots across the whole disc
+  // Along the path line the secondary spacing leaves gaps between its marks.
+  int gaps = 0;
+  bool inside = false;
+  for (int x = 10; x <= 54; ++x) {
+    const bool on = alpha_at(single, x, 24) > 0U;
+    gaps += (inside && !on) ? 1 : 0;
+    inside = on;
+  }
+  CHECK(gaps >= 3);
+
+  // Split into segments at dab-aligned points, the stroke walks both spacings on: same pixels.
+  CHECK(paint({{10.0, 0.0}, {31.0, 0.0}, {54.0, 0.0}}) == paint({{10.0, 0.0}, {31.0, 0.0}, {54.0, 0.0}}));
+  const auto split = paint({{10.0, 0.0}, {31.0, 0.0}, {54.0, 0.0}});
+  int split_far = 0;
+  int split_painted = 0;
+  for (int y = 0; y < 48; ++y) {
+    for (int x = 0; x < 64; ++x) {
+      if (alpha_at(split, x, y) > 0U) {
+        ++split_painted;
+        split_far += std::abs(y - 24) > 3 ? 1 : 0;
+      }
+    }
+  }
+  CHECK(split_far == 0);
+  CHECK(std::abs(split_painted - painted) <= painted / 10);
 }
 
 void mixer_brush_pickup_average_follows_canvas_and_dries_only_at_wet_zero() {
@@ -1089,6 +1236,92 @@ void tool_brush_effect_pixels_round_trip_exactly_through_psd() {
         expected_pixels);
 }
 
+// Photoshop spacing is a percentage of each dab's own diameter: pressure- or jitter-shrunk dabs
+// step closer together instead of keeping the full-size step, which left light strokes as a
+// row of separate dots. A base-size change between segments (global pen pressure) rescales the
+// carried-over residual so the first dab of the next segment keeps the cadence too.
+void tool_brush_tip_spacing_follows_each_dab_size() {
+  const auto tip = make_bar_brush_tip();
+  const auto mips = patchy::build_brush_tip_mips(tip);
+  const auto largest_gap = [](const patchy::PixelBuffer& pixels) {
+    std::int32_t first = -1;
+    std::int32_t last = -1;
+    std::vector<bool> painted(static_cast<std::size_t>(pixels.width()), false);
+    for (std::int32_t x = 0; x < pixels.width(); ++x) {
+      for (std::int32_t y = 0; y < pixels.height(); ++y) {
+        if (pixels.pixel(x, y)[3] > 0U) {
+          painted[static_cast<std::size_t>(x)] = true;
+          first = first < 0 ? x : first;
+          last = x;
+          break;
+        }
+      }
+    }
+    CHECK(first >= 0);
+    std::int32_t gap = 0;
+    std::int32_t run = 0;
+    for (std::int32_t x = first; x <= last; ++x) {
+      run = painted[static_cast<std::size_t>(x)] ? 0 : run + 1;
+      gap = std::max(gap, run);
+    }
+    return gap;
+  };
+
+  // 1. Light pressure through a Size control: 16 px tip at 28% (about 4.5 px), spacing 100%.
+  const auto scaled16 = patchy::make_scaled_brush_tip(mips, 16);
+  auto options = tool_options(0, 0, 0);
+  options.brush_size = 16;
+  options.brush_tip = &scaled16;
+  options.brush_tip_spacing = 1.0;
+  options.brush_dynamics.size_control = patchy::BrushDynamicControl::PenPressure;
+  options.brush_dynamics.minimum_diameter = 0.1;
+  options.brush_dynamics.pen_pressure = 0.2;
+  options.brush_dynamics.seed = 9;
+  {
+    auto document = make_tool_document();
+    const auto layer = active_tool_layer(document);
+    patchy::BrushTipStrokeState state;
+    CHECK(!patchy::paint_brush_segment(document, layer, 4.0, 24.0, 58.0, 24.0, options, false, state).empty());
+    const auto gap = largest_gap(document.find_layer(layer)->pixels());
+    std::printf("  light-pressure stroke largest gap: %d px\n", gap);
+    CHECK(gap <= 1);  // a full-size 16 px step left gaps of about 11 px
+  }
+
+  // 2. Global pen pressure shrinks brush_size between segments: 16 px, then 4 px.
+  const auto scaled4 = patchy::make_scaled_brush_tip(mips, 4);
+  auto large = tool_options(0, 0, 0);
+  large.brush_size = 16;
+  large.brush_tip = &scaled16;
+  large.brush_tip_spacing = 1.0;
+  auto small = large;
+  small.brush_size = 4;
+  small.brush_tip = &scaled4;
+  {
+    auto document = make_tool_document();
+    const auto layer = active_tool_layer(document);
+    patchy::BrushTipStrokeState state;
+    CHECK(!patchy::paint_brush_segment(document, layer, 4.0, 24.0, 30.0, 24.0, large, false, state).empty());
+    CHECK(std::abs(state.residual_base_spacing - 16.0) < 1e-9);
+    CHECK(!patchy::paint_brush_segment(document, layer, 30.0, 24.0, 58.0, 24.0, small, false, state).empty());
+    CHECK(std::abs(state.residual_base_spacing - 4.0) < 1e-9);
+    const auto gap = largest_gap(document.find_layer(layer)->pixels());
+    std::printf("  pressure-drop stroke largest gap: %d px\n", gap);
+    CHECK(gap <= 2);  // the unscaled 6 px residual left a 5 px hole at the junction
+  }
+
+  // 3. Unchanged cases keep the historical walk: no dynamics and a constant size.
+  {
+    auto document = make_tool_document();
+    const auto layer = active_tool_layer(document);
+    patchy::BrushTipStrokeState state;
+    CHECK(!patchy::paint_brush_segment(document, layer, 4.0, 24.0, 30.0, 24.0, large, false, state).empty());
+    // Dabs at 4 and 20; the next is due at 36, 6 px past the segment end.
+    CHECK(std::abs(state.residual_distance - 6.0) < 1e-9);
+    CHECK(!patchy::paint_brush_segment(document, layer, 30.0, 24.0, 40.0, 24.0, large, false, state).empty());
+    CHECK(std::abs(state.residual_distance - 12.0) < 1e-9);
+  }
+}
+
 void tool_brush_tip_size_jitter_shrinks_dabs_deterministically() {
   const auto tip = make_bar_brush_tip();
   const auto mips = patchy::build_brush_tip_mips(tip);
@@ -1128,8 +1361,34 @@ void tool_brush_tip_size_jitter_shrinks_dabs_deterministically() {
     CHECK(max_x >= min_x);
     return max_x - min_x + 1;
   };
-  const auto first_extent = dab_extent(10);
-  const auto second_extent = dab_extent(28);
+  (void)dab_extent;
+  // Dab sizes come from single-dab strokes (the press dab uses the stroke's first draws):
+  // spacing follows each dab's size, so dabs of a longer stroke no longer sit at fixed spots.
+  const auto single_dab_extent = [&options](std::uint32_t seed) {
+    auto single_options = options;
+    single_options.brush_dynamics.seed = seed;
+    auto single_document = make_tool_document();
+    const auto single_layer = active_tool_layer(single_document);
+    patchy::BrushTipStrokeState state;
+    CHECK(!patchy::paint_brush_segment(single_document, single_layer, 10.0, 20.0, 10.0, 20.0, single_options,
+                                       false, state)
+               .empty());
+    const auto& single = single_document.find_layer(single_layer)->pixels();
+    std::int32_t min_x = 1000;
+    std::int32_t max_x = -1000;
+    for (std::int32_t y = 0; y < single.height(); ++y) {
+      for (std::int32_t x = 0; x < single.width(); ++x) {
+        if (single.pixel(x, y)[3] > 0U) {
+          min_x = std::min(min_x, x);
+          max_x = std::max(max_x, x);
+        }
+      }
+    }
+    CHECK(max_x >= min_x);
+    return max_x - min_x + 1;
+  };
+  const auto first_extent = single_dab_extent(1234);
+  const auto second_extent = single_dab_extent(4321);
   CHECK(first_extent <= 10);
   CHECK(second_extent <= 10);
   CHECK(first_extent >= 4);
@@ -1787,6 +2046,34 @@ void tool_brush_tip_erases_and_respects_gates() {
   CHECK(gated_pixels.pixel(24, 24)[3] == 255);
 }
 
+void pen_pressure_curve_is_monotone_and_hits_its_midpoint() {
+  using patchy::apply_pen_pressure_curve;
+  for (const int curve : {-100, -35, 0, 35, 100}) {
+    CHECK(apply_pen_pressure_curve(0.0F, curve) == 0.0F);
+    CHECK(apply_pen_pressure_curve(1.0F, curve) == 1.0F);
+    // Half pressure lands on the documented midpoint output.
+    CHECK(std::abs(apply_pen_pressure_curve(0.5F, curve) - (0.5F + static_cast<float>(curve) * 0.004F)) < 0.0001F);
+    float previous = 0.0F;
+    for (int step = 1; step <= 1000; ++step) {
+      const auto value = apply_pen_pressure_curve(static_cast<float>(step) / 1000.0F, curve);
+      CHECK(value >= previous);
+      CHECK(value > 0.0F);  // a touching pen never reads as lifted
+      previous = value;
+    }
+  }
+  for (int step = 0; step <= 100; ++step) {
+    const auto pressure = static_cast<float>(step) / 100.0F;
+    CHECK(apply_pen_pressure_curve(pressure, 0) == pressure);
+  }
+  CHECK(apply_pen_pressure_curve(0.3F, 60) > 0.3F);
+  CHECK(apply_pen_pressure_curve(0.3F, -60) < 0.3F);
+  // Out-of-range input and settings clamp; non-finite pressure reads as full.
+  CHECK(apply_pen_pressure_curve(1.5F, 40) == 1.0F);
+  CHECK(apply_pen_pressure_curve(-0.5F, 40) == 0.0F);
+  CHECK(apply_pen_pressure_curve(0.5F, 500) == apply_pen_pressure_curve(0.5F, 100));
+  CHECK(apply_pen_pressure_curve(std::numeric_limits<float>::quiet_NaN(), 40) == 1.0F);
+}
+
 void stroke_stabilizer_pass_through_and_leash_geometry() {
   // Radius 0: exact pass-through, bit-identical doubles.
   patchy::StrokeStabilizer pass_through;
@@ -1893,14 +2180,19 @@ std::vector<patchy::test::TestCase> brush_engine_tests() {
       {"tool_brush_tip_inactive_dynamics_change_nothing", tool_brush_tip_inactive_dynamics_change_nothing},
       {"tool_brush_texture_and_dual_brush_render_deterministically",
        tool_brush_texture_and_dual_brush_render_deterministically},
+      {"tool_brush_texture_pattern_uses_tile_luminance", tool_brush_texture_pattern_uses_tile_luminance},
+      {"tool_dual_brush_secondary_marks_follow_the_stroke_path",
+       tool_dual_brush_secondary_marks_follow_the_stroke_path},
       {"mixer_brush_pickup_average_follows_canvas_and_dries_only_at_wet_zero",
        mixer_brush_pickup_average_follows_canvas_and_dries_only_at_wet_zero},
+      {"pen_pressure_curve_is_monotone_and_hits_its_midpoint", pen_pressure_curve_is_monotone_and_hits_its_midpoint},
       {"stroke_stabilizer_pass_through_and_leash_geometry",
        stroke_stabilizer_pass_through_and_leash_geometry},
       {"tool_brush_color_dynamics_varies_selected_colors_only",
        tool_brush_color_dynamics_varies_selected_colors_only},
       {"tool_brush_effect_pixels_round_trip_exactly_through_psd",
        tool_brush_effect_pixels_round_trip_exactly_through_psd},
+      {"tool_brush_tip_spacing_follows_each_dab_size", tool_brush_tip_spacing_follows_each_dab_size},
       {"tool_brush_tip_size_jitter_shrinks_dabs_deterministically",
        tool_brush_tip_size_jitter_shrinks_dabs_deterministically},
       {"tool_brush_tip_angle_direction_follows_stroke", tool_brush_tip_angle_direction_follows_stroke},

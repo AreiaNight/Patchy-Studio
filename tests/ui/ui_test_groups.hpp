@@ -63,3 +63,4 @@ std::vector<patchy::test::TestCase> unicode_path_tests();
 std::vector<patchy::test::TestCase> history_panel_tests();
 std::vector<patchy::test::TestCase> composite_render_tests();
 std::vector<patchy::test::TestCase> readme_screenshot_tests();
+std::vector<patchy::test::TestCase> studio_shell_tests();

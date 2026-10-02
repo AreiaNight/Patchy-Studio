@@ -301,6 +301,7 @@ QString photoshop_style_template() {
     }
     QMenuBar::item:selected {
       background: @menu_bar_item_hover_bg;
+      border-radius: 4px;
     }
     QLabel#patchyBadge {
       background: transparent;
@@ -309,9 +310,12 @@ QString photoshop_style_template() {
     QMenu {
       background: @menu_bg;
       border: 1px solid @menu_border;
+      padding: 4px 0;
     }
     QMenu::item {
       padding: 7px 34px 7px 24px;
+      margin: 0 4px;
+      border-radius: 4px;
     }
     QMenu::item:selected {
       background: @menu_item_selected_bg;
@@ -338,27 +342,32 @@ QString photoshop_style_template() {
     QToolButton {
       background: transparent;
       border: 1px solid transparent;
-      border-radius: 0;
+      border-radius: 4px;
       padding: 3px;
       min-width: 26px;
       min-height: 26px;
     }
     QToolButton[optionsBarButton="true"] {
+      border-radius: 4px;
       padding: 2px;
       min-width: 18px;
       min-height: 16px;
     }
     QToolButton#brushTipPicker {
+      border-radius: 4px;
       padding: 2px;
       min-height: 20px;
       max-height: 20px;
     }
     QToolButton#brushDynamicsButton {
+      border-radius: 4px;
       padding: 2px 6px;
       min-height: 20px;
       max-height: 20px;
     }
-    QToolButton#brushSmoothingOptionsButton, QToolButton[optionsBarMenuButton="true"] {
+    QToolButton#brushSmoothingOptionsButton, QToolButton[optionsBarMenuButton="true"],
+    QToolButton[optionsBarIconToggle="true"] {
+      border-radius: 4px;
       padding: 2px 1px;
       min-height: 20px;
       max-height: 20px;
@@ -482,6 +491,8 @@ QString photoshop_style_template() {
       min-height: 24px;
       max-height: 24px;
       padding: 0 7px;
+      border-top-left-radius: 5px;
+      border-bottom-left-radius: 5px;
     }
     QToolBar#Options QSpinBox, QToolBar#Options QDoubleSpinBox, QToolBar#Options QComboBox, QToolBar#Options QFontComboBox {
       min-height: 24px;
@@ -490,11 +501,18 @@ QString photoshop_style_template() {
       background: @field_bg;
       border: 1px solid @field_inset_border;
       border-top-color: @field_bevel_top;
+      border-radius: 5px;
+    }
+    QToolBar#Options QSpinBox[optionLabeled="true"], QToolBar#Options QDoubleSpinBox[optionLabeled="true"],
+    QToolBar#Options QComboBox[optionLabeled="true"], QToolBar#Options QFontComboBox[optionLabeled="true"] {
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
     }
     QWidget#selectionFeatherGroup {
       background: @field_bg;
       border: 1px solid @field_inset_border;
       border-top-color: @field_bevel_top;
+      border-radius: 5px;
       min-height: 24px;
       max-height: 24px;
     }
@@ -502,6 +520,8 @@ QString photoshop_style_template() {
       background: @option_chip_bg;
       border: 0;
       border-right: 1px solid @field_inset_border;
+      border-top-left-radius: 4px;
+      border-bottom-left-radius: 4px;
       color: @text_bright;
       min-height: 24px;
       max-height: 24px;
@@ -510,6 +530,7 @@ QString photoshop_style_template() {
     QWidget#selectionFeatherGroup QSpinBox {
       background: @field_bg;
       border: 0;
+      border-radius: 4px;
       min-height: 24px;
       max-height: 24px;
       padding-left: 6px;
@@ -526,6 +547,7 @@ QString photoshop_style_template() {
       background: @field_bg;
       border: 1px solid @field_inset_border;
       border-top-color: @field_bevel_top;
+      border-radius: 5px;
       padding-left: 7px;
       padding-right: 10px;
     }
@@ -534,6 +556,7 @@ QString photoshop_style_template() {
       height: 14px;
       background: @checkbox_compact_bg;
       border: 1px solid @checkbox_compact_border;
+      border-radius: 3px;
     }
     QToolBar#Options QCheckBox::indicator:hover {
       border-color: @checkbox_accent_border;
@@ -550,20 +573,26 @@ QString photoshop_style_template() {
       background: @field_bg_disabled;
       border-color: @field_border_disabled;
     }
+    QToolBar#Options QSlider {
+      border-radius: 5px;
+    }
     QToolBar#Options QSlider::groove:horizontal {
       height: 4px;
       background: @slider_groove_bg;
       border: 1px solid @slider_groove_border;
+      border-radius: 3px;
     }
     QToolBar#Options QSlider::sub-page:horizontal {
       background: @accent;
       border: 1px solid @slider_fill_border;
+      border-radius: 3px;
     }
     QToolBar#Options QSlider::handle:horizontal {
       background: @slider_handle_bg;
       border: 1px solid @slider_handle_border;
-      width: 10px;
+      width: 12px;
       margin: -5px 0;
+      border-radius: 7px;
     }
     QToolBar#Options QPushButton {
       min-height: 24px;
@@ -571,6 +600,7 @@ QString photoshop_style_template() {
       background: @options_button_bg;
       border: 1px solid @field_inset_border;
       border-top-color: @field_bevel_top;
+      border-radius: 5px;
       padding: 1px 7px;
     }
     QToolBar#Options QPushButton[optionsSessionButton="true"] {
@@ -625,7 +655,18 @@ QString photoshop_style_template() {
       border: 1px solid @field_border;
       min-height: 20px;
     }
-    QListWidget, QTreeWidget, QComboBox {
+    QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit, QTextEdit, QSlider {
+      border-radius: 4px;
+    }
+    QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QLineEdit:focus, QTextEdit:focus {
+      border-color: @accent_bright;
+    }
+    /* An editable combo's line edit fills the box; left framed it squares the
+       combo's rounded corners and doubles its border. */
+    QComboBox QLineEdit {
+      background: transparent;
+      border: none;
+    }    QListWidget, QTreeWidget, QComboBox {
       selection-background-color: @list_selection_bg;
     }
     /* Text selection inside entry fields uses the accent, not the muted list-row
@@ -792,6 +833,7 @@ QString photoshop_style_template() {
     QLabel#activeToolInfoLabel {
       background: @panel_inset_bg;
       border: 1px solid @panel_inset_border;
+      border-radius: 4px;
       padding: 4px;
       color: @info_text;
       font-size: 11px;
@@ -866,7 +908,7 @@ QString photoshop_style_template() {
     QToolButton[layerLockControl="true"] {
       background: @panel_inset_bg;
       border: 1px solid @layer_lock_border;
-      border-radius: 3px;
+      border-radius: 4px;
       padding: 0;
       min-width: 24px;
       max-width: 24px;
@@ -901,12 +943,15 @@ QString photoshop_style_template() {
       background: @button_bg;
       color: @text_primary;
       border: 1px solid @button_border;
-      border-radius: 0;
+      border-radius: 5px;
       padding: 4px 8px;
     }
     QPushButton:hover {
       background: @button_hover_bg;
       border-color: @button_hover_border_strong;
+    }
+    QPushButton:pressed {
+      background: @accent_pressed_bg;
     }
     QPushButton:checked {
       background: @accent_checked_bg;
@@ -971,6 +1016,7 @@ QString photoshop_style_template() {
       height: 12px;
       background: @checkbox_indicator_bg;
       border: 1px solid @checkbox_indicator_border;
+      border-radius: 3px;
     }
     QCheckBox::indicator:hover {
       border-color: @checkbox_accent_border;
@@ -999,6 +1045,8 @@ QString photoshop_style_template() {
       background: @tab_bg;
       color: @text_secondary;
       border: 1px solid @tab_bg;
+      border-top-left-radius: 6px;
+      border-top-right-radius: 6px;
       padding: 5px 12px;
       min-height: 20px;
     }
@@ -1052,6 +1100,7 @@ QString photoshop_style_template() {
     QScrollBar#canvasHorizontalScrollBar::handle, QScrollBar#canvasVerticalScrollBar::handle {
       background: @scrollbar_handle_bg;
       border: 1px solid @scrollbar_handle_border;
+      border-radius: 6px;
     }
     QScrollBar#canvasVerticalScrollBar::handle:vertical { min-height: 8px; }
     QScrollBar#canvasHorizontalScrollBar::handle:horizontal { min-width: 8px; }
@@ -1137,6 +1186,7 @@ QString photoshop_style_template() {
     QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
       background: @scrollbar_handle_bg;
       border: 1px solid @scrollbar_handle_border;
+      border-radius: 6px;
     }
     QScrollBar::handle:vertical { min-height: 8px; }
     QScrollBar::handle:horizontal { min-width: 8px; }

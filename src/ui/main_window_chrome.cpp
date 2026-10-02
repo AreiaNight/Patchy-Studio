@@ -361,7 +361,8 @@ void apply_windows_pen_feedback_suppression(WId window_id) {
 
 bool MainWindow::use_custom_window_chrome() {
 #ifdef Q_OS_WIN
-  return true;
+  // The custom frame lives in the menu bar, which the studio shell collapses.
+  return !studio_shell_requested_;
 #else
   return false;
 #endif

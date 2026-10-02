@@ -8608,6 +8608,10 @@ RVB : %2, %3, %4</translation>
         <source>Import Notes</source>
         <translation>Notes d&apos;importation</translation>
     </message>
+    <message>
+        <source>Open the classic Patchy interface instead of Patchy Studio.</source>
+        <translation>Ouvre l'interface classique de Patchy au lieu de Patchy Studio.</translation>
+    </message>
 </context>
 <context>
     <name>ScannerImport</name>
@@ -9274,6 +9278,18 @@ RVB : %2, %3, %4</translation>
     <message>
         <source>Reset the tip shape and all dynamics to defaults</source>
         <translation>Réinitialiser la forme de la pointe et toute la dynamique aux valeurs par défaut</translation>
+    </message>
+    <message>
+        <source>Pattern</source>
+        <translation>Motif</translation>
+    </message>
+    <message>
+        <source>Pattern:</source>
+        <translation>Motif :</translation>
+    </message>
+    <message>
+        <source>Missing pattern</source>
+        <translation>Motif manquant</translation>
     </message>
 </context>
 <context>
@@ -10210,6 +10226,112 @@ RVB : %2, %3, %4</translation>
     <message>
         <source>Delete channel</source>
         <translation>Supprimer la couche</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::ColorWheelHud</name>
+    <message>
+        <source>Keep the wheel on screen between strokes</source>
+        <translation>Garder la roue à l&apos;écran entre les traits</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Fermer</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::ColorWheelPanel</name>
+    <message>
+        <source>New color (top) and previous color (bottom). Click the previous color to go back to it.</source>
+        <translation>Nouvelle couleur (en haut) et couleur précédente (en bas). Cliquez sur la couleur précédente pour y revenir.</translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation>Carré</translation>
+    </message>
+    <message>
+        <source>Triangle</source>
+        <translation>Triangle</translation>
+    </message>
+    <message>
+        <source>Diamond</source>
+        <translation>Losange</translation>
+    </message>
+    <message>
+        <source>Shape of the field inside the ring</source>
+        <translation>Forme du champ à l&apos;intérieur de l&apos;anneau</translation>
+    </message>
+    <message>
+        <source>RGB</source>
+        <translation>RVB</translation>
+    </message>
+    <message>
+        <source>Painter&apos;s RYB</source>
+        <translation>RJB du peintre</translation>
+    </message>
+    <message>
+        <source>Wheel layout: RGB, or the painter&apos;s red, yellow and blue wheel</source>
+        <translation>Disposition de la roue : RVB, ou la roue du peintre rouge, jaune et bleu</translation>
+    </message>
+    <message>
+        <source>Tone Lock</source>
+        <translation>Verrouiller la valeur</translation>
+    </message>
+    <message>
+        <source>Keep the lightness while you change the hue, so shadows stay shadows</source>
+        <translation>Conserver la luminosité en changeant de teinte, pour que les ombres restent des ombres</translation>
+    </message>
+    <message>
+        <source>Save Current Color Here</source>
+        <translation>Enregistrer ici la couleur actuelle</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Supprimer</translation>
+    </message>
+    <message>
+        <source>No Harmony</source>
+        <translation>Aucune harmonie</translation>
+    </message>
+    <message>
+        <source>Complementary</source>
+        <translation>Complémentaires</translation>
+    </message>
+    <message>
+        <source>Analogous</source>
+        <translation>Analogues</translation>
+    </message>
+    <message>
+        <source>Triadic</source>
+        <translation>Triade</translation>
+    </message>
+    <message>
+        <source>Split Complementary</source>
+        <translation>Complémentaires adjacentes</translation>
+    </message>
+    <message>
+        <source>Rectangle</source>
+        <translation>Rectangle</translation>
+    </message>
+    <message>
+        <source>Color harmony: markers on the ring follow the main color; drag an outer marker to widen or narrow analogous, split and rectangle harmonies</source>
+        <translation>Harmonie des couleurs : les repères de l&apos;anneau suivent la couleur principale ; faites glisser un repère extérieur pour élargir ou resserrer les harmonies analogues, adjacentes et en rectangle</translation>
+    </message>
+    <message>
+        <source>Harmony colors. Click one to use it.</source>
+        <translation>Couleurs de l&apos;harmonie. Cliquez sur l&apos;une d&apos;elles pour l&apos;utiliser.</translation>
+    </message>
+    <message>
+        <source>Save the current color</source>
+        <translation>Enregistrer la couleur actuelle</translation>
+    </message>
+    <message>
+        <source>Saved colors. Click one to use it, click an empty slot to save the current color there, right-click for more.</source>
+        <translation>Couleurs enregistrées. Cliquez sur l&apos;une d&apos;elles pour l&apos;utiliser, sur un emplacement vide pour y enregistrer la couleur actuelle, ou cliquez avec le bouton droit pour plus d&apos;options.</translation>
+    </message>
+    <message>
+        <source>Hex code of the new color. Type a code and press Enter to use it.</source>
+        <translation>Code hexadécimal de la nouvelle couleur. Saisissez un code et appuyez sur Entrée pour l&apos;utiliser.</translation>
     </message>
 </context>
 <context>
@@ -11900,14 +12022,6 @@ RVB : %2, %3, %4</translation>
     <message>
         <source>Flow:</source>
         <translation>Flux :</translation>
-    </message>
-    <message>
-        <source>Airbrush</source>
-        <translation>Aérographe</translation>
-    </message>
-    <message>
-        <source>Build paint while the pointer is held still</source>
-        <translation>Accumule la peinture tant que le pointeur reste immobile</translation>
     </message>
     <message>
         <source>Stroke smoothing - 0% paints the raw pointer path</source>
@@ -18207,6 +18321,34 @@ Y : %2
         <source>The placed position or size is out of range</source>
         <translation>La position ou la taille de l&apos;importation est hors limites</translation>
     </message>
+    <message>
+        <source>Pressure curve:</source>
+        <translation>Courbe de pression :</translation>
+    </message>
+    <message>
+        <source>How pen pressure maps to brush size, opacity and brush dynamics. Negative values feel firmer (more pressure for the same result), positive values feel softer. 0 is linear.</source>
+        <translation>Comment la pression du stylet agit sur la taille du pinceau, l&apos;opacité et la dynamique du pinceau. Les valeurs négatives donnent une sensation plus ferme (plus de pression pour le même résultat), les valeurs positives plus souple. 0 est linéaire.</translation>
+    </message>
+    <message>
+        <source>Color Wheel</source>
+        <translation>Roue chromatique</translation>
+    </message>
+    <message>
+        <source>Color Wheel at Pointer</source>
+        <translation>Roue chromatique au pointeur</translation>
+    </message>
+    <message>
+        <source>Foreground: %1</source>
+        <translation>Premier plan : %1</translation>
+    </message>
+    <message>
+        <source>Show color wheel</source>
+        <translation>Afficher la roue chromatique</translation>
+    </message>
+    <message>
+        <source>Airbrush: build paint while the pointer is held still</source>
+        <translation>Aérographe : accumule la peinture tant que le pointeur reste immobile</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -19696,6 +19838,335 @@ Y : %2
     <message>
         <source>Free · Windows, macOS &amp; Linux</source>
         <translation>Gratuit · Windows, macOS et Linux</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioActionsPanel</name>
+    <message>
+        <source>Actions</source>
+        <translation>Actions</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>Ajouter</translation>
+    </message>
+    <message>
+        <source>Add text</source>
+        <translation>Ajouter du texte</translation>
+    </message>
+    <message>
+        <source>Canvas</source>
+        <translation>Zone de travail</translation>
+    </message>
+    <message>
+        <source>Share</source>
+        <translation>Partager</translation>
+    </message>
+    <message>
+        <source>Prefs</source>
+        <translation>Préf.</translation>
+    </message>
+    <message>
+        <source>Light interface</source>
+        <translation>Interface claire</translation>
+    </message>
+    <message>
+        <source>Right-hand interface</source>
+        <translation>Interface pour droitier</translation>
+    </message>
+    <message>
+        <source>Full screen</source>
+        <translation>Plein écran</translation>
+    </message>
+    <message>
+        <source>Help</source>
+        <translation>Aide</translation>
+    </message>
+    <message>
+        <source>About Patchy Studio</source>
+        <translation>À propos de Patchy Studio</translation>
+    </message>
+    <message>
+        <source>Tips: B, S and E pick Brush, Smudge and Eraser. [ and ] change the brush size. Ctrl+Z undoes, Ctrl+Shift+Z redoes. Space+drag pans, Alt+click picks a color.</source>
+        <translation>Astuces : B, S et E choisissent Pinceau, Doigt et Gomme. [ et ] changent la taille du pinceau. Ctrl+Z annule, Ctrl+Maj+Z rétablit. Espace+glisser fait défiler la vue, Alt+clic prélève une couleur.</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioAdjustmentsPanel</name>
+    <message>
+        <source>Adjustments</source>
+        <translation>Réglages</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioBrushLibraryPanel</name>
+    <message>
+        <source>Brush Library</source>
+        <translation>Bibliothèque de pinceaux</translation>
+    </message>
+    <message>
+        <source>Import brushes (.abr)</source>
+        <translation>Importer des pinceaux (.abr)</translation>
+    </message>
+    <message>
+        <source>Brush settings</source>
+        <translation>Réglages du pinceau</translation>
+    </message>
+    <message>
+        <source>All brushes</source>
+        <translation>Tous les pinceaux</translation>
+    </message>
+    <message>
+        <source>Basic</source>
+        <translation>Base</translation>
+    </message>
+    <message>
+        <source>Round</source>
+        <translation>Rond</translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation>Carré</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioColorPanel</name>
+    <message>
+        <source>Colors</source>
+        <translation>Couleurs</translation>
+    </message>
+    <message>
+        <source>History</source>
+        <translation>Historique</translation>
+    </message>
+    <message>
+        <source>Colors you paint with appear here.</source>
+        <translation>Les couleurs avec lesquelles vous peignez apparaissent ici.</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioGallery</name>
+    <message>
+        <source>Patchy Studio</source>
+        <translation>Patchy Studio</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>Importer</translation>
+    </message>
+    <message>
+        <source>Open a file from disk</source>
+        <translation>Ouvrir un fichier depuis le disque</translation>
+    </message>
+    <message>
+        <source>New canvas</source>
+        <translation>Nouvelle zone de travail</translation>
+    </message>
+    <message>
+        <source>OPEN</source>
+        <translation>OUVERTS</translation>
+    </message>
+    <message>
+        <source>RECENT</source>
+        <translation>RÉCENTS</translation>
+    </message>
+    <message>
+        <source>Tap + to start a new canvas, or Import to open a file.</source>
+        <translation>Touchez + pour commencer une nouvelle zone de travail, ou Importer pour ouvrir un fichier.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Fermer</translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation>Carré</translation>
+    </message>
+    <message>
+        <source>4K</source>
+        <translation>4K</translation>
+    </message>
+    <message>
+        <source>A4 (300 PPI)</source>
+        <translation>A4 (300 PPI)</translation>
+    </message>
+    <message>
+        <source>Comic page</source>
+        <translation>Page de BD</translation>
+    </message>
+    <message>
+        <source>Sketch</source>
+        <translation>Croquis</translation>
+    </message>
+    <message>
+        <source>%1 × %2 px</source>
+        <translation>%1 × %2 px</translation>
+    </message>
+    <message>
+        <source>Screen size</source>
+        <translation>Taille de l'écran</translation>
+    </message>
+    <message>
+        <source>Custom size...</source>
+        <translation>Taille personnalisée...</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioLayersPanel</name>
+    <message>
+        <source>Layers</source>
+        <translation>Calques</translation>
+    </message>
+    <message>
+        <source>New layer</source>
+        <translation>Nouveau calque</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>Opacité</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioShell</name>
+    <message>
+        <source>Gallery</source>
+        <translation>Galerie</translation>
+    </message>
+    <message>
+        <source>Show the gallery of open and recent artwork</source>
+        <translation>Afficher la galerie des œuvres ouvertes et récentes</translation>
+    </message>
+    <message>
+        <source>Actions</source>
+        <translation>Actions</translation>
+    </message>
+    <message>
+        <source>Adjustments</source>
+        <translation>Réglages</translation>
+    </message>
+    <message>
+        <source>Selection</source>
+        <translation>Sélection</translation>
+    </message>
+    <message>
+        <source>Transform</source>
+        <translation>Transformer</translation>
+    </message>
+    <message>
+        <source>Paint (tap again for the Brush Library)</source>
+        <translation>Peindre (touchez à nouveau pour la bibliothèque de pinceaux)</translation>
+    </message>
+    <message>
+        <source>Smudge (tap again for the Brush Library)</source>
+        <translation>Estomper (touchez à nouveau pour la bibliothèque de pinceaux)</translation>
+    </message>
+    <message>
+        <source>Erase (tap again for the Brush Library)</source>
+        <translation>Gommer (touchez à nouveau pour la bibliothèque de pinceaux)</translation>
+    </message>
+    <message>
+        <source>Layers</source>
+        <translation>Calques</translation>
+    </message>
+    <message>
+        <source>Colors</source>
+        <translation>Couleurs</translation>
+    </message>
+    <message>
+        <source>Brush size</source>
+        <translation>Taille du pinceau</translation>
+    </message>
+    <message>
+        <source>Brush opacity</source>
+        <translation>Opacité du pinceau</translation>
+    </message>
+    <message>
+        <source>Eyedropper: pick a color from the canvas</source>
+        <translation>Pipette : prélever une couleur sur la zone de travail</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>Annuler</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>Rétablir</translation>
+    </message>
+    <message>
+        <source>%1 px</source>
+        <translation>%1 px</translation>
+    </message>
+    <message>
+        <source>%1%</source>
+        <translation>%1 %</translation>
+    </message>
+    <message>
+        <source>Automatic</source>
+        <translation>Automatique</translation>
+    </message>
+    <message>
+        <source>Freehand</source>
+        <translation>Main levée</translation>
+    </message>
+    <message>
+        <source>Rectangle</source>
+        <translation>Rectangle</translation>
+    </message>
+    <message>
+        <source>Ellipse</source>
+        <translation>Ellipse</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>Ajouter</translation>
+    </message>
+    <message>
+        <source>Subtract</source>
+        <translation>Soustraire</translation>
+    </message>
+    <message>
+        <source>Invert</source>
+        <translation>Inverser</translation>
+    </message>
+    <message>
+        <source>Copy &amp; Paste</source>
+        <translation>Copier-coller</translation>
+    </message>
+    <message>
+        <source>Expand</source>
+        <translation>Dilater</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Effacer</translation>
+    </message>
+    <message>
+        <source>Freeform</source>
+        <translation>Libre</translation>
+    </message>
+    <message>
+        <source>Warp</source>
+        <translation>Déformer</translation>
+    </message>
+    <message>
+        <source>Flip Horizontal</source>
+        <translation>Symétrie horizontale</translation>
+    </message>
+    <message>
+        <source>Flip Vertical</source>
+        <translation>Symétrie verticale</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Annuler</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Terminé</translation>
+    </message>
+    <message>
+        <source>New canvas</source>
+        <translation>Nouvelle zone de travail</translation>
     </message>
 </context>
 <context>

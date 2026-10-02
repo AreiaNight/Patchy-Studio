@@ -26,8 +26,11 @@ QSettings app_settings() {
   return QSettings(QSettings::WebLocalStorageFormat, QSettings::UserScope, QStringLiteral("Patchy"),
                    QStringLiteral("Patchy"));
 #else
+  // Patchy Studio keeps its own file beside classic Patchy's Patchy.ini: the two
+  // apps share the folder (and with it the brush library) but not window layout,
+  // dock state, or recent files.
   return QSettings(QSettings::IniFormat, QSettings::UserScope, QStringLiteral("Patchy"),
-                   QStringLiteral("Patchy"));
+                   QStringLiteral("PatchyStudio"));
 #endif
 }
 

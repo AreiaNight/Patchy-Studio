@@ -3376,6 +3376,7 @@ void ui_script_advanced_brush_native_parity() {
   const QStringList settings{
     R"({"dynamics":{"wetEdges":true}})",
     R"({"dynamics":{"textureEnabled":true,"textureStyle":"canvas","textureDepth":0.7}})",
+    R"({"dynamics":{"textureEnabled":true,"textureStyle":"pattern","texturePattern":"no-such-pattern","textureDepth":0.7}})",
     R"({"dynamics":{"dualBrushEnabled":true,"dualBrushSize":0.4,"dualBrushSpacing":0.7}})",
     R"({"dynamics":{"colorDynamicsEnabled":true,"foregroundBackgroundJitter":0.6,"hueJitter":0.1}})",
     R"({"dynamics":{"sizeJitter":0.3,"angleJitter":0.3,"roundnessJitter":0.5,"flipXJitter":true}})",

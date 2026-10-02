@@ -123,6 +123,9 @@ struct OrphanedRecoveryFolder;
 class CustomShapeLibrary;
 class AnimationPreviewWindow;
 class PalettePanel;
+class ColorWheelPanel;
+class ColorWheelHud;
+class StudioShell;
 class PathsPanel;
 class StartPanel;
 class PatternLibrary;
@@ -148,6 +151,12 @@ public:
   // True only where Patchy draws its own window frame (Windows). macOS/Linux use the
   // native frame: no frameless flag, no chrome buttons, no edge-resize machinery.
   [[nodiscard]] static bool use_custom_window_chrome();
+  // Patchy Studio (studio_shell.hpp): main.cpp requests it before constructing the
+  // window, so the window keeps the native frame its overlay bars need, then
+  // enables the shell once the classic chrome exists. Tests construct the
+  // classic window and never call either.
+  static void request_studio_shell(bool requested = true) noexcept { studio_shell_requested_ = requested; }
+  void enable_studio_shell();
   // Photoshop-mac convention: two-finger scroll pans and pinch zooms, so plain wheel
   // zooming defaults OFF on macOS; Windows/Linux keep wheel-zooms-on. Users flip it in
   // Preferences > Canvas either way (the setting key is shared across platforms).
@@ -430,6 +439,11 @@ private:
   // Hosts a floated document's canvas; forwards close/activate/drag events back
   // into the private session machinery (document_float_window.cpp).
   friend class DocumentFloatWindow;
+  // The Procreate-style shell drives the editor through the same private entry
+  // points the classic chrome uses (studio_shell.cpp).
+  friend class StudioShell;
+  // Queues a shell refresh after an editor-state change; a no-op without the shell.
+  void notify_studio_shell();
 
   // Preferences entry for the stress test: warning dialog, close-all, run,
   // results dialog. The scenario core shared with the CLI path lives in
@@ -463,6 +477,10 @@ private:
   void handle_right_dock_panel_toggled(QDockWidget* dock, bool expanded, int expanded_minimum_height);
   void refresh_collapsed_right_dock_heights();
   void install_right_dock_width_handle(QDockWidget* dock);
+  // Qt builds the tab bars of tabified docks itself and ignores the docks'
+  // window icons; this copies each dock's icon onto its tab after Qt rebuilds them.
+  void schedule_dock_tab_icon_refresh();
+  void refresh_dock_tab_icons();
   void update_right_dock_resize_handle_geometry(QWidget* host);
   void set_right_dock_stack_width(int width);
   void update_right_dock_minimum_width();
@@ -485,6 +503,15 @@ private:
   void set_window_screen_size(QSize physical_size);
   void create_docks();
   void create_palette_dock();
+  void create_color_wheel_dock();
+  // A color chosen in the Color Wheel panel or HUD becomes the foreground (live while dragging).
+  void apply_color_wheel_color(QColor color, bool finished);
+  // Opens the Color Wheel HUD centered on a global position (the pointer).
+  void show_color_wheel_hud(QPoint global_position);
+  // Window > Color Wheel. The panel starts closed (it would push the all-expanded right column
+  // past a 1080p work area); showing it expands it, and the choice persists
+  // (colorWheel/panelVisible).
+  void set_color_wheel_panel_visible(bool visible);
   // Palette (indexed) mode plumbing. Every document-palette mutation goes through
   // these so the undo snapshot, the revision bump (app-globally unique values,
   // keying the canvas LUT cache), the indexed_palette export mirror, and the UI
@@ -1533,6 +1560,8 @@ private:
   void refresh_gradient_controls_from_canvas();
   [[nodiscard]] QColor current_text_color() const;
   void load_tool_settings();
+  void load_round_brush_session();
+  void save_round_brush_session() const;
   void save_tool_settings() const;
   // Restart the debounce so the live tool-option sliders flush to disk once,
   // after the drag settles, instead of on every intermediate value.
@@ -1946,10 +1975,14 @@ private:
   CustomShapeLibrary* custom_shape_library_{nullptr};
   StyleLibrary* style_library_{nullptr};
   BrushTipPicker* brush_tip_picker_{nullptr};
+  bool dock_tab_icon_refresh_pending_{false};
   BrushDynamicsButton* brush_dynamics_button_{nullptr};
   QString active_brush_tip_id_;
   // Session-only dynamics for the procedural Round brush. Deliberately never persisted: every
   // launch starts with a plain Round brush, so a weird leftover setup cannot confuse anyone.
+  // The procedural Round/Square brushes' dynamics and tip shape. Unlike size, opacity and
+  // softness (reset to the startup preset every launch) these persist in
+  // tools/roundBrushSession, written by save_round_brush_session().
   patchy::BrushDynamics round_brush_dynamics_{};
   double round_brush_base_angle_degrees_{0.0};
   double round_brush_base_roundness_{100.0};
@@ -2090,6 +2123,9 @@ private:
   // Palette (indexed) mode UI: dock panel, status chip, advisory compliance scan.
   PalettePanel* palette_panel_{nullptr};
   QDockWidget* palette_dock_{nullptr};
+  ColorWheelPanel* color_wheel_panel_{nullptr};
+  QDockWidget* color_wheel_dock_{nullptr};
+  ColorWheelHud* color_wheel_hud_{nullptr};
   QToolButton* palette_mode_chip_{nullptr};
   QTimer* palette_compliance_timer_{nullptr};
   bool palette_compliance_clean_{true};
@@ -2126,6 +2162,8 @@ private:
   std::vector<QAction*> document_actions_;
   std::vector<QWidget*> document_widgets_;
   HotkeyRegistry hotkey_registry_;
+  StudioShell* studio_shell_{nullptr};
+  inline static bool studio_shell_requested_{false};
   int preview_dialog_edit_lock_depth_{0};
   bool scanner_import_active_{false};
   QPointer<QDialog> tile_preview_window_;

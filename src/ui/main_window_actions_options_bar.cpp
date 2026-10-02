@@ -31,6 +31,7 @@
 #include "psd/psd_filter_effects.hpp"
 #include "psd/psd_smart_objects.hpp"
 #include "ui/action_icons.hpp"
+#include "ui/icon_theme.hpp"
 #include "ui/app_settings.hpp"
 #include "render/compositor.hpp"
 #include "ui/blend_mode_ui.hpp"
@@ -656,7 +657,7 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   }
   move_align_more_button_ = new QToolButton(toolbar);
   move_align_more_button_->setObjectName(QStringLiteral("moveAlignMoreButton"));
-  // The brushSmoothingOptionsButton pattern: compact "..." text, InstantPopup,
+  // The brushSmoothingOptionsButton pattern (there with a gear): compact "..." text, InstantPopup,
   // height pinned by the optionsBarMenuButton QSS rule so the 26 px row holds.
   move_align_more_button_->setText(QStringLiteral("..."));
   move_align_more_button_->setProperty("optionsBarMenuButton", true);
@@ -1522,11 +1523,19 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   bind_tooltip(brush_flow, QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Brush flow: Shift+number keys (number keys with Airbrush)"));
   configure_toolbar_spinbox(brush_flow, 60);
   add_option_widget(brush_flow, {CanvasTool::Brush, CanvasTool::PatternStamp});
-  auto* brush_airbrush = new CheckGlyphBox(tr("Airbrush"), toolbar);
+  // A checkable icon button, as in Photoshop's options bar; the object name
+  // predates it (it was a checkbox) and stays for scripts and tests. Its height
+  // is pinned by the optionsBarIconToggle QSS rule.
+  auto* brush_airbrush = new QToolButton(toolbar);
   brush_airbrush->setObjectName(QStringLiteral("brushAirbrushCheck"));
-  bind_widget_text(brush_airbrush, QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Airbrush"));
+  brush_airbrush->setProperty("optionsBarIconToggle", true);
+  brush_airbrush->setCheckable(true);
+  brush_airbrush->setFocusPolicy(Qt::NoFocus);
+  brush_airbrush->setIcon(themed_svg_icon(QStringLiteral("airbrush")));
+  brush_airbrush->setIconSize(QSize(16, 16));
   brush_airbrush->setChecked(canvas_defaults->brush_build_up());
-  bind_tooltip(brush_airbrush, QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Build paint while the pointer is held still"));
+  bind_tooltip(brush_airbrush,
+               QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Airbrush: build paint while the pointer is held still"));
   add_option_widget(brush_airbrush, {CanvasTool::Brush});
   connect(brush_flow, &QSpinBox::valueChanged, this, [this](int value) {
     if (canvas_ != nullptr) {
@@ -1535,7 +1544,7 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
       refresh_document_info();
     }
   });
-  connect(brush_airbrush, &QCheckBox::toggled, this, [this](bool checked) {
+  connect(brush_airbrush, &QToolButton::toggled, this, [this](bool checked) {
     if (canvas_ != nullptr) {
       canvas_->set_brush_build_up(checked);
       schedule_save_tool_settings();
@@ -1566,13 +1575,14 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   });
   brush_smoothing_options_button_ = new QToolButton(toolbar);
   brush_smoothing_options_button_->setObjectName(QStringLiteral("brushSmoothingOptionsButton"));
-  // No gear glyph exists in the icon set; the compact "..." text follows the
-  // other small options-bar buttons. Its height comes from the
+  // The gear icon replaces the compact "..." text the other small options-bar
+  // menu buttons use. Its height comes from the
   // QToolButton#brushSmoothingOptionsButton rule in main_window_theme.cpp (the
   // brushDynamicsButton pattern); the global QToolButton QSS min-height would
   // otherwise grow the Options bar row
   // (ui_brush_tip_picker_keeps_options_bar_height).
-  brush_smoothing_options_button_->setText(QStringLiteral("..."));
+  brush_smoothing_options_button_->setIcon(themed_svg_icon(QStringLiteral("gear")));
+  brush_smoothing_options_button_->setIconSize(QSize(16, 16));
   bind_tooltip(brush_smoothing_options_button_, QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Smoothing options"));
   brush_smoothing_options_button_->setPopupMode(QToolButton::InstantPopup);
   auto* smoothing_menu = new QMenu(brush_smoothing_options_button_);
@@ -1796,6 +1806,7 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
       round_brush_dynamics_ = {};
       round_brush_base_angle_degrees_ = 0.0;
       round_brush_base_roundness_ = 100.0;
+      save_round_brush_session();
       set_active_brush_tip(builtin_round_brush_tip_id(), false, false);
     }
     apply_brush_preset(*canvas_, *preset);
@@ -1841,16 +1852,18 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   });
 
   brush_dynamics_button_ = new BrushDynamicsButton(toolbar);
+  brush_dynamics_button_->set_pattern_library(&pattern_library());
   add_option_widget(brush_dynamics_button_, {CanvasTool::Brush});
   connect(brush_dynamics_button_, &BrushDynamicsButton::dynamics_edited, this,
           [this](const QString& tip_id, const patchy::BrushDynamics& dynamics, double base_angle,
                  double base_roundness) {
             if (is_builtin_brush_tip_id(tip_id)) {
-              // Session-only: the Round and Square brushes' dynamics live in the window, not
-              // the library, and deliberately reset on the next launch.
+              // The Round and Square brushes' dynamics live in the window, not the library;
+              // they persist in settings rather than a tip sidecar.
               round_brush_dynamics_ = dynamics;
               round_brush_base_angle_degrees_ = base_angle;
               round_brush_base_roundness_ = base_roundness;
+              save_round_brush_session();
               if (canvas_ != nullptr &&
                   (active_preset_tip_ || active_brush_tip_id_.isEmpty() ||
                    is_builtin_brush_tip_id(active_brush_tip_id_))) {
@@ -3169,6 +3182,16 @@ void MainWindow::build_options_bar(ActionBuildContext& ctx) {
   // (GitHub issue 46; install_scrub_labels_in pairs them by layout order, nested
   // groups such as Feather included, so a new label+field pair opts in by itself).
   install_scrub_labels_in(options_content);
+
+  // A field right after a "Label:" chip joins it as one rounded pill, so the
+  // stylesheet squares its left corners; unlabeled fields stay rounded all round.
+  for (int i = 0; i + 1 < options_flow->count(); ++i) {
+    const auto* label = options_flow->itemAt(i)->widget();
+    auto* field = options_flow->itemAt(i + 1)->widget();
+    if (label != nullptr && field != nullptr && label->property("optionLabel").toBool()) {
+      field->setProperty("optionLabeled", true);
+    }
+  }
 
   // Export the cross-phase locals bind_action_translations() still needs.
   ctx.options_toolbar = toolbar;

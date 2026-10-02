@@ -382,6 +382,99 @@ void ui_brush_tip_picker_popup_offers_define_from_selection() {
   clear_brush_tip_test_state();
 }
 
+// Photoshop's painting-tool right-click: inside the document a brush-tip tool
+// opens the tip picker at the pointer instead of the canvas menu; choosing a tip
+// applies it. The pasteboard keeps its backdrop menu and other tools never get
+// the picker (docs/tools.md, "Canvas right-click menu").
+void ui_brush_right_click_opens_tip_picker() {
+  clear_brush_tip_test_state();
+  patchy::ui::MainWindow window;
+  show_window(window);
+  auto* canvas = require_canvas(window);
+  const auto visible_popup = [] {
+    QWidget* found = nullptr;
+    for (auto* widget : QApplication::topLevelWidgets()) {
+      if (widget->objectName() == QStringLiteral("brushTipPickerPopup") && widget->isVisible()) {
+        found = widget;
+      }
+    }
+    return found;
+  };
+  const auto right_click = [&](QPoint point) {
+    send_mouse(*canvas, QEvent::MouseButtonPress, point, Qt::RightButton, Qt::RightButton);
+    send_mouse(*canvas, QEvent::MouseButtonRelease, point, Qt::RightButton, Qt::NoButton);
+    QApplication::processEvents();
+  };
+  const auto canvas_menu_visible = [&] {
+    for (auto* menu : canvas->findChildren<QMenu*>(QStringLiteral("canvasContextMenu"))) {
+      if (menu->isVisible()) {
+        return true;
+      }
+    }
+    return false;
+  };
+  canvas->set_zoom_centered(0.25);
+  QApplication::processEvents();
+  const auto inside = canvas->widget_position_for_document_point(QPoint(100, 100));
+  const auto pasteboard = canvas->widget_position_for_document_point(QPoint(-300, -300));
+  CHECK(canvas->rect().contains(pasteboard));
+
+  for (const char* tool : {"Brush", "Eraser", "Pattern Stamp", "Mixer Brush"}) {
+    require_action_by_text(window, QString::fromLatin1(tool))->trigger();
+    QApplication::processEvents();
+    right_click(inside);
+    auto* popup = visible_popup();
+    CHECK(popup != nullptr);
+    CHECK(!canvas_menu_visible());
+    if (popup != nullptr) {
+      popup->close();
+      QApplication::processEvents();
+    }
+  }
+
+  require_action_by_text(window, QStringLiteral("Brush"))->trigger();
+  QApplication::processEvents();
+  right_click(inside);
+  auto* popup = visible_popup();
+  CHECK(popup != nullptr);
+  auto* list = popup->findChild<QListWidget*>(QStringLiteral("brushTipPickerList"));
+  CHECK(list != nullptr);
+  QListWidgetItem* square = nullptr;
+  for (int row = 0; row < list->count(); ++row) {
+    if (list->item(row)->data(Qt::UserRole).toString() == patchy::ui::builtin_square_brush_tip_id()) {
+      square = list->item(row);
+    }
+  }
+  CHECK(square != nullptr);
+  emit list->itemClicked(square);
+  QApplication::processEvents();
+  CHECK(visible_popup() == nullptr);
+  auto* picker = window.findChild<patchy::ui::BrushTipPicker*>(QStringLiteral("brushTipPicker"));
+  CHECK(picker != nullptr);
+  CHECK(picker->current_tip_id() == patchy::ui::builtin_square_brush_tip_id());
+  CHECK(canvas->brush_shape() == patchy::BrushShape::Square);
+
+  // The pasteboard keeps the backdrop-color menu.
+  right_click(pasteboard);
+  CHECK(visible_popup() == nullptr);
+  CHECK(canvas_menu_visible());
+  for (auto* menu : canvas->findChildren<QMenu*>(QStringLiteral("canvasContextMenu"))) {
+    menu->close();
+  }
+  QApplication::processEvents();
+
+  // Tools without a brush tip never open the picker.
+  require_action_by_text(window, QStringLiteral("Move"))->trigger();
+  QApplication::processEvents();
+  right_click(inside);
+  CHECK(visible_popup() == nullptr);
+  for (auto* menu : canvas->findChildren<QMenu*>(QStringLiteral("canvasContextMenu"))) {
+    menu->close();
+  }
+  QApplication::processEvents();
+  clear_brush_tip_test_state();
+}
+
 void ui_brush_tip_picker_keeps_options_bar_height() {
   clear_brush_tip_test_state();
   patchy::ui::MainWindow window;
@@ -574,7 +667,7 @@ void ui_brush_dynamics_round_brush_session() {
     auto* button = window.findChild<QToolButton*>(QStringLiteral("brushDynamicsButton"));
     CHECK(button != nullptr);
     CHECK(button->isVisible());
-    CHECK(button->isEnabled());  // the Round brush carries session-only dynamics
+    CHECK(button->isEnabled());  // the Round brush carries its own dynamics
     CHECK(!canvas->brush_dynamics().active());
 
     // Popup edits apply to the canvas without touching the library.
@@ -637,12 +730,168 @@ void ui_brush_dynamics_round_brush_session() {
     save_widget_artifact("ui_brush_dynamics_round_scatter_stroke", *canvas);
     canvas->set_brush_dynamics_test_seed(std::nullopt);
   }
-  // Session-only by design: a fresh window starts with a plain Round brush again.
+  // The Round brush's dynamics and tip shape persist: a fresh window (a restart) brings them
+  // back, while size/opacity/softness still start from the startup preset.
+  CHECK(!patchy::ui::app_settings().value(QStringLiteral("tools/roundBrushSession")).toString().isEmpty());
   {
     patchy::ui::MainWindow window;
     show_window(window);
     auto* canvas = require_canvas(window);
+    CHECK(canvas->brush_dynamics().active());
+    CHECK(std::abs(canvas->brush_dynamics().scatter - 2.0) < 1e-9);
+    CHECK(canvas->brush_dynamics().count == 2);
+    CHECK(!canvas->has_brush_tip());
+
+    // Resetting to defaults in the popup removes the saved session again.
+    auto* button = window.findChild<QToolButton*>(QStringLiteral("brushDynamicsButton"));
+    CHECK(button != nullptr);
+    require_action_by_text(window, QStringLiteral("Brush"))->trigger();
+    QApplication::processEvents();
+    button->click();
+    QApplication::processEvents();
+    QWidget* popup = nullptr;
+    for (auto* widget : QApplication::topLevelWidgets()) {
+      if (widget->objectName() == QStringLiteral("brushDynamicsPopup") && widget->isVisible()) {
+        popup = widget;
+      }
+    }
+    CHECK(popup != nullptr);
+    CHECK(popup->findChild<QSpinBox*>(QStringLiteral("dynamicsScatterSpin"))->value() == 200);
+    popup->findChild<QSpinBox*>(QStringLiteral("dynamicsScatterSpin"))->setValue(0);
+    popup->findChild<QSpinBox*>(QStringLiteral("dynamicsCountSpin"))->setValue(1);
+    popup->close();
+    process_events_for(350);
     CHECK(!canvas->brush_dynamics().active());
+  }
+  CHECK(!patchy::ui::app_settings().contains(QStringLiteral("tools/roundBrushSession")));
+  {
+    patchy::ui::MainWindow window;
+    show_window(window);
+    CHECK(!require_canvas(window)->brush_dynamics().active());
+  }
+  clear_brush_tip_test_state();
+}
+
+// Brush Texture can use any Pattern Library pattern (Grain: Pattern). The popup lists the
+// library, the stroke shows the pattern's luminance, the Round brush's saved session keeps the
+// id, and a pattern deleted later stays selected as "Missing pattern".
+void ui_brush_texture_pattern_grain_uses_library_pattern() {
+  clear_brush_tip_test_state();
+  QString storage_id;
+  QString pattern_id;
+  {
+    patchy::ui::MainWindow window;
+    show_window(window);
+    auto* canvas = require_canvas(window);
+    patchy::PixelBuffer stripes(4, 4, patchy::PixelFormat::rgba8());
+    for (int y = 0; y < 4; ++y) {
+      for (int x = 0; x < 4; ++x) {
+        const std::uint8_t value = x < 2 ? 0 : 255;  // 2 px black, 2 px white columns
+        auto* px = stripes.pixel(x, y);
+        px[0] = px[1] = px[2] = value;
+        px[3] = 255;
+      }
+    }
+    storage_id = window.pattern_library().add_pattern(QStringLiteral("Texture Stripes"), stripes);
+    CHECK(!storage_id.isEmpty());
+    const auto* entry = window.pattern_library().find_entry(storage_id);
+    CHECK(entry != nullptr);
+    pattern_id = entry->id;
+
+    require_action_by_text(window, QStringLiteral("Brush"))->trigger();
+    QApplication::processEvents();
+    auto* button = window.findChild<QToolButton*>(QStringLiteral("brushDynamicsButton"));
+    CHECK(button != nullptr);
+    button->click();
+    QApplication::processEvents();
+    QWidget* popup = nullptr;
+    for (auto* widget : QApplication::topLevelWidgets()) {
+      if (widget->objectName() == QStringLiteral("brushDynamicsPopup") && widget->isVisible()) {
+        popup = widget;
+      }
+    }
+    CHECK(popup != nullptr);
+    popup->findChild<QCheckBox*>(QStringLiteral("dynamicsTextureEnabledCheck"))->setChecked(true);
+    auto* style = popup->findChild<QComboBox*>(QStringLiteral("dynamicsTextureStyleCombo"));
+    auto* patterns = popup->findChild<QComboBox*>(QStringLiteral("dynamicsTexturePatternCombo"));
+    CHECK(style != nullptr && patterns != nullptr);
+    CHECK(!patterns->isVisible());  // only shown for the Pattern grain
+    style->setCurrentIndex(style->findData(static_cast<int>(patchy::BrushTextureStyle::Pattern)));
+    CHECK(patterns->isVisible());
+    const auto index = patterns->findData(pattern_id);
+    CHECK(index >= 0);
+    patterns->setCurrentIndex(index);
+    popup->findChild<QSpinBox*>(QStringLiteral("dynamicsTextureDepthSpin"))->setValue(100);
+    popup->close();
+    process_events_for(350);
+    CHECK(canvas->brush_dynamics().texture_style == patchy::BrushTextureStyle::Pattern);
+    CHECK(QString::fromStdString(canvas->brush_dynamics().texture_pattern_id) == pattern_id);
+
+    // Paint a wide hard stroke: the stripes (2 px on, 2 px off, from x = 0) show through.
+    canvas->set_primary_color(QColor(0, 0, 0));
+    canvas->set_brush_size(40);
+    canvas->set_brush_softness(0);
+    auto& document = patchy::ui::MainWindowTestAccess::document(window);
+    const auto layer_id = *document.active_layer_id();
+    const auto from = canvas->widget_position_for_document_point(QPoint(100, 120));
+    const auto to = canvas->widget_position_for_document_point(QPoint(180, 120));
+    drag(*canvas, from, to);
+    QApplication::processEvents();
+    const auto& pixels = std::as_const(document).find_layer(layer_id)->pixels();
+    const auto bounds = std::as_const(document).find_layer(layer_id)->bounds();
+    const auto painted_at = [&](int x, int y) {
+      const auto* px = pixels.pixel(x - bounds.x, y - bounds.y);
+      return pixels.format().channels >= 4 ? px[3] > 0U : px[0] < 128U;
+    };
+    int on_black_texels = 0;
+    int on_white_texels = 0;
+    for (int x = 120; x < 160; ++x) {
+      if (painted_at(x, 120)) {
+        ((x % 4) < 2 ? on_black_texels : on_white_texels) += 1;
+      }
+    }
+    CHECK(on_white_texels > 15);
+    CHECK(on_black_texels == 0);
+
+    const auto saved = QJsonDocument::fromJson(
+        patchy::ui::app_settings().value(QStringLiteral("tools/roundBrushSession")).toByteArray());
+    CHECK(saved.object().value(QStringLiteral("dynamics")).toObject().value(QStringLiteral("texturePattern")).toString() ==
+          pattern_id);
+  }
+  {
+    // A restart restores the choice; deleting the pattern keeps its id as "Missing pattern".
+    patchy::ui::MainWindow window;
+    show_window(window);
+    auto* canvas = require_canvas(window);
+    CHECK(QString::fromStdString(canvas->brush_dynamics().texture_pattern_id) == pattern_id);
+    CHECK(window.pattern_library().remove_pattern(storage_id));
+    require_action_by_text(window, QStringLiteral("Brush"))->trigger();
+    QApplication::processEvents();
+    auto* button = window.findChild<QToolButton*>(QStringLiteral("brushDynamicsButton"));
+    button->click();
+    QApplication::processEvents();
+    QWidget* popup = nullptr;
+    for (auto* widget : QApplication::topLevelWidgets()) {
+      if (widget->objectName() == QStringLiteral("brushDynamicsPopup") && widget->isVisible()) {
+        popup = widget;
+      }
+    }
+    CHECK(popup != nullptr);
+    auto* patterns = popup->findChild<QComboBox*>(QStringLiteral("dynamicsTexturePatternCombo"));
+    CHECK(patterns != nullptr);
+    CHECK(patterns->currentText() == QStringLiteral("Missing pattern"));
+    CHECK(patterns->currentData().toString() == pattern_id);
+    popup->close();
+    // The stroke still paints (Fine Grain fallback) instead of failing.
+    canvas->set_primary_color(QColor(0, 0, 0));
+    canvas->set_brush_size(30);
+    auto& document = patchy::ui::MainWindowTestAccess::document(window);
+    const auto layer_id = *document.active_layer_id();
+    const auto before = std::as_const(document).find_layer(layer_id)->content_revision();
+    drag(*canvas, canvas->widget_position_for_document_point(QPoint(80, 80)),
+         canvas->widget_position_for_document_point(QPoint(140, 80)));
+    QApplication::processEvents();
+    CHECK(std::as_const(document).find_layer(layer_id)->content_revision() != before);
   }
   clear_brush_tip_test_state();
 }
@@ -1089,7 +1338,7 @@ void ui_brush_dynamics_abr_import_carries_dynamics() {
 
   // Selecting the tip pushes its dynamics, base shape, and included tool settings to the canvas.
   auto* flow = window.findChild<QSpinBox*>(QStringLiteral("brushFlowSpin"));
-  auto* airbrush = window.findChild<QCheckBox*>(QStringLiteral("brushAirbrushCheck"));
+  auto* airbrush = window.findChild<QAbstractButton*>(QStringLiteral("brushAirbrushCheck"));
   CHECK(flow != nullptr);
   CHECK(airbrush != nullptr);
   flow->setValue(23);
@@ -1526,11 +1775,13 @@ std::vector<patchy::test::TestCase> brush_pattern_palette_tests_part2() {
       {"ui_brush_tip_cursor_shows_tip_shape", ui_brush_tip_cursor_shows_tip_shape},
       {"ui_brush_tip_picker_popup_offers_define_from_selection",
        ui_brush_tip_picker_popup_offers_define_from_selection},
+      {"ui_brush_right_click_opens_tip_picker", ui_brush_right_click_opens_tip_picker},
       {"ui_brush_tip_picker_keeps_options_bar_height", ui_brush_tip_picker_keeps_options_bar_height},
       {"ui_default_brush_tips_carry_curated_dynamics", ui_default_brush_tips_carry_curated_dynamics},
       {"ui_brush_tip_manager_edits_dynamics", ui_brush_tip_manager_edits_dynamics},
       {"ui_brush_tip_picker_popup_resizes_and_persists", ui_brush_tip_picker_popup_resizes_and_persists},
       {"ui_brush_dynamics_round_brush_session", ui_brush_dynamics_round_brush_session},
+      {"ui_brush_texture_pattern_grain_uses_library_pattern", ui_brush_texture_pattern_grain_uses_library_pattern},
       {"ui_brush_dynamics_popup_edits_apply_and_persist", ui_brush_dynamics_popup_edits_apply_and_persist},
       {"ui_brush_dynamics_popup_control_edits_persist", ui_brush_dynamics_popup_control_edits_persist},
       {"ui_brush_dynamics_button_toggles_popup_closed", ui_brush_dynamics_button_toggles_popup_closed},

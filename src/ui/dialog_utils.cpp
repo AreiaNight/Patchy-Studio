@@ -1437,7 +1437,7 @@ ThemedQss dialog_spinbox_button_style() {
       background: @field_bg;
       border: 1px solid @field_inset_border;
       border-top-color: @field_bevel_top;
-      border-radius: 2px;
+      border-radius: 4px;
       color: @text_bright;
       min-height: 26px;
       padding-left: 6px;
@@ -1460,7 +1460,7 @@ ThemedQss dialog_spinbox_button_style() {
       background: @button_bg;
       border: 1px solid @field_inset_border;
       border-top-color: @field_bevel_top;
-      border-radius: 2px;
+      border-radius: 4px;
     }
     QSpinBox::up-button,
     QDoubleSpinBox::up-button {
@@ -1472,7 +1472,7 @@ ThemedQss dialog_spinbox_button_style() {
       background: @button_bg;
       border: 1px solid @field_inset_border;
       border-top-color: @field_bevel_top;
-      border-radius: 2px;
+      border-radius: 4px;
     }
     QSpinBox::up-button:hover,
     QSpinBox::down-button:hover,
@@ -1548,7 +1548,7 @@ ThemedQss spin_step_button_style() {
       background: @button_bg;
       border: 1px solid @field_inset_border;
       border-top-color: @field_bevel_top;
-      border-radius: 2px;
+      border-radius: 4px;
       padding: 0;
     }
     QPushButton:hover { background: @button_hover_bg; border-color: @button_hover_border; }

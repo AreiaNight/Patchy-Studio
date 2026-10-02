@@ -3068,6 +3068,7 @@ void MainWindow::sync_layer_row_visibility_indicators() {
 }
 
 void MainWindow::refresh_layer_list(bool retire_automation_rows, const std::function<void()>& progress) {
+  notify_studio_shell();
   if (layer_list_ == nullptr || updating_layer_list_) {
     return;
   }
@@ -3469,6 +3470,7 @@ QPixmap MainWindow::cached_layer_mask_thumbnail(const Layer& layer, int document
 }
 
 void MainWindow::refresh_layer_thumbnails() {
+  notify_studio_shell();
   const auto started = std::chrono::steady_clock::now();
   if (layer_list_ == nullptr || !has_active_document()) {
     return;
@@ -3532,6 +3534,7 @@ void MainWindow::refresh_layer_thumbnails() {
 }
 
 void MainWindow::refresh_layer_controls() {
+  notify_studio_shell();
   const UiProfileScope profile_scope("refresh_layer_controls");
   sync_text_character_dialog_from_editor();
   sync_text_options_from_active_layer();

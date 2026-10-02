@@ -83,9 +83,13 @@ interface PatchyBrushDynamics {
   count?: number; countJitter?: number; countControl?: PatchyBrushControl; countFadeSteps?: number;
   opacityJitter?: number; minimumOpacity?: number; opacityControl?: PatchyBrushControl | "global"; opacityFadeSteps?: number;
   flowJitter?: number; minimumFlow?: number; flowControl?: PatchyBrushControl; flowFadeSteps?: number;
-  textureEnabled?: boolean; textureStyle?: "fineGrain" | "canvas" | "speckle";
+  textureEnabled?: boolean; textureStyle?: "fineGrain" | "canvas" | "speckle" | "pattern";
   /** Static grain scale .01..10, depth 0..1, unsigned 32-bit seed. */
   textureScale?: number; textureDepth?: number; textureInvert?: boolean; textureSeed?: number;
+  /** For textureStyle "pattern": a Pattern Library id (a `source: "library"` entry's `resourceId`
+   * from `doc.listVectorResources().patterns`). Its luminance is the texture, tiled from the
+   * document origin. An unknown id paints the "fineGrain" family instead. */
+  texturePattern?: string;
   dualBrushEnabled?: boolean;
   /** Secondary size .05..4, hardness 0..1, spacing .1..10. */
   dualBrushSize?: number; dualBrushHardness?: number; dualBrushSpacing?: number;

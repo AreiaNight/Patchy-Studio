@@ -1,5 +1,12 @@
 # Scripting API compatibility
 
+2026-09-30 (API 1): brush dynamics accept `textureStyle: "pattern"` with `texturePattern` (a
+Pattern Library id from `doc.listVectorResources().patterns`): Brush Texture uses that
+pattern's luminance, tiled from the document origin, and an unknown id falls back to
+`"fineGrain"`. Dual Brush secondary marks now follow the stroke path, and dab spacing
+follows each dab's own size, so strokes with those settings paint differently than before.
+Additive; apiVersion unchanged. See [brushes.md](brushes.md).
+
 2026-09-30 (API 1): smart objects. `doc.addSmartObject(path, {linked?, x?, y?, width?,
 height?, scale?, name?})` places a file as an embedded or linked smart-object layer
 (the core behind File > Place Embedded and the new File > Place Linked); a linked

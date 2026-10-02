@@ -5,6 +5,8 @@
 #include <QString>
 #include <QToolButton>
 
+#include <optional>
+
 class QFrame;
 class QListWidget;
 
@@ -26,6 +28,9 @@ public:
   [[nodiscard]] const QString& current_tip_id() const noexcept;
   void refresh();  // re-reads the library (and current tip name) into the button face
   void set_working_preview(const QString& name, const QPixmap& image);
+  // Opens the picker popup with its top-left corner at `global_position` (kept on
+  // screen): the canvas right-click with a painting tool, as in Photoshop.
+  void show_popup_at(QPoint global_position);
 
 signals:
   void tip_selected(const QString& id);
@@ -35,6 +40,7 @@ signals:
 
 private:
   void show_popup();
+  void open_popup(std::optional<QPoint> global_position);
   void rebuild_popup_list(QListWidget* list, const QString& folder_filter) const;
   void update_button_face();
 

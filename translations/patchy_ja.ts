@@ -8581,6 +8581,10 @@ Mixed selection</source>
         <source>Import Notes</source>
         <translation>読み込みに関する注意</translation>
     </message>
+    <message>
+        <source>Open the classic Patchy interface instead of Patchy Studio.</source>
+        <translation>Patchy Studio の代わりに従来の Patchy インターフェイスを開きます。</translation>
+    </message>
 </context>
 <context>
     <name>ScannerImport</name>
@@ -9247,6 +9251,18 @@ Mixed selection</source>
     <message>
         <source>Reset the tip shape and all dynamics to defaults</source>
         <translation>先端のシェイプとすべてのダイナミクスを初期設定に戻します</translation>
+    </message>
+    <message>
+        <source>Pattern</source>
+        <translation>パターン</translation>
+    </message>
+    <message>
+        <source>Pattern:</source>
+        <translation>パターン:</translation>
+    </message>
+    <message>
+        <source>Missing pattern</source>
+        <translation>見つからないパターン</translation>
     </message>
 </context>
 <context>
@@ -10183,6 +10199,112 @@ Mixed selection</source>
     <message>
         <source>Temporary selection mask. White selects, black masks, and gray creates partial selection.</source>
         <translation>一時的な選択マスクです。白で選択、黒でマスク、グレーで部分選択を作成します。</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::ColorWheelHud</name>
+    <message>
+        <source>Keep the wheel on screen between strokes</source>
+        <translation>ストロークの合間もホイールを表示したままにする</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>閉じる</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::ColorWheelPanel</name>
+    <message>
+        <source>New color (top) and previous color (bottom). Click the previous color to go back to it.</source>
+        <translation>新しい色（上）と前の色（下）。前の色をクリックするとその色に戻ります。</translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation>正方形</translation>
+    </message>
+    <message>
+        <source>Triangle</source>
+        <translation>三角形</translation>
+    </message>
+    <message>
+        <source>Diamond</source>
+        <translation>菱形</translation>
+    </message>
+    <message>
+        <source>Shape of the field inside the ring</source>
+        <translation>リング内側のフィールドの形</translation>
+    </message>
+    <message>
+        <source>RGB</source>
+        <translation>RGB</translation>
+    </message>
+    <message>
+        <source>Painter&apos;s RYB</source>
+        <translation>画家の RYB</translation>
+    </message>
+    <message>
+        <source>Wheel layout: RGB, or the painter&apos;s red, yellow and blue wheel</source>
+        <translation>ホイールの配置: RGB、または赤・黄・青の画家のホイール</translation>
+    </message>
+    <message>
+        <source>Tone Lock</source>
+        <translation>トーンロック</translation>
+    </message>
+    <message>
+        <source>Keep the lightness while you change the hue, so shadows stay shadows</source>
+        <translation>色相を変えても明度を保ち、影が影のままになるようにします</translation>
+    </message>
+    <message>
+        <source>Save Current Color Here</source>
+        <translation>現在の色をここに保存</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>削除</translation>
+    </message>
+    <message>
+        <source>No Harmony</source>
+        <translation>ハーモニーなし</translation>
+    </message>
+    <message>
+        <source>Complementary</source>
+        <translation>補色</translation>
+    </message>
+    <message>
+        <source>Analogous</source>
+        <translation>類似色</translation>
+    </message>
+    <message>
+        <source>Triadic</source>
+        <translation>トライアド</translation>
+    </message>
+    <message>
+        <source>Split Complementary</source>
+        <translation>分裂補色</translation>
+    </message>
+    <message>
+        <source>Rectangle</source>
+        <translation>長方形</translation>
+    </message>
+    <message>
+        <source>Color harmony: markers on the ring follow the main color; drag an outer marker to widen or narrow analogous, split and rectangle harmonies</source>
+        <translation>カラーハーモニー: リング上のマーカーはメインの色に追従します。外側のマーカーをドラッグすると、類似色・分裂補色・長方形のハーモニーの幅を広げたり狭めたりできます</translation>
+    </message>
+    <message>
+        <source>Harmony colors. Click one to use it.</source>
+        <translation>ハーモニーの色。クリックすると使用します。</translation>
+    </message>
+    <message>
+        <source>Save the current color</source>
+        <translation>現在の色を保存</translation>
+    </message>
+    <message>
+        <source>Saved colors. Click one to use it, click an empty slot to save the current color there, right-click for more.</source>
+        <translation>保存した色。クリックすると使用し、空の枠をクリックすると現在の色をそこに保存します。右クリックでその他のオプション。</translation>
+    </message>
+    <message>
+        <source>Hex code of the new color. Type a code and press Enter to use it.</source>
+        <translation>新しい色の16進コード。コードを入力して Enter キーを押すと、その色を使用します。</translation>
     </message>
 </context>
 <context>
@@ -12291,14 +12413,6 @@ Either way Patchy writes a copy; the open document keeps its layers and unsaved 
     <message>
         <source>Mix:</source>
         <translation>ミックス:</translation>
-    </message>
-    <message>
-        <source>Airbrush</source>
-        <translation>エアブラシ</translation>
-    </message>
-    <message>
-        <source>Build paint while the pointer is held still</source>
-        <translation>ポインターを静止したまま押し続けると塗料が蓄積します</translation>
     </message>
     <message>
         <source>Opacity:</source>
@@ -18155,6 +18269,34 @@ Clipped to the layer below</source>
         <source>The placed position or size is out of range</source>
         <translation>配置位置またはサイズが範囲外です</translation>
     </message>
+    <message>
+        <source>Pressure curve:</source>
+        <translation>筆圧カーブ:</translation>
+    </message>
+    <message>
+        <source>How pen pressure maps to brush size, opacity and brush dynamics. Negative values feel firmer (more pressure for the same result), positive values feel softer. 0 is linear.</source>
+        <translation>ペンの筆圧をブラシサイズ、不透明度、ブラシのダイナミクスにどう反映するかを設定します。負の値は硬めの感触（同じ結果により強い筆圧が必要）、正の値は柔らかめの感触になります。0 はリニアです。</translation>
+    </message>
+    <message>
+        <source>Color Wheel</source>
+        <translation>カラーホイール</translation>
+    </message>
+    <message>
+        <source>Color Wheel at Pointer</source>
+        <translation>ポインター位置のカラーホイール</translation>
+    </message>
+    <message>
+        <source>Foreground: %1</source>
+        <translation>描画色: %1</translation>
+    </message>
+    <message>
+        <source>Show color wheel</source>
+        <translation>カラーホイールを表示</translation>
+    </message>
+    <message>
+        <source>Airbrush: build paint while the pointer is held still</source>
+        <translation>エアブラシ: ポインターを静止したまま押し続けると塗料が蓄積します</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -19643,6 +19785,335 @@ Clipped to the layer below</source>
     <message>
         <source>Free · Windows, macOS &amp; Linux</source>
         <translation>無料 · Windows、macOS、Linux</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioActionsPanel</name>
+    <message>
+        <source>Actions</source>
+        <translation>アクション</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>追加</translation>
+    </message>
+    <message>
+        <source>Add text</source>
+        <translation>テキストを追加</translation>
+    </message>
+    <message>
+        <source>Canvas</source>
+        <translation>カンバス</translation>
+    </message>
+    <message>
+        <source>Share</source>
+        <translation>共有</translation>
+    </message>
+    <message>
+        <source>Prefs</source>
+        <translation>設定</translation>
+    </message>
+    <message>
+        <source>Light interface</source>
+        <translation>ライトインターフェイス</translation>
+    </message>
+    <message>
+        <source>Right-hand interface</source>
+        <translation>右利き用インターフェイス</translation>
+    </message>
+    <message>
+        <source>Full screen</source>
+        <translation>フルスクリーン</translation>
+    </message>
+    <message>
+        <source>Help</source>
+        <translation>ヘルプ</translation>
+    </message>
+    <message>
+        <source>About Patchy Studio</source>
+        <translation>Patchy Studio について</translation>
+    </message>
+    <message>
+        <source>Tips: B, S and E pick Brush, Smudge and Eraser. [ and ] change the brush size. Ctrl+Z undoes, Ctrl+Shift+Z redoes. Space+drag pans, Alt+click picks a color.</source>
+        <translation>ヒント: B、S、E でブラシ、指先、消しゴムを選択します。[ と ] でブラシサイズを変更します。Ctrl+Z で取り消し、Ctrl+Shift+Z でやり直し。Space+ドラッグで表示を移動、Alt+クリックで色を取得します。</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioAdjustmentsPanel</name>
+    <message>
+        <source>Adjustments</source>
+        <translation>色調補正</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioBrushLibraryPanel</name>
+    <message>
+        <source>Brush Library</source>
+        <translation>ブラシライブラリ</translation>
+    </message>
+    <message>
+        <source>Import brushes (.abr)</source>
+        <translation>ブラシを読み込み (.abr)</translation>
+    </message>
+    <message>
+        <source>Brush settings</source>
+        <translation>ブラシ設定</translation>
+    </message>
+    <message>
+        <source>All brushes</source>
+        <translation>すべてのブラシ</translation>
+    </message>
+    <message>
+        <source>Basic</source>
+        <translation>ベーシック</translation>
+    </message>
+    <message>
+        <source>Round</source>
+        <translation>円形</translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation>正方形</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioColorPanel</name>
+    <message>
+        <source>Colors</source>
+        <translation>カラー</translation>
+    </message>
+    <message>
+        <source>History</source>
+        <translation>履歴</translation>
+    </message>
+    <message>
+        <source>Colors you paint with appear here.</source>
+        <translation>描画に使った色がここに表示されます。</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioGallery</name>
+    <message>
+        <source>Patchy Studio</source>
+        <translation>Patchy Studio</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>読み込み</translation>
+    </message>
+    <message>
+        <source>Open a file from disk</source>
+        <translation>ディスクからファイルを開く</translation>
+    </message>
+    <message>
+        <source>New canvas</source>
+        <translation>新規カンバス</translation>
+    </message>
+    <message>
+        <source>OPEN</source>
+        <translation>開いている作品</translation>
+    </message>
+    <message>
+        <source>RECENT</source>
+        <translation>最近</translation>
+    </message>
+    <message>
+        <source>Tap + to start a new canvas, or Import to open a file.</source>
+        <translation>+ をタップして新しいカンバスを始めるか、読み込みでファイルを開きます。</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>閉じる</translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation>正方形</translation>
+    </message>
+    <message>
+        <source>4K</source>
+        <translation>4K</translation>
+    </message>
+    <message>
+        <source>A4 (300 PPI)</source>
+        <translation>A4 (300 PPI)</translation>
+    </message>
+    <message>
+        <source>Comic page</source>
+        <translation>マンガ原稿</translation>
+    </message>
+    <message>
+        <source>Sketch</source>
+        <translation>スケッチ</translation>
+    </message>
+    <message>
+        <source>%1 × %2 px</source>
+        <translation>%1 × %2 px</translation>
+    </message>
+    <message>
+        <source>Screen size</source>
+        <translation>画面サイズ</translation>
+    </message>
+    <message>
+        <source>Custom size...</source>
+        <translation>カスタムサイズ...</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioLayersPanel</name>
+    <message>
+        <source>Layers</source>
+        <translation>レイヤー</translation>
+    </message>
+    <message>
+        <source>New layer</source>
+        <translation>新規レイヤー</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>不透明度</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioShell</name>
+    <message>
+        <source>Gallery</source>
+        <translation>ギャラリー</translation>
+    </message>
+    <message>
+        <source>Show the gallery of open and recent artwork</source>
+        <translation>開いている作品と最近の作品のギャラリーを表示</translation>
+    </message>
+    <message>
+        <source>Actions</source>
+        <translation>アクション</translation>
+    </message>
+    <message>
+        <source>Adjustments</source>
+        <translation>色調補正</translation>
+    </message>
+    <message>
+        <source>Selection</source>
+        <translation>選択</translation>
+    </message>
+    <message>
+        <source>Transform</source>
+        <translation>変形</translation>
+    </message>
+    <message>
+        <source>Paint (tap again for the Brush Library)</source>
+        <translation>ペイント (もう一度タップでブラシライブラリ)</translation>
+    </message>
+    <message>
+        <source>Smudge (tap again for the Brush Library)</source>
+        <translation>指先 (もう一度タップでブラシライブラリ)</translation>
+    </message>
+    <message>
+        <source>Erase (tap again for the Brush Library)</source>
+        <translation>消しゴム (もう一度タップでブラシライブラリ)</translation>
+    </message>
+    <message>
+        <source>Layers</source>
+        <translation>レイヤー</translation>
+    </message>
+    <message>
+        <source>Colors</source>
+        <translation>カラー</translation>
+    </message>
+    <message>
+        <source>Brush size</source>
+        <translation>ブラシサイズ</translation>
+    </message>
+    <message>
+        <source>Brush opacity</source>
+        <translation>ブラシの不透明度</translation>
+    </message>
+    <message>
+        <source>Eyedropper: pick a color from the canvas</source>
+        <translation>スポイト: カンバスから色を取得</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>取り消し</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>やり直し</translation>
+    </message>
+    <message>
+        <source>%1 px</source>
+        <translation>%1 px</translation>
+    </message>
+    <message>
+        <source>%1%</source>
+        <translation>%1%</translation>
+    </message>
+    <message>
+        <source>Automatic</source>
+        <translation>自動</translation>
+    </message>
+    <message>
+        <source>Freehand</source>
+        <translation>フリーハンド</translation>
+    </message>
+    <message>
+        <source>Rectangle</source>
+        <translation>長方形</translation>
+    </message>
+    <message>
+        <source>Ellipse</source>
+        <translation>楕円</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>追加</translation>
+    </message>
+    <message>
+        <source>Subtract</source>
+        <translation>削除</translation>
+    </message>
+    <message>
+        <source>Invert</source>
+        <translation>反転</translation>
+    </message>
+    <message>
+        <source>Copy &amp; Paste</source>
+        <translation>コピー＆ペースト</translation>
+    </message>
+    <message>
+        <source>Expand</source>
+        <translation>拡張</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>解除</translation>
+    </message>
+    <message>
+        <source>Freeform</source>
+        <translation>自由変形</translation>
+    </message>
+    <message>
+        <source>Warp</source>
+        <translation>ワープ</translation>
+    </message>
+    <message>
+        <source>Flip Horizontal</source>
+        <translation>水平方向に反転</translation>
+    </message>
+    <message>
+        <source>Flip Vertical</source>
+        <translation>垂直方向に反転</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>完了</translation>
+    </message>
+    <message>
+        <source>New canvas</source>
+        <translation>新規カンバス</translation>
     </message>
 </context>
 <context>

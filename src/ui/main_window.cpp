@@ -75,6 +75,7 @@
 #include "ui/image_sequence_dialog.hpp"
 #include "ui/sprite_sheet_dialog.hpp"
 #include "ui/start_panel.hpp"
+#include "ui/studio_shell.hpp"
 #include "ui/text_layer_painter.hpp"
 #include "ui/text_layout.hpp"
 #include "ui/animation_preview_window.hpp"
@@ -8090,6 +8091,9 @@ MainWindow::~MainWindow() {
   // down; the commit path must see this flag and bail before touching any member
   // container (observed as an uncaught "No active document" on macOS teardown).
   shutting_down_ = true;
+  // The shell holds raw pointers into the canvas area; drop it before teardown
+  // can deliver events that would refresh it.
+  delete std::exchange(studio_shell_, nullptr);
 #ifndef Q_OS_WASM
   // Reaching the destructor means the process is exiting on purpose (a crash never
   // gets here): the recovery folder is deleted by whichever owner releases it last,
@@ -8134,6 +8138,8 @@ void MainWindow::configure_canvas(CanvasWidget* canvas) {
   canvas->set_edit_locked(preview_dialog_edit_locked());
   apply_canvas_aid_settings(canvas);
   apply_pen_input_settings(canvas);
+  canvas->set_brush_texture_pattern_resolver(
+      [this](const QString& pattern_id) { return pattern_library().resource(pattern_id); });
   // History callbacks resolve the canvas's OWN session at fire time: with float
   // windows two canvases are live at once, and an edit (or an async completion)
   // must never snapshot whichever document happens to be active.
@@ -8344,6 +8350,13 @@ void MainWindow::configure_canvas(CanvasWidget* canvas) {
   // A Move-tool right-click on any other active leaf layer (pixel, text, smart
   // object): Free Transform, as the shape section offers it.
   canvas->set_layer_context_actions_callback([this] { return QList<QAction*>{free_transform_action_}; });
+  canvas->set_brush_tip_picker_callback([this](QPoint global_position) {
+    if (brush_tip_picker_ == nullptr) {
+      return false;
+    }
+    brush_tip_picker_->show_popup_at(global_position);
+    return true;
+  });
   canvas->set_vector_preview_status_callback([this, canvas](QString message, bool notice) {
     if (canvas == canvas_) {
       refresh_vector_preview_action();

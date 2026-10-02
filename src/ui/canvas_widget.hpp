@@ -15,6 +15,7 @@
 #include "ui/image_document_io.hpp"
 #include "ui/measurement_units.hpp"
 #include "ui/selection_outline.hpp"
+#include "ui/sparse_stroke_plane.hpp"
 #include "ui/vector_preview_renderer.hpp"
 
 #include <QBasicTimer>
@@ -158,7 +159,8 @@ enum class PenButtonAction {
   Redo,
   ToggleEraser,
   IncreaseBrushSize,
-  DecreaseBrushSize
+  DecreaseBrushSize,
+  ShowColorWheel  // opens the Color Wheel HUD at the pointer
 };
 
 struct CanvasInfoState {
@@ -378,6 +380,8 @@ public:
     PenButtonAction secondary_button_action{PenButtonAction::PickColor};
     bool tilt_shape{false};
     int tilt_min_roundness_percent{35};
+    // Pressure response, -100 (firm) .. 100 (soft); see core/pen_pressure.hpp.
+    int pressure_curve{0};
   };
 
   struct PenInputSample {
@@ -390,7 +394,8 @@ public:
 
     QPointF widget_position{};
     QPointF document_position{};
-    float pressure{1.0F};
+    float pressure{1.0F};      // after the pressure curve; what every consumer reads
+    float raw_pressure{1.0F};  // as the tablet reported it
     bool pressure_available{false};
     float x_tilt{0.0F};
     float y_tilt{0.0F};
@@ -445,6 +450,8 @@ public:
   void fill_to_view();
   void refresh_tool_cursor();
   void fit_to_view();
+  // Patchy Studio hides the pan scroll bars; panning stays on Space-drag and the wheel.
+  void set_scroll_bars_hidden(bool hidden);
   // Recenters the document in the viewport at the current zoom. Used after
   // operations that change document geometry (crop, image/canvas resize,
   // canvas rotate), where the stale pan could otherwise leave the remaining
@@ -547,6 +554,10 @@ public:
   [[nodiscard]] int brush_base_roundness() const noexcept;
   // UI-test hook: fixes the per-stroke dynamics RNG seed so stroke artifacts are reproducible.
   void set_brush_dynamics_test_seed(std::optional<quint32> seed) noexcept;
+  // Resolves a Pattern Library id for Brush Texture's Pattern grain. The mask is built once per
+  // stroke (the cache clears with the stroke tracking), so library edits apply to the next stroke.
+  void set_brush_texture_pattern_resolver(
+      std::function<std::optional<PatternResource>(const QString& pattern_id)> resolver);
   void set_gradient_method(GradientMethod method) noexcept;
   [[nodiscard]] GradientMethod gradient_method() const noexcept;
   void set_gradient_reverse(bool reverse) noexcept;
@@ -1227,6 +1238,10 @@ public:
   // Move outline of the active layer that is not a shape or a group (Free
   // Transform); same contract.
   void set_layer_context_actions_callback(std::function<QList<QAction*>()> callback);
+  // A right-click inside the document with a brush-tip tool (Brush, Mixer Brush,
+  // Pattern Stamp, Eraser) opens the host's brush tip picker at the global
+  // position instead of the canvas menu, as in Photoshop. Returns whether it opened.
+  void set_brush_tip_picker_callback(std::function<bool(QPoint)> callback);
   // Blocking refusals (the tool action did NOT happen) report through this
   // callback so the host can present them as errors; unset, they fall back to
   // the plain status callback.
@@ -1403,6 +1418,9 @@ private:
   bool patch_render_cache_rect(QRect document_rect, const QImage& partial);
   bool patch_render_cache_patches(const std::vector<RenderedDocumentPatch>& patches);
   void invalidate_display_mip_cache() noexcept;
+  // Re-derives only the mip blocks under freshly patched render_cache_ rects
+  // (falls back to invalidate_display_mip_cache when the chain is not built).
+  void patch_display_mip_cache(const std::vector<RenderedDocumentPatch>& patches);
   void refresh_curves_clipping_preview();
   void ensure_move_base_cache();
   bool request_move_preview();
@@ -2132,12 +2150,14 @@ private:
   bool zoom_tool_zooms_out_{false};
   QScrollBar* horizontal_scroll_bar_{nullptr};
   QScrollBar* vertical_scroll_bar_{nullptr};
+  bool scroll_bars_hidden_{false};
   bool syncing_scroll_bars_{false};
   QImage render_cache_{};
   bool render_cache_dirty_{true};
   bool tiling_preview_enabled_{false};
   // Cached scaled tile for the textured-fill ghost path; cleared alongside the display
-  // mips (invalidate_display_mip_cache), which run at every render_cache_ content change.
+  // mips (invalidate_display_mip_cache / patch_display_mip_cache), which run at every
+  // render_cache_ content change.
   QPixmap tiling_tile_pixmap_{};
   QSize tiling_tile_pixmap_size_{};
   RenderCacheDiagnostics render_cache_diagnostics_{};
@@ -2146,6 +2166,13 @@ private:
   bool async_render_cache_explicit_hold_{false};
   bool async_render_cache_start_queued_{false};
   std::uint64_t async_render_cache_generation_{0};
+  // Generation the in-flight full refresh was started with; the flight is stale
+  // (its result will be discarded) once this differs from the current generation.
+  std::uint64_t async_render_cache_in_flight_generation_{0};
+  // Bounded region edits made after the in-flight snapshot was taken. The flight
+  // is kept and this region is re-rendered as a patch once its result lands, so a
+  // brush stroke started while a full refresh runs no longer restarts it per dab.
+  QRegion async_render_cache_followup_region_{};
   std::vector<QImage> display_mip_cache_{};
   QSize display_mip_source_size_{};
   QPoint last_mouse_position_{};
@@ -2598,9 +2625,12 @@ private:
   QString processing_overlay_message_{};
   int processing_animation_frame_{0};
   std::unordered_set<std::uint64_t> brush_stroke_pixels_;
-  std::unordered_map<std::uint64_t, float> brush_stroke_alpha_caps_;  // mask brush + clone max-cap
-  std::unordered_map<std::uint64_t, float> brush_stroke_accumulated_alpha_;
+  SparseStrokePlane brush_stroke_alpha_caps_;  // mask brush + clone max-cap
+  SparseStrokePlane brush_stroke_accumulated_alpha_;
   std::unordered_map<std::uint64_t, float> brush_stroke_union_coverage_;
+  std::function<std::optional<PatternResource>(const QString&)> brush_texture_pattern_resolver_;
+  // Per-stroke cache of resolved Brush Texture pattern masks (filled from const paint helpers).
+  mutable std::unordered_map<std::string, std::shared_ptr<const patchy::BrushTextureMask>> brush_texture_masks_;
   std::unordered_map<std::uint64_t, EditColor> brush_stroke_wet_edge_primary_;
   QRect brush_stroke_wet_edge_pending_rect_{};
   std::optional<QPointF> brush_stroke_last_stamp_position_;
@@ -2867,6 +2897,7 @@ private:
   std::function<QList<QAction*>()> selection_context_actions_callback_;
   std::function<QList<QAction*>()> shape_context_actions_callback_;
   std::function<QList<QAction*>()> layer_context_actions_callback_;
+  std::function<bool(QPoint)> brush_tip_picker_callback_;
   bool vector_preview_enabled_{false};
   std::uint64_t vector_preview_generation_{1};
   std::uint64_t vector_preview_completed_generation_{0};

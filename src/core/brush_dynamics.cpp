@@ -1,5 +1,7 @@
 #include "core/brush_dynamics.hpp"
 
+#include "core/pixel_buffer.hpp"
+
 #include <algorithm>
 #include <cmath>
 
@@ -332,6 +334,27 @@ BrushDabVariation sample_dab_variation(const BrushDynamics& dynamics, BrushDynam
     }
   }
   return variation;
+}
+
+BrushTextureMask brush_texture_mask_from_tile(const PixelBuffer& tile) {
+  BrushTextureMask mask;
+  const auto format = tile.format();
+  if (tile.empty() || format.bit_depth != BitDepth::UInt8 || format.channels < 3) {
+    return mask;
+  }
+  mask.width = tile.width();
+  mask.height = tile.height();
+  mask.values.resize(static_cast<std::size_t>(mask.width) * static_cast<std::size_t>(mask.height));
+  const auto channels = format.channels;
+  const auto source = tile.data();
+  for (std::size_t i = 0; i < mask.values.size(); ++i) {
+    const auto* px = source.data() + i * channels;
+    // Rec. 709 weights in 1/256ths (54 + 183 + 19 = 256).
+    const auto luminance = (54U * px[0] + 183U * px[1] + 19U * px[2] + 128U) >> 8U;
+    const auto alpha = channels >= 4 ? static_cast<std::uint32_t>(px[3]) : 255U;
+    mask.values[i] = static_cast<std::uint8_t>((luminance * alpha + 255U * (255U - alpha) + 127U) / 255U);
+  }
+  return mask;
 }
 
 }  // namespace patchy

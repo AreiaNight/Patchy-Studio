@@ -115,7 +115,8 @@ QString single_instance_server_name() {
   if (user.isEmpty()) {
     user = qEnvironmentVariable("USER");
   }
-  const auto name = QStringLiteral("Patchy-SingleInstance-") + user;
+  // Patchy Studio's own channel, so it never hands its files to a running classic Patchy.
+  const auto name = QStringLiteral("PatchyStudio-SingleInstance-") + user;
 #ifdef Q_OS_LINUX
   // Inside Flatpak, QLocalServer's default socket location is the per-sandbox /tmp, so a
   // second `flatpak run` would never find the first instance's socket. $XDG_RUNTIME_DIR/
@@ -454,6 +455,10 @@ int main(int argc, char* argv[]) {
           "QObject", "UI language for this run only, not saved: en, de, es, fr, it, ja, zh_CN, or zh_TW."),
       QStringLiteral("code"));
   parser.addOption(language_option);
+  QCommandLineOption classic_option(
+      QStringLiteral("classic"),
+      QCoreApplication::translate("QObject", "Open the classic Patchy interface instead of Patchy Studio."));
+  parser.addOption(classic_option);
   QCommandLineOption stress_option(
       QStringLiteral("stress-test"),
       QCoreApplication::translate(
@@ -613,7 +618,15 @@ int main(int argc, char* argv[]) {
     return 0;
   }
 
+  // Automation runs keep the classic window their scripts and exports expect.
+  const bool studio_shell = !parser.isSet(classic_option) && !headless_mode && !stress_mode && !export_mode;
+  if (studio_shell) {
+    patchy::ui::MainWindow::request_studio_shell();
+  }
   patchy::ui::MainWindow window;
+  if (studio_shell) {
+    window.enable_studio_shell();
+  }
 
   if (headless_mode) {
     // Nobody can answer a prompt with no display; export and run-script set this

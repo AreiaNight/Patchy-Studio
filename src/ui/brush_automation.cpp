@@ -56,8 +56,10 @@ QJsonObject dynamics(const QJsonObject& overrides, const BrushDynamics& base) {
     if (expected.isBool()) { (void)boolean(overrides, k, false); }
     else if (expected.isString()) {
       const auto token = string(overrides, k);
-      if (k == "textureStyle") {
-        if (!QStringList{"fineGrain", "canvas", "speckle"}.contains(token)) invalid(k);
+      if (k == "texturePattern") {
+        // A Pattern Library id (listVectorResources().patterns[].resourceId); any string.
+      } else if (k == "textureStyle") {
+        if (!QStringList{"fineGrain", "canvas", "speckle", "pattern"}.contains(token)) invalid(k);
       } else {
         QStringList allowed{"off", "fade", "penPressure", "penTilt", "penRotation", "stylusWheel"};
         if (k == "angleControl") allowed << "direction" << "initialDirection";

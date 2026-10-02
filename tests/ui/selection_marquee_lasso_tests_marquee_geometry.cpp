@@ -1,4 +1,5 @@
 #include "ui/canvas_widget.hpp"
+#include "ui/pressure_curve_preview.hpp"
 #include "ui/measurement_units.hpp"
 #include "ui/theme_palette.hpp"
 #include "core/adjustment_layer.hpp"
@@ -2021,6 +2022,7 @@ void ui_pen_preferences_persist_and_apply() {
   SettingsValueRestorer restore_wheel_zoom(QStringLiteral("input/wheelZooms"));
   SettingsValueRestorer restore_tilt(QStringLiteral("input/pen/tiltShape"));
   SettingsValueRestorer restore_tilt_roundness(QStringLiteral("input/pen/tiltMinRoundnessPercent"));
+  SettingsValueRestorer restore_pressure_curve(QStringLiteral("input/pen/pressureCurve"));
 
   patchy::ui::MainWindow window;
   show_window(window);
@@ -2050,6 +2052,21 @@ void ui_pen_preferences_persist_and_apply() {
     dialog->findChild<QCheckBox*>(QStringLiteral("preferencesPenWheelZoomCheck"))->setChecked(false);
     dialog->findChild<QCheckBox*>(QStringLiteral("preferencesPenTiltShapeCheck"))->setChecked(true);
     dialog->findChild<QSpinBox*>(QStringLiteral("preferencesPenTiltMinRoundnessSpin"))->setValue(44);
+    auto* curve_spin = dialog->findChild<QSpinBox*>(QStringLiteral("preferencesPenPressureCurveSpin"));
+    auto* curve_slider = dialog->findChild<QSlider*>(QStringLiteral("preferencesPenPressureCurveSlider"));
+    auto* curve_preview = dialog->findChild<patchy::ui::PressureCurvePreview*>(
+        QStringLiteral("preferencesPenPressureCurvePreview"));
+    CHECK(curve_spin != nullptr && curve_slider != nullptr && curve_preview != nullptr);
+    CHECK(curve_spin->minimum() == -100 && curve_spin->maximum() == 100);
+    curve_slider->setValue(-35);
+    CHECK(curve_spin->value() == -35);
+    CHECK(curve_preview->curve() == -35);
+    // The curve only means something with the pen on: its row greys out with it.
+    auto* enabled_check = dialog->findChild<QCheckBox*>(QStringLiteral("preferencesPenEnabledCheck"));
+    enabled_check->setChecked(false);
+    CHECK(!curve_spin->isEnabled() && !curve_slider->isEnabled() && !curve_preview->isEnabled());
+    enabled_check->setChecked(true);
+    CHECK(curve_spin->isEnabled() && curve_preview->isEnabled());
     saw_preferences = true;
     dialog->accept();
   });
@@ -2070,6 +2087,7 @@ void ui_pen_preferences_persist_and_apply() {
   CHECK(!settings.value(QStringLiteral("input/wheelZooms")).toBool());
   CHECK(settings.value(QStringLiteral("input/pen/tiltShape")).toBool());
   CHECK(settings.value(QStringLiteral("input/pen/tiltMinRoundnessPercent")).toInt() == 44);
+  CHECK(settings.value(QStringLiteral("input/pen/pressureCurve")).toInt() == -35);
 
   const auto& pen = canvas->pen_input_settings();
   CHECK(pen.enabled);
@@ -2083,6 +2101,7 @@ void ui_pen_preferences_persist_and_apply() {
   CHECK(!canvas->wheel_zooms());
   CHECK(pen.tilt_shape);
   CHECK(pen.tilt_min_roundness_percent == 44);
+  CHECK(pen.pressure_curve == -35);
 }
 
 void ui_pen_preferences_spin_buttons_visible_and_increment_on_right() {

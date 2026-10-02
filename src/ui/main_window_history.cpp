@@ -835,6 +835,7 @@ void MainWindow::initialize_session_history(DocumentSession& target_session, QSt
 }
 
 void MainWindow::update_undo_redo_actions() {
+  notify_studio_shell();
   if (preview_dialog_edit_locked()) {
     if (undo_action_ != nullptr) {
       undo_action_->setEnabled(false);

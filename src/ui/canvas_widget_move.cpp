@@ -221,6 +221,13 @@ bool CanvasWidget::show_canvas_context_menu(QPoint widget_point, QPoint global_p
   if (path_edit_tool_active() && show_path_context_menu(QPointF(widget_point), global_position)) {
     return true;
   }
+  // Painting tools answer a right-click on the document with the brush tip
+  // picker; the pasteboard keeps its backdrop-color menu.
+  const bool brush_tip_tool = tool_ == CanvasTool::Brush || tool_ == CanvasTool::MixerBrush ||
+                              tool_ == CanvasTool::PatternStamp || tool_ == CanvasTool::Eraser;
+  if (brush_tip_tool && brush_tip_picker_callback_ && document_contains(document_position(widget_point))) {
+    return brush_tip_picker_callback_(global_position);
+  }
   auto* menu = new QMenu(this);
   menu->setObjectName(QStringLiteral("canvasContextMenu"));
   canvas_context_menu_ = menu;

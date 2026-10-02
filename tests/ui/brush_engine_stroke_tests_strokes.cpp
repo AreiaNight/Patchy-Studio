@@ -2921,7 +2921,7 @@ void ui_brush_and_eraser_remember_separate_settings() {
     auto* size_spin = window.findChild<QSpinBox*>(QStringLiteral("brushSizeSpin"));
     auto* opacity_spin = window.findChild<QSpinBox*>(QStringLiteral("brushOpacitySpin"));
     auto* flow_spin = window.findChild<QSpinBox*>(QStringLiteral("brushFlowSpin"));
-    auto* airbrush_check = window.findChild<QCheckBox*>(QStringLiteral("brushAirbrushCheck"));
+    auto* airbrush_check = window.findChild<QAbstractButton*>(QStringLiteral("brushAirbrushCheck"));
     auto* softness_spin = window.findChild<QSpinBox*>(QStringLiteral("brushSoftnessSpin"));
     CHECK(size_spin != nullptr);
     CHECK(opacity_spin != nullptr);
@@ -3354,12 +3354,47 @@ void ui_brush_smoothing_catch_up_on_end_completes_stroke() {
 
 }  // namespace
 
+// The stroke's per-pixel accumulation store keeps the unordered_map semantics it
+// replaced: untouched pixels are absent (not 0), first touch reads 0, and values
+// survive tile switches, including negative coordinates and the tile at (-1, -1).
+void ui_sparse_stroke_plane_keeps_map_semantics() {
+  patchy::ui::SparseStrokePlane plane;
+  CHECK(plane.find(0, 0) == nullptr);
+  CHECK(plane.find(-1, -1) == nullptr);
+  CHECK(plane.at(-1, -1) == 0.0F);
+  CHECK(plane.find(-1, -1) != nullptr && *plane.find(-1, -1) == 0.0F);
+  plane.at(-1, -1) = 0.25F;
+  plane.at(-64, -64) = 0.5F;
+  plane.at(63, 0) = 0.75F;
+  plane.at(64, 0) = 1.0F;
+  CHECK(*plane.find(-1, -1) == 0.25F);
+  CHECK(*plane.find(-64, -64) == 0.5F);
+  CHECK(*plane.find(63, 0) == 0.75F);
+  CHECK(*plane.find(64, 0) == 1.0F);
+  // Same tile as (-1, -1) but never touched: still absent.
+  CHECK(plane.find(-2, -1) == nullptr);
+  // Alternate tiles so every lookup misses the cached tile.
+  for (int i = 0; i < 1000; ++i) {
+    const int x = (i % 2 == 0) ? i : -i;
+    plane.at(x, i) = static_cast<float>(i % 7) / 7.0F;
+  }
+  for (int i = 0; i < 1000; ++i) {
+    const int x = (i % 2 == 0) ? i : -i;
+    const auto* value = plane.find(x, i);
+    CHECK(value != nullptr && *value == static_cast<float>(i % 7) / 7.0F);
+  }
+  plane.clear();
+  CHECK(plane.find(-1, -1) == nullptr);
+  CHECK(plane.find(64, 0) == nullptr);
+}
+
 std::vector<patchy::test::TestCase> brush_engine_stroke_tests_part1() {
   return {
       {"ui_cut_selection_clears_source_and_keeps_clipboard", ui_cut_selection_clears_source_and_keeps_clipboard},
       {"ui_cut_selection_cuts_layer_nested_in_folder", ui_cut_selection_cuts_layer_nested_in_folder},
       {"ui_brush_on_pasted_layer_expands_layer_bounds", ui_brush_on_pasted_layer_expands_layer_bounds},
       {"ui_brush_opacity_caps_per_stroke", ui_brush_opacity_caps_per_stroke},
+      {"ui_sparse_stroke_plane_keeps_map_semantics", ui_sparse_stroke_plane_keeps_map_semantics},
       {"ui_low_opacity_large_brush_whole_canvas_is_exact_fill_region",
        ui_low_opacity_large_brush_whole_canvas_is_exact_fill_region},
       {"ui_soft_brush_click_paints_single_dab", ui_soft_brush_click_paints_single_dab},

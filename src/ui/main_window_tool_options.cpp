@@ -11,6 +11,7 @@
 // internal text helpers there.
 // Pure function moves from main_window.cpp; behavior must stay identical.
 
+#include "ui/color_wheel_panel.hpp"
 #include "ui/main_window.hpp"
 #include "ui/main_window_shared.hpp"
 
@@ -792,7 +793,7 @@ void MainWindow::apply_brush_tip_to_canvas(CanvasWidget* canvas) {
     canvas->set_brush_shape(!active_preset_tip_ && active_brush_tip_id_ == builtin_square_brush_tip_id()
                                 ? patchy::BrushShape::Square
                                 : patchy::BrushShape::Round);
-    // The Round and Square brushes carry session-only dynamics (reset every launch); while
+    // The Round and Square brushes carry their own dynamics (persisted in settings); while
     // active they stamp through a synthesized disc or square tip inside CanvasWidget.
     canvas->set_brush_dynamics(round_brush_dynamics_);
     canvas->set_brush_base_shape(round_brush_base_angle_degrees_,
@@ -822,6 +823,7 @@ void MainWindow::apply_brush_tip_to_canvas(CanvasWidget* canvas) {
 
 void MainWindow::set_active_brush_tip(const QString& tip_id, bool announce,
                                       bool apply_tool_settings) {
+  notify_studio_shell();
   active_preset_tip_.reset();
   active_automation_preset_id_.clear();
   active_automation_brush_.reset();
@@ -901,7 +903,7 @@ void MainWindow::open_brush_tip_manager() {
     capture = [this] { return capture_brush_tip_define_source(); };
   }
   request_brush_tip_manager(this, brush_tip_library(), active_brush_tip_id_, capture,
-                            [this](const QString& id) { set_active_brush_tip(id, true); });
+                            [this](const QString& id) { set_active_brush_tip(id, true); }, &pattern_library());
 }
 
 QImage MainWindow::capture_brush_tip_define_source() const {
@@ -1605,6 +1607,7 @@ void MainWindow::default_colors() {
 }
 
 void MainWindow::refresh_color_buttons() {
+  notify_studio_shell();
   const auto primary_color = canvas_ != nullptr ? canvas_->primary_color() : QColor(Qt::black);
   const auto secondary_color = canvas_ != nullptr ? canvas_->secondary_color() : QColor(Qt::white);
   const auto named_tooltip = [this](const QString& text, QColor color) {
@@ -1627,6 +1630,13 @@ void MainWindow::refresh_color_buttons() {
   }
   refresh_text_color_button();
   refresh_gradient_controls_from_canvas();
+  // Every foreground change (eyedropper, swatches, swap, the wheel's own echo) funnels here.
+  if (color_wheel_panel_ != nullptr) {
+    color_wheel_panel_->set_foreground(primary_color);
+  }
+  if (color_wheel_hud_ != nullptr) {
+    color_wheel_hud_->panel()->set_foreground(primary_color);
+  }
 }
 
 void MainWindow::refresh_text_color_button() {
@@ -1708,6 +1718,7 @@ void MainWindow::refresh_gradient_controls_from_canvas() {
 }
 
 void MainWindow::activate_tool(CanvasTool tool) {
+  notify_studio_shell();
   if (tool_action_group_ == nullptr) {
     return;
   }
@@ -1717,6 +1728,37 @@ void MainWindow::activate_tool(CanvasTool tool) {
       return;
     }
   }
+}
+
+// Same JSON as a tip sidecar's shape and dynamics fields, so every dynamics field that
+// persists for bitmap tips (brush_dynamics_to_json) persists for Round and Square too.
+void MainWindow::load_round_brush_session() {
+  const auto document =
+      QJsonDocument::fromJson(app_settings().value(QStringLiteral("tools/roundBrushSession")).toByteArray());
+  if (!document.isObject()) {
+    return;
+  }
+  const auto object = document.object();
+  round_brush_dynamics_ = brush_dynamics_from_json(object.value(QStringLiteral("dynamics")).toObject());
+  round_brush_base_angle_degrees_ =
+      std::clamp(object.value(QStringLiteral("baseAngle")).toDouble(0.0), -180.0, 360.0);
+  round_brush_base_roundness_ =
+      std::clamp(object.value(QStringLiteral("baseRoundness")).toDouble(100.0), 1.0, 100.0);
+}
+
+void MainWindow::save_round_brush_session() const {
+  auto settings = app_settings();
+  if (brush_dynamics_is_default(round_brush_dynamics_) && round_brush_base_angle_degrees_ == 0.0 &&
+      round_brush_base_roundness_ == 100.0) {
+    settings.remove(QStringLiteral("tools/roundBrushSession"));
+    return;
+  }
+  QJsonObject object;
+  object.insert(QStringLiteral("baseAngle"), round_brush_base_angle_degrees_);
+  object.insert(QStringLiteral("baseRoundness"), round_brush_base_roundness_);
+  object.insert(QStringLiteral("dynamics"), brush_dynamics_to_json(round_brush_dynamics_));
+  settings.setValue(QStringLiteral("tools/roundBrushSession"),
+                    QString::fromUtf8(QJsonDocument(object).toJson(QJsonDocument::Compact)));
 }
 
 void MainWindow::load_tool_settings() {
@@ -1739,6 +1781,7 @@ void MainWindow::load_tool_settings() {
   stored_eraser_brush_settings_ = stored_paint_brush_settings_;
   stored_eraser_brush_settings_.size =
       settings.value(QStringLiteral("tools/eraserSize"), stored_paint_brush_settings_.size).toInt();
+  load_round_brush_session();
   set_active_brush_tip(builtin_round_brush_tip_id(), false);
   apply_active_brush_settings_to_canvas();
   current_mixer_wet_ =
@@ -2771,6 +2814,7 @@ void MainWindow::PreviewDialogEditLock::release() noexcept {
 }
 
 void MainWindow::sync_brush_controls_from_canvas() {
+  notify_studio_shell();
   if (canvas_ == nullptr) {
     return;
   }
@@ -2796,7 +2840,7 @@ void MainWindow::sync_brush_controls_from_canvas() {
     QSignalBlocker blocker(brush_flow);
     brush_flow->setValue(canvas_->brush_flow());
   }
-  if (auto* brush_airbrush = findChild<QCheckBox*>(QStringLiteral("brushAirbrushCheck"));
+  if (auto* brush_airbrush = findChild<QAbstractButton*>(QStringLiteral("brushAirbrushCheck"));
       brush_airbrush != nullptr) {
     QSignalBlocker blocker(brush_airbrush);
     brush_airbrush->setChecked(canvas_->brush_build_up());

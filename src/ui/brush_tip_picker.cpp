@@ -9,6 +9,7 @@
 #include <QCursor>
 #include <QFontMetrics>
 #include <QFrame>
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QListWidget>
 #include <QPainter>
@@ -227,6 +228,17 @@ void BrushTipPicker::show_popup() {
     popup_dismissed_ms_ = -1;
     return;
   }
+  open_popup(std::nullopt);
+}
+
+void BrushTipPicker::show_popup_at(QPoint global_position) {
+  if (popup_ != nullptr) {
+    popup_->close();
+  }
+  open_popup(global_position);
+}
+
+void BrushTipPicker::open_popup(std::optional<QPoint> global_position) {
   auto* popup = new ResizablePickerPopup(this, Qt::Popup);
   popup->setAttribute(Qt::WA_DeleteOnClose);
   popup->setObjectName(QStringLiteral("brushTipPickerPopup"));
@@ -332,7 +344,19 @@ void BrushTipPicker::show_popup() {
       popup->resize(popup->size() + (default_list_size - minimum_list_size));
     }
   }
-  position_popup_below(*this, *popup);
+  if (global_position.has_value()) {
+    auto position = *global_position;
+    if (const auto* screen = QGuiApplication::screenAt(position); screen != nullptr) {
+      const auto available = screen->availableGeometry();
+      position.setX(std::clamp(position.x(), available.left(),
+                               std::max(available.left(), available.right() - popup->width() + 1)));
+      position.setY(std::clamp(position.y(), available.top(),
+                               std::max(available.top(), available.bottom() - popup->height() + 1)));
+    }
+    popup->move(position);
+  } else {
+    position_popup_below(*this, *popup);
+  }
   popup->show();
 }
 

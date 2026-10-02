@@ -10,9 +10,11 @@
 
 #include "core/blend_math.hpp"
 #include "core/layer_metadata.hpp"
+#include "core/pen_pressure.hpp"
 #include "core/smart_object.hpp"
 #include "core/text_warp.hpp"
 #include "support/atomic_file_write.hpp"
+#include "ui/pressure_curve_preview.hpp"
 #include "core/warp_mesh.hpp"
 #include "core/layer_render_utils.hpp"
 #include "core/layer_tree.hpp"
@@ -277,6 +279,8 @@ QString pen_button_action_to_token(PenButtonAction action) {
       return QStringLiteral("increaseBrushSize");
     case PenButtonAction::DecreaseBrushSize:
       return QStringLiteral("decreaseBrushSize");
+    case PenButtonAction::ShowColorWheel:
+      return QStringLiteral("colorWheel");
   }
   return QStringLiteral("none");
 }
@@ -311,6 +315,9 @@ PenButtonAction pen_button_action_from_token(const QString& token) {
   }
   if (token == QStringLiteral("decreaseBrushSize")) {
     return PenButtonAction::DecreaseBrushSize;
+  }
+  if (token == QStringLiteral("colorWheel")) {
+    return PenButtonAction::ShowColorWheel;
   }
   return PenButtonAction::None;
 }
@@ -1061,7 +1068,7 @@ void MainWindow::show_preferences() {
       resolve_modifier_names(
           tr("Also applies to a pen button set to Scroll. Hold %CTRL% or Shift while scrolling to pan.")));
   const auto populate_pen_button_combo = [](QComboBox* combo, PenButtonAction current) {
-    const std::array<std::pair<PenButtonAction, QString>, 11> entries{{
+    const std::array<std::pair<PenButtonAction, QString>, 12> entries{{
         {PenButtonAction::None, tr("None")},
         {PenButtonAction::PanCanvas, tr("Pan canvas")},
         {PenButtonAction::ZoomCanvas, tr("Zoom canvas (drag)")},
@@ -1073,6 +1080,7 @@ void MainWindow::show_preferences() {
         {PenButtonAction::ToggleEraser, tr("Toggle eraser")},
         {PenButtonAction::IncreaseBrushSize, tr("Increase brush size")},
         {PenButtonAction::DecreaseBrushSize, tr("Decrease brush size")},
+        {PenButtonAction::ShowColorWheel, tr("Show color wheel")},
     }};
     for (const auto& [action, label] : entries) {
       combo->addItem(label, static_cast<int>(action));
@@ -1122,6 +1130,29 @@ void MainWindow::show_preferences() {
   pen_form->addRow(tr("Minimum size:"), pen_pressure_size_min_spin);
   pen_form->addRow(pen_pressure_opacity_check);
   pen_form->addRow(tr("Minimum opacity:"), pen_pressure_opacity_min_spin);
+  auto* pen_pressure_curve_spin = add_dialog_slider_spin_row(
+      pen_form, pen_group, tr("Pressure curve:"), QStringLiteral("preferencesPenPressureCurveSlider"),
+      QStringLiteral("preferencesPenPressureCurveSpin"), patchy::kPenPressureCurveMin, patchy::kPenPressureCurveMax,
+      pen_input_settings_.pressure_curve);
+  auto* pen_pressure_curve_row = pen_pressure_curve_spin->parentWidget();
+  pen_pressure_curve_row->setToolTip(
+      tr("How pen pressure maps to brush size, opacity and brush dynamics. Negative values feel firmer "
+         "(more pressure for the same result), positive values feel softer. 0 is linear."));
+  auto* pen_pressure_curve_preview = new PressureCurvePreview(pen_group);
+  pen_pressure_curve_preview->setObjectName(QStringLiteral("preferencesPenPressureCurvePreview"));
+  pen_pressure_curve_preview->set_curve(pen_input_settings_.pressure_curve);
+  pen_form->addRow(QString(), pen_pressure_curve_preview);
+  connect(pen_pressure_curve_spin, qOverload<int>(&QSpinBox::valueChanged), pen_pressure_curve_preview,
+          [pen_pressure_curve_preview](int value) { pen_pressure_curve_preview->set_curve(value); });
+  const auto refresh_pressure_curve_controls = [pen_enabled_check, pen_pressure_curve_row,
+                                                pen_pressure_curve_preview] {
+    const auto pen_enabled = pen_enabled_check->isChecked();
+    pen_pressure_curve_row->setEnabled(pen_enabled);
+    pen_pressure_curve_preview->setEnabled(pen_enabled);
+  };
+  connect(pen_enabled_check, &QCheckBox::toggled, &dialog,
+          [refresh_pressure_curve_controls](bool) { refresh_pressure_curve_controls(); });
+  refresh_pressure_curve_controls();
   auto* pen_pad_hint_label = new QLabel(
       tr("Set the pen buttons to Right Mouse Click and Middle Mouse Click in your tablet driver: while the "
          "pen is over the canvas, a right click triggers the Upper action and a middle click the Lower one. "
@@ -1602,6 +1633,7 @@ void MainWindow::show_preferences() {
     pen_input_settings_.pressure_size_min_percent = pen_pressure_size_min_spin->value();
     pen_input_settings_.pressure_opacity = pen_pressure_opacity_check->isChecked();
     pen_input_settings_.pressure_opacity_min_percent = pen_pressure_opacity_min_spin->value();
+    pen_input_settings_.pressure_curve = pen_pressure_curve_spin->value();
     pen_input_settings_.use_eraser_tip = pen_eraser_check->isChecked();
     pen_input_settings_.primary_button_action =
         static_cast<PenButtonAction>(pen_primary_button_combo->currentData().toInt());
@@ -1987,6 +2019,9 @@ void MainWindow::handle_pen_button_action(PenButtonAction action) {
       }
       break;
     }
+    case PenButtonAction::ShowColorWheel:
+      show_color_wheel_hud(QCursor::pos());
+      break;
     case PenButtonAction::SwapColors:
       if (canvas_ != nullptr) {
         const auto primary = canvas_->primary_color();
@@ -2031,6 +2066,9 @@ void MainWindow::load_pen_input_settings() {
   pen_input_settings_.tilt_shape = settings.value(QStringLiteral("input/pen/tiltShape"), false).toBool();
   pen_input_settings_.tilt_min_roundness_percent =
       std::clamp(settings.value(QStringLiteral("input/pen/tiltMinRoundnessPercent"), 35).toInt(), 1, 100);
+  pen_input_settings_.pressure_curve =
+      std::clamp(settings.value(QStringLiteral("input/pen/pressureCurve"), 0).toInt(), patchy::kPenPressureCurveMin,
+                 patchy::kPenPressureCurveMax);
   wheel_zooms_ = settings.value(QStringLiteral("input/wheelZooms"), kWheelZoomsDefault).toBool();
   shift_keeps_transform_aspect_ =
       settings.value(QStringLiteral("input/shiftKeepsTransformAspect"), false).toBool();
@@ -2057,6 +2095,7 @@ void MainWindow::save_pen_input_settings() const {
   settings.setValue(QStringLiteral("input/pen/tiltShape"), pen_input_settings_.tilt_shape);
   settings.setValue(QStringLiteral("input/pen/tiltMinRoundnessPercent"),
                     pen_input_settings_.tilt_min_roundness_percent);
+  settings.setValue(QStringLiteral("input/pen/pressureCurve"), pen_input_settings_.pressure_curve);
   settings.setValue(QStringLiteral("input/wheelZooms"), wheel_zooms_);
   settings.setValue(QStringLiteral("input/shiftKeepsTransformAspect"), shift_keeps_transform_aspect_);
   settings.setValue(QStringLiteral("view/showTransformValues"), show_transform_drag_values_);

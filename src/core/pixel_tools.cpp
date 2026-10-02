@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <utility>
 #include <vector>
@@ -458,11 +459,28 @@ struct TipDabTransform {
 // Patent boundary: this is one static grayscale function of document coordinates and saved
 // brush settings. It never receives pressure, direction, velocity, tilt, rotation, or a color
 // channel, and never assembles a runtime texture from weighted channels.
-[[nodiscard]] float static_brush_texture(const BrushDynamics& dynamics, std::int32_t x,
-                                         std::int32_t y) noexcept {
+[[nodiscard]] float static_brush_texture(const BrushDynamics& dynamics, const BrushTextureMask* mask,
+                                         std::int32_t x, std::int32_t y) noexcept {
   const auto scale = std::clamp(dynamics.texture_scale, 0.01, 10.0);
   float value = 1.0F;
-  switch (dynamics.texture_style) {
+  auto style = dynamics.texture_style;
+  if (style == BrushTextureStyle::Pattern) {
+    if (mask != nullptr && mask->width > 0 && mask->height > 0) {
+      // The user's pattern, tiled from the document origin at the texture scale.
+      const auto sample = [scale](std::int32_t coordinate, std::int32_t size) {
+        const auto scaled = static_cast<std::int64_t>(std::floor(static_cast<double>(coordinate) / scale));
+        const auto mod = scaled % size;
+        return static_cast<std::size_t>(mod < 0 ? mod + size : mod);
+      };
+      value = static_cast<float>(mask->values[sample(y, mask->height) * static_cast<std::size_t>(mask->width) +
+                                              sample(x, mask->width)]) /
+              255.0F;
+      return dynamics.texture_invert ? 1.0F - value : value;
+    }
+    style = BrushTextureStyle::FineGrain;  // the pattern is missing: keep a textured stroke
+  }
+  switch (style) {
+    case BrushTextureStyle::Pattern:
     case BrushTextureStyle::FineGrain: {
       const auto cell = std::max(1.0, 3.0 * scale);
       const auto gx = static_cast<std::int32_t>(std::floor(static_cast<double>(x) / cell));
@@ -494,38 +512,103 @@ struct TipDabTransform {
   return dynamics.texture_invert ? 1.0F - value : value;
 }
 
-[[nodiscard]] float dual_brush_coverage(const BrushDynamics& dynamics,
-                                        const TipDabTransform& transform, double offset_x,
-                                        double offset_y, int brush_size) noexcept {
-  const auto local_x = (transform.cos_angle * offset_x + transform.sin_angle * offset_y) *
-                       transform.inverse_scale * transform.flip_x_sign;
-  const auto local_y = (-transform.sin_angle * offset_x + transform.cos_angle * offset_y) *
-                       transform.inverse_roundness * transform.inverse_scale *
-                       transform.flip_y_sign;
-  const auto diameter = std::max(
-      1.0, static_cast<double>(std::max(1, brush_size)) *
-               std::clamp(dynamics.dual_brush_size, 0.05, 4.0));
-  const auto period = std::max(1.0, diameter * std::clamp(dynamics.dual_brush_spacing, 0.1, 10.0));
-  // A half-cell phase keeps the secondary mask visible even when its diameter exceeds the
-  // primary tip. The same fixed lattice is evaluated for every dab; there is no component
-  // hierarchy or input-driven switching.
-  const auto nearest = [period](double coordinate) {
-    const auto cell = std::floor(coordinate / period);
-    return (cell + 0.5) * period;
-  };
-  const auto dx = local_x - nearest(local_x);
-  const auto dy = local_y - nearest(local_y);
-  const auto radius = diameter * 0.5;
+// Dual Brush: secondary round dabs are laid along the stroke path in document space (their own
+// spacing, independent of the primary's) and the primary coverage is multiplied by their union.
+// One fixed computed mask from static settings; no component hierarchy or input-driven
+// switching (docs/legal-constraints.md).
+[[nodiscard]] double dual_brush_diameter(const BrushDynamics& dynamics, int brush_size) noexcept {
+  return std::max(1.0, static_cast<double>(std::max(1, brush_size)) * std::clamp(dynamics.dual_brush_size, 0.05, 4.0));
+}
+
+[[nodiscard]] double dual_brush_period(const BrushDynamics& dynamics, int brush_size) noexcept {
+  return std::max(1.0, dual_brush_diameter(dynamics, brush_size) * std::clamp(dynamics.dual_brush_spacing, 0.1, 10.0));
+}
+
+[[nodiscard]] std::uint64_t dual_trail_cell_key(std::int64_t cx, std::int64_t cy) noexcept {
+  return (static_cast<std::uint64_t>(static_cast<std::uint32_t>(cy)) << 32U) | static_cast<std::uint32_t>(cx);
+}
+
+void add_dual_trail_dab(DualBrushTrail& trail, double x, double y, double radius) {
+  if (trail.cell_size <= 0.0) {
+    trail.cell_size = std::max(4.0, radius * 2.0);
+  }
+  trail.max_radius = std::max(trail.max_radius, radius);
+  const auto cx = static_cast<std::int64_t>(std::floor(x / trail.cell_size));
+  const auto cy = static_cast<std::int64_t>(std::floor(y / trail.cell_size));
+  trail.cells[dual_trail_cell_key(cx, cy)].push_back(DualBrushTrail::Dab{x, y, radius});
+}
+
+// Walks the secondary spacing along one stroke segment, carrying the residual path distance
+// across segments like the primary tip walk.
+void advance_dual_trail(DualBrushTrail& trail, const BrushDynamics& dynamics, int brush_size, double x0,
+                        double y0, double x1, double y1) {
+  const auto radius = dual_brush_diameter(dynamics, brush_size) * 0.5;
+  const auto period = dual_brush_period(dynamics, brush_size);
+  if (!trail.started) {
+    trail.started = true;
+    add_dual_trail_dab(trail, x0, y0, radius);
+    trail.residual_distance = period;
+  }
+  const auto dx = x1 - x0;
+  const auto dy = y1 - y0;
   const auto distance = std::sqrt(dx * dx + dy * dy);
+  if (distance <= std::numeric_limits<double>::epsilon()) {
+    return;
+  }
+  auto position = trail.residual_distance;
+  while (position <= distance) {
+    const auto t = position / distance;
+    add_dual_trail_dab(trail, x0 + dx * t, y0 + dy * t, radius);
+    position += period;
+  }
+  trail.residual_distance = position - distance;
+}
+
+// Union coverage of the trail's secondary dabs over `rect`, row-major, max-combined.
+std::vector<float> rasterize_dual_trail(const DualBrushTrail& trail, const BrushDynamics& dynamics, Rect rect) {
+  std::vector<float> coverage(static_cast<std::size_t>(rect.width) * static_cast<std::size_t>(rect.height), 0.0F);
+  if (trail.cell_size <= 0.0 || rect.empty()) {
+    return coverage;
+  }
   const auto hardness = std::clamp(dynamics.dual_brush_hardness, 0.0, 1.0);
-  const auto inner = radius * hardness;
-  if (distance <= inner) {
-    return 1.0F;
+  const auto reach = trail.max_radius + 1.0;
+  const auto first_cx = static_cast<std::int64_t>(std::floor((rect.x - reach) / trail.cell_size));
+  const auto last_cx = static_cast<std::int64_t>(std::floor((rect.x + rect.width + reach) / trail.cell_size));
+  const auto first_cy = static_cast<std::int64_t>(std::floor((rect.y - reach) / trail.cell_size));
+  const auto last_cy = static_cast<std::int64_t>(std::floor((rect.y + rect.height + reach) / trail.cell_size));
+  for (auto cy = first_cy; cy <= last_cy; ++cy) {
+    for (auto cx = first_cx; cx <= last_cx; ++cx) {
+      const auto found = trail.cells.find(dual_trail_cell_key(cx, cy));
+      if (found == trail.cells.end()) {
+        continue;
+      }
+      for (const auto& dab : found->second) {
+        const auto inner = dab.radius * hardness;
+        const auto left = std::max(rect.x, static_cast<std::int32_t>(std::floor(dab.x - dab.radius)));
+        const auto right = std::min(rect.x + rect.width - 1, static_cast<std::int32_t>(std::ceil(dab.x + dab.radius)));
+        const auto top = std::max(rect.y, static_cast<std::int32_t>(std::floor(dab.y - dab.radius)));
+        const auto bottom =
+            std::min(rect.y + rect.height - 1, static_cast<std::int32_t>(std::ceil(dab.y + dab.radius)));
+        for (auto py = top; py <= bottom; ++py) {
+          auto* row = coverage.data() + static_cast<std::size_t>(py - rect.y) * static_cast<std::size_t>(rect.width);
+          for (auto px = left; px <= right; ++px) {
+            const auto ddx = static_cast<double>(px) - dab.x;
+            const auto ddy = static_cast<double>(py) - dab.y;
+            const auto distance = std::sqrt(ddx * ddx + ddy * ddy);
+            float value = 0.0F;
+            if (distance <= inner) {
+              value = 1.0F;
+            } else if (distance < dab.radius) {
+              value = static_cast<float>(1.0 - (distance - inner) / std::max(0.001, dab.radius - inner));
+            }
+            auto& slot = row[px - rect.x];
+            slot = std::max(slot, value);
+          }
+        }
+      }
+    }
   }
-  if (distance >= radius) {
-    return 0.0F;
-  }
-  return static_cast<float>(1.0 - (distance - inner) / std::max(0.001, radius - inner));
+  return coverage;
 }
 
 [[nodiscard]] EditColor color_dynamics_color(const EditOptions& options,
@@ -1080,13 +1163,16 @@ void fill_resized_layer_background(PixelBuffer& pixels, const Layer& layer,
     return;
   }
 
+  const auto channels = pixels.format().channels;
+  auto* data = pixels.data().data();
+  const auto stride = pixels.stride_bytes();
   for (std::int32_t y = 0; y < pixels.height(); ++y) {
-    for (std::int32_t x = 0; x < pixels.width(); ++x) {
-      auto* px = pixels.pixel(x, y);
+    auto* px = data + static_cast<std::size_t>(y) * stride;
+    for (std::int32_t x = 0; x < pixels.width(); ++x, px += channels) {
       px[0] = extension_color.r;
       px[1] = extension_color.g;
       px[2] = extension_color.b;
-      if (pixels.format().channels >= 4) {
+      if (channels >= 4) {
         px[3] = extension_color.a;
       }
     }
@@ -1230,7 +1316,9 @@ void expand_layer_to_include_rect(Layer& layer, Rect document_rect) {
     return;
   }
 
-  auto& source = layer.pixels();
+  // Const access: the buffer is replaced below, so a mutable accessor would only
+  // detach (copy) a still-shared buffer, such as the brush stroke's start snapshot.
+  const auto& source = std::as_const(layer).pixels();
   if (source.empty()) {
     PixelBuffer expanded(document_rect.width, document_rect.height, PixelFormat::rgba8());
     expanded.clear(0);
@@ -1250,9 +1338,26 @@ void expand_layer_to_include_rect(Layer& layer, Rect document_rect) {
   PixelBuffer expanded(new_bounds.width, new_bounds.height, destination_format);
   fill_resized_layer_background(expanded, layer);
 
-  for (std::int32_t y = 0; y < source.height(); ++y) {
-    for (std::int32_t x = 0; x < source.width(); ++x) {
-      copy_resized_layer_pixel(source, expanded, x, y, old_bounds.x - new_bounds.x + x, old_bounds.y - new_bounds.y + y);
+  const auto offset_x = old_bounds.x - new_bounds.x;
+  const auto offset_y = old_bounds.y - new_bounds.y;
+  if (source.format() == expanded.format()) {
+    // Same layout: copy_resized_layer_pixel reduces to a byte copy, so move whole
+    // rows. A stroke leaving the layer expands it once per segment; the per-pixel
+    // copy made those frames take hundreds of milliseconds on large layers.
+    const auto source_stride = source.stride_bytes();
+    const auto destination_stride = expanded.stride_bytes();
+    const auto offset_bytes = static_cast<std::size_t>(offset_x) * bytes_per_pixel(expanded.format());
+    const auto* source_data = source.data().data();
+    auto* destination_data = expanded.data().data();
+    for (std::int32_t y = 0; y < source.height(); ++y) {
+      std::memcpy(destination_data + static_cast<std::size_t>(offset_y + y) * destination_stride + offset_bytes,
+                  source_data + static_cast<std::size_t>(y) * source_stride, source_stride);
+    }
+  } else {
+    for (std::int32_t y = 0; y < source.height(); ++y) {
+      for (std::int32_t x = 0; x < source.width(); ++x) {
+        copy_resized_layer_pixel(source, expanded, x, y, offset_x + x, offset_y + y);
+      }
     }
   }
 
@@ -1262,7 +1367,7 @@ void expand_layer_to_include_rect(Layer& layer, Rect document_rect) {
 
 Rect paint_tip_dab(Document& document, LayerId layer_id, double x, double y, const EditOptions& options,
                    bool erase, const TipDabTransform& transform, float opacity_multiplier,
-                   const BrushDabVariation* variation = nullptr) {
+                   const BrushDabVariation* variation = nullptr, const DualBrushTrail* dual_trail = nullptr) {
   auto* layer = editable_layer(document, layer_id);
   if (layer == nullptr || options.brush_tip == nullptr || options.brush_tip->empty()) {
     return {};
@@ -1290,6 +1395,17 @@ Rect paint_tip_dab(Document& document, LayerId layer_id, double x, double y, con
   if (!erase && options.dab_primary_provider) {
     dab_options.primary = options.dab_primary_provider(x, y, dab_options.primary);
   }
+  std::vector<float> dual_coverage;
+  if (options.brush_dynamics.dual_brush_enabled) {
+    if (dual_trail != nullptr) {
+      dual_coverage = rasterize_dual_trail(*dual_trail, options.brush_dynamics, dab_rect);
+    } else {
+      // A lone dab (no stroke state): the secondary trail is the one dab at its center.
+      DualBrushTrail lone;
+      advance_dual_trail(lone, options.brush_dynamics, options.brush_size, x, y, x, y);
+      dual_coverage = rasterize_dual_trail(lone, options.brush_dynamics, dab_rect);
+    }
+  }
   Rect dirty;
 
   for (std::int32_t py = dab_rect.y; py < dab_rect.y + dab_rect.height; ++py) {
@@ -1306,12 +1422,12 @@ Rect paint_tip_dab(Document& document, LayerId layer_id, double x, double y, con
       if (coverage <= 0.0F) {
         continue;
       }
-      if (options.brush_dynamics.dual_brush_enabled) {
-        coverage *= dual_brush_coverage(options.brush_dynamics, transform, offset_x, offset_y,
-                                        options.brush_size);
+      if (!dual_coverage.empty()) {
+        coverage *= dual_coverage[static_cast<std::size_t>(py - dab_rect.y) * static_cast<std::size_t>(dab_rect.width) +
+                                  static_cast<std::size_t>(px_doc - dab_rect.x)];
       }
       if (options.brush_dynamics.texture_enabled && options.brush_dynamics.texture_depth > 0.0) {
-        const auto grain = static_brush_texture(options.brush_dynamics, px_doc, py);
+        const auto grain = static_brush_texture(options.brush_dynamics, options.brush_texture_mask, px_doc, py);
         const auto depth = static_cast<float>(
             std::clamp(options.brush_dynamics.texture_depth, 0.0, 1.0));
         coverage *= 1.0F - depth * (1.0F - grain);
@@ -1446,24 +1562,32 @@ Rect paint_stationary_airbrush_dab(Document& document, LayerId layer_id, double 
   const auto variation =
       sample_dab_variation(stationary_dynamics, state.rng, state.dynamics, options.brush_size);
   const auto transform = tip_dab_transform(options, variation);
+  if (options.brush_dynamics.dual_brush_enabled) {
+    advance_dual_trail(state.dual_trail, options.brush_dynamics, options.brush_size, x, y, x, y);
+  }
   const auto dirty = paint_tip_dab(
       document, layer_id, x, y, options, false, transform,
-      static_cast<float>(variation.opacity_multiplier * variation.flow_multiplier), &variation);
+      static_cast<float>(variation.opacity_multiplier * variation.flow_multiplier), &variation,
+      &state.dual_trail);
   ++state.dynamics.step_index;
   return dirty;
 }
 
-// Places tip dabs along [x0,y0]→[x1,y1] every brush_size * brush_tip_spacing pixels, resuming
-// from state.residual_distance so chained segments keep a uniform dab cadence. With active
-// brush dynamics each spacing step stamps `count` independently varied dabs (scatter offsets,
-// per-dab transform, opacity/flow jitter); the RNG is seeded from options.brush_dynamics.seed on the
-// stroke's first dab and its draw order is the contract documented in brush_dynamics.hpp.
-// Scatter and count never perturb the spacing walk or residual_distance.
+// Places tip dabs along [x0,y0]→[x1,y1], resuming from state.residual_distance so chained
+// segments keep a uniform dab cadence. The step after a dab is brush_size * brush_tip_spacing
+// scaled by that dab's own size (Photoshop spacing is a percentage of the dab's diameter): with
+// pressure- or jitter-shrunk dabs a fixed base-size step left light strokes as separate dots.
+// A step with several dabs (Count) advances by its largest. With no per-dab size variation the
+// scale is exactly 1 and the walk is the historical one. With active brush dynamics each spacing
+// step stamps `count` independently varied dabs (scatter offsets, per-dab transform, opacity/flow
+// jitter); the RNG is seeded from options.brush_dynamics.seed on the stroke's first dab and its
+// draw order is the contract documented in brush_dynamics.hpp. Scatter and count never perturb
+// the spacing walk.
 Rect paint_tip_segment(Document& document, LayerId layer_id, double x0, double y0, double x1, double y1,
                        const EditOptions& options, bool erase, BrushTipStrokeState& state) {
-  const auto spacing =
-      std::max(1.0, static_cast<double>(std::max(1, options.brush_size)) *
-                        std::clamp(options.brush_tip_spacing, 0.01, 10.0));
+  const auto base_spacing = static_cast<double>(std::max(1, options.brush_size)) *
+                            std::clamp(options.brush_tip_spacing, 0.01, 10.0);
+  const auto spacing_for_scale = [base_spacing](double scale) { return std::max(1.0, base_spacing * scale); };
   const auto& dynamics = options.brush_dynamics;
   const auto dynamic = dynamics.active();
 
@@ -1473,25 +1597,37 @@ Rect paint_tip_segment(Document& document, LayerId layer_id, double x0, double y
   const auto moved = distance > std::numeric_limits<double>::epsilon();
 
   Rect dirty;
+  // Stamps one spacing step and returns the distance to the next one.
   const auto stamp_step = [&](double x, double y) {
+    auto step_scale = 1.0;
     if (!dynamic) {
       dirty = unite_rect(
           dirty, paint_tip_dab(document, layer_id, x, y, options, erase, tip_dab_transform(options), 1.0F));
     } else {
       const auto dab_count = sample_dab_count(dynamics, state.rng, state.dynamics);
+      step_scale = 0.0;
       for (auto i = 0; i < dab_count; ++i) {
         const auto variation = sample_dab_variation(dynamics, state.rng, state.dynamics, options.brush_size);
+        step_scale = std::max(step_scale, variation.scale);
         const auto transform = tip_dab_transform(options, variation);
         dirty = unite_rect(dirty, paint_tip_dab(document, layer_id, x + variation.offset_x,
                                                 y + variation.offset_y, options, erase, transform,
                                                 static_cast<float>(variation.opacity_multiplier *
                                                                    variation.flow_multiplier),
-                                                &variation));
+                                                &variation, &state.dual_trail));
+      }
+      if (step_scale <= 0.0) {
+        step_scale = 1.0;
       }
     }
     ++state.dynamics.step_index;
+    return spacing_for_scale(step_scale);
   };
 
+  if (dynamic && dynamics.dual_brush_enabled) {
+    // The secondary marks exist along the whole segment before its primary dabs intersect them.
+    advance_dual_trail(state.dual_trail, dynamics, options.brush_size, x0, y0, x1, y1);
+  }
   if (!state.initialized) {
     state.initialized = true;
     if (dynamic) {
@@ -1500,8 +1636,8 @@ Rect paint_tip_segment(Document& document, LayerId layer_id, double x0, double y
     if (moved) {
       advance_stroke_direction(state.dynamics, dx, dy);
     }
-    stamp_step(x0, y0);
-    state.residual_distance = spacing;
+    state.residual_distance = stamp_step(x0, y0);
+    state.residual_base_spacing = base_spacing;
   } else if (moved) {
     advance_stroke_direction(state.dynamics, dx, dy);
   }
@@ -1510,14 +1646,21 @@ Rect paint_tip_segment(Document& document, LayerId layer_id, double x0, double y
     return dirty;
   }
 
+  if (state.residual_base_spacing > 0.0 && state.residual_base_spacing != base_spacing) {
+    // The base size changed since the residual was measured (pen pressure): keep the same
+    // fraction of a step rather than an absolute distance from the old size.
+    state.residual_distance *= base_spacing / state.residual_base_spacing;
+  }
+  state.residual_base_spacing = base_spacing;
+
   auto position = state.residual_distance;
   unsigned progress_steps = 0;
   while (position <= distance) {
     const auto t = position / distance;
-    stamp_step(x0 + dx * t, y0 + dy * t);
-    position += spacing;
+    const auto next_step = stamp_step(x0 + dx * t, y0 + dy * t);
+    position += next_step;
     if (options.stroke_progress && ++progress_steps % 64 == 0 && options.stroke_progress(dirty)) {
-      state.residual_distance = spacing;
+      state.residual_distance = next_step;
       return dirty;
     }
   }

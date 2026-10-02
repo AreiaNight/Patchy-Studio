@@ -6,6 +6,7 @@
 // collapsible dock title helper.
 // Pure function moves from main_window.cpp; behavior must stay identical.
 
+#include "ui/color_wheel_panel.hpp"
 #include "ui/main_window.hpp"
 #include "ui/main_window_shared.hpp"
 #include "ui/modifier_names.hpp"
@@ -33,6 +34,7 @@
 #include "psd/psd_filter_effects.hpp"
 #include "psd/psd_smart_objects.hpp"
 #include "ui/action_icons.hpp"
+#include "ui/icon_theme.hpp"
 #include "ui/app_settings.hpp"
 #include "render/compositor.hpp"
 #include "ui/blend_mode_ui.hpp"
@@ -264,16 +266,17 @@ constexpr int kHistoryDockExpandedMinimumHeight = 90;
 constexpr int kHistoryDockPreferredHeight = 190;
 constexpr int kPropertiesDockMaximumHeight = 230;
 constexpr int kPaletteDockPreferredHeight = 320;
+constexpr int kColorWheelDockPreferredHeight = 300;
 
 // The docks that share one width as the right panel stack. Every dock in the
 // column must be listed: one left out keeps its own minimum width and renders
 // as a shorter strip whenever the pinned or measured width exceeds it.
-const std::array<QString, 7>& right_dock_stack_names() {
-  static const std::array<QString, 7> names{
+const std::array<QString, 8>& right_dock_stack_names() {
+  static const std::array<QString, 8> names{
       QStringLiteral("layersDock"),     QStringLiteral("channelsDock"),
       QStringLiteral("pathsDock"),      QStringLiteral("historyDock"),
       QStringLiteral("propertiesDock"), QStringLiteral("infoDock"),
-      QStringLiteral("paletteDock")};
+      QStringLiteral("paletteDock"),    QStringLiteral("colorWheelDock")};
   return names;
 }
 
@@ -336,6 +339,39 @@ Qt::CursorShape group_window_resize_cursor(Qt::Edges edges) {
   return Qt::SizeVerCursor;
 }
 
+// A panel's glyph in its title bar: icons/panel-<object prefix in kebab case>.svg.
+// It paints the themed QIcon on every repaint, so a scheme change recolors it,
+// and lets the mouse through so title-bar presses and drags behave as before.
+class DockTitleIcon final : public QWidget {
+public:
+  DockTitleIcon(QIcon icon, QWidget* parent) : QWidget(parent), icon_(std::move(icon)) {
+    setFixedSize(16, 16);
+    setAttribute(Qt::WA_TransparentForMouseEvents);
+  }
+
+protected:
+  void paintEvent(QPaintEvent*) override {
+    QPainter painter(this);
+    icon_.paint(&painter, rect());
+  }
+
+private:
+  QIcon icon_;
+};
+
+QString dock_panel_icon_name(const QString& object_prefix) {
+  QString name = QStringLiteral("panel-");
+  for (const auto ch : object_prefix) {
+    if (ch.isUpper()) {
+      name += QLatin1Char('-');
+      name += ch.toLower();
+    } else {
+      name += ch;
+    }
+  }
+  return name;
+}
+
 void install_collapsible_dock_title(QDockWidget* dock,
                                     QWidget* content,
                                     const QString& object_prefix,
@@ -369,6 +405,13 @@ void install_collapsible_dock_title(QDockWidget* dock,
                                                    : QT_TRANSLATE_NOOP("QObject", "Expand panel"), "QObject");
   apply_bound_translation(toggle);
   layout->addWidget(toggle);
+
+  // The window icon also labels the dock's tab when panels are tabified.
+  const auto panel_icon = themed_svg_icon(dock_panel_icon_name(object_prefix));
+  dock->setWindowIcon(panel_icon);
+  auto* icon = new DockTitleIcon(panel_icon, title);
+  icon->setObjectName(object_prefix + QStringLiteral("DockTitleIcon"));
+  layout->addWidget(icon);
 
   auto* label = new QLabel(dock->windowTitle(), title);
   label->setObjectName(object_prefix + QStringLiteral("DockTitleLabel"));
@@ -478,6 +521,46 @@ void MainWindow::install_right_dock_width_handle(QDockWidget* dock) {
     });
   });
   update_right_dock_resize_handle_geometry(dock);
+  // Each of these can make Qt rebuild a dock tab bar, which drops the icons.
+  connect(dock, &QDockWidget::topLevelChanged, this, [this] { schedule_dock_tab_icon_refresh(); });
+  connect(dock, &QDockWidget::dockLocationChanged, this, [this] { schedule_dock_tab_icon_refresh(); });
+  connect(dock, &QDockWidget::visibilityChanged, this, [this] { schedule_dock_tab_icon_refresh(); });
+  schedule_dock_tab_icon_refresh();
+}
+
+void MainWindow::schedule_dock_tab_icon_refresh() {
+  // Coalesced and deferred one hop: Qt updates its tab bars while it applies
+  // the dock layout, after the signals above are emitted.
+  if (dock_tab_icon_refresh_pending_) {
+    return;
+  }
+  dock_tab_icon_refresh_pending_ = true;
+  QTimer::singleShot(0, this, [this] {
+    dock_tab_icon_refresh_pending_ = false;
+    refresh_dock_tab_icons();
+  });
+}
+
+void MainWindow::refresh_dock_tab_icons() {
+  // QMainWindow tags each dock tab with the dock's address as tab data; the
+  // tab bars live under the main window or under a floating group window.
+  const auto docks = findChildren<QDockWidget*>();
+  for (auto* tab_bar : findChildren<QTabBar*>()) {
+    for (int index = 0; index < tab_bar->count(); ++index) {
+      const auto id = tab_bar->tabData(index).value<quintptr>();
+      if (id == 0) {
+        continue;
+      }
+      for (auto* dock : docks) {
+        if (reinterpret_cast<quintptr>(dock) == id) {
+          if (tab_bar->tabIcon(index).cacheKey() != dock->windowIcon().cacheKey()) {
+            tab_bar->setTabIcon(index, dock->windowIcon());
+          }
+          break;
+        }
+      }
+    }
+  }
 }
 
 void MainWindow::update_right_dock_resize_handle_geometry(QWidget* host) {
@@ -1829,6 +1912,7 @@ void MainWindow::create_docks() {
   update_right_dock_resize_handle_geometry(info_dock);
 
   create_palette_dock();
+  create_color_wheel_dock();
   update_right_dock_minimum_width();
   // Re-measure once the first event-loop pass has shown and styled the docks:
   // only then can the real dock chrome and title heights be read.
@@ -1941,6 +2025,111 @@ void MainWindow::create_palette_dock() {
   install_right_dock_width_handle(palette_dock_);
   addDockWidget(Qt::RightDockWidgetArea, palette_dock_);
   update_right_dock_resize_handle_geometry(palette_dock_);
+}
+
+void MainWindow::create_color_wheel_dock() {
+  color_wheel_dock_ = new QDockWidget(tr("Color Wheel"), this);
+  color_wheel_dock_->setObjectName(QStringLiteral("colorWheelDock"));
+  bind_widget_text(color_wheel_dock_, QT_TRANSLATE_NOOP("patchy::ui::MainWindow", "Color Wheel"));
+  color_wheel_panel_ = new ColorWheelPanel(false, color_wheel_dock_);
+  color_wheel_hud_ = new ColorWheelHud(this);
+  connect(color_wheel_panel_, &ColorWheelPanel::color_picked, this,
+          [this](QColor color, bool finished) { apply_color_wheel_color(color, finished); });
+  connect(color_wheel_hud_->panel(), &ColorWheelPanel::color_picked, this,
+          [this](QColor color, bool finished) { apply_color_wheel_color(color, finished); });
+  // The panel and the HUD share shape, model and Tone Lock.
+  connect(color_wheel_panel_, &ColorWheelPanel::settings_changed, this,
+          [this] { color_wheel_hud_->panel()->apply_settings(color_wheel_panel_->settings()); });
+  connect(color_wheel_hud_->panel(), &ColorWheelPanel::settings_changed, this,
+          [this] { color_wheel_panel_->apply_settings(color_wheel_hud_->panel()->settings()); });
+  connect(color_wheel_panel_, &ColorWheelPanel::saved_colors_changed, this,
+          [this] { color_wheel_hud_->panel()->reload_saved_colors(); });
+  connect(color_wheel_hud_->panel(), &ColorWheelPanel::saved_colors_changed, this,
+          [this] { color_wheel_panel_->reload_saved_colors(); });
+  if (canvas_ != nullptr) {
+    color_wheel_panel_->set_foreground(canvas_->primary_color());
+    color_wheel_hud_->panel()->set_foreground(canvas_->primary_color());
+  }
+  color_wheel_panel_->setContentsMargins(kRightDockResizeHandleWidth, 0, 0, 0);
+  color_wheel_dock_->setWidget(color_wheel_panel_);
+  // A panel left open and expanded comes back that way on the next run (colorWheel/panelVisible,
+  // colorWheel/panelExpanded); a fresh profile keeps it closed for the column's height budget.
+  auto settings = app_settings();
+  const auto visible = settings.value(QStringLiteral("colorWheel/panelVisible"), false).toBool();
+  const auto expanded = visible && settings.value(QStringLiteral("colorWheel/panelExpanded"), true).toBool();
+  install_collapsible_dock_title(color_wheel_dock_, color_wheel_panel_, QStringLiteral("colorWheel"), 0,
+                                 QWIDGETSIZE_MAX, expanded, kColorWheelDockPreferredHeight,
+                                 [this](bool expanded) {
+                                   handle_right_dock_panel_toggled(color_wheel_dock_, expanded, 0);
+                                 });
+  if (expanded) {
+    // Construction skips the release in handle_right_dock_panel_toggled: drop the expand demand
+    // here so it never pins the window's minimum height.
+    color_wheel_dock_->setMinimumHeight(0);
+  }
+  if (auto* toggle = color_wheel_dock_->findChild<QToolButton*>(QStringLiteral("colorWheelDockCollapseButton"));
+      toggle != nullptr) {
+    connect(toggle, &QToolButton::toggled, this, [this](bool checked) {
+      if (color_wheel_dock_->isVisible() && !color_wheel_dock_->isFloating()) {
+        app_settings().setValue(QStringLiteral("colorWheel/panelExpanded"), checked);
+      }
+    });
+  }
+  install_right_dock_width_handle(color_wheel_dock_);
+  addDockWidget(Qt::RightDockWidgetArea, color_wheel_dock_);
+  update_right_dock_resize_handle_geometry(color_wheel_dock_);
+  // The menu item mirrors the dock's real visibility (the menu is built before the docks).
+  if (auto* action = findChild<QAction*>(QStringLiteral("windowColorWheelAction")); action != nullptr) {
+    connect(color_wheel_dock_->toggleViewAction(), &QAction::toggled, action, [action](bool visible) {
+      const QSignalBlocker blocker(action);
+      action->setChecked(visible);
+    });
+  }
+  color_wheel_dock_->setVisible(visible);
+  if (auto* action = findChild<QAction*>(QStringLiteral("windowColorWheelAction")); action != nullptr) {
+    const QSignalBlocker blocker(action);
+    action->setChecked(visible);
+  }
+}
+
+void MainWindow::set_color_wheel_panel_visible(bool visible) {
+  if (color_wheel_dock_ == nullptr) {
+    return;
+  }
+  app_settings().setValue(QStringLiteral("colorWheel/panelVisible"), visible);
+  color_wheel_dock_->setVisible(visible);
+  if (!visible) {
+    return;
+  }
+  color_wheel_dock_->raise();
+  // Opening the panel means using it: expand it rather than showing a bare title strip.
+  if (auto* expand = color_wheel_dock_->findChild<QToolButton*>(QStringLiteral("colorWheelDockCollapseButton"));
+      expand != nullptr && !expand->isChecked()) {
+    expand->setChecked(true);
+  }
+}
+
+void MainWindow::apply_color_wheel_color(QColor color, bool finished) {
+  if (canvas_ == nullptr || !color.isValid()) {
+    return;
+  }
+  canvas_->set_primary_color(color);
+  apply_primary_color_to_active_text_editor(color);
+  apply_color_to_open_color_picker(color);
+  refresh_color_buttons();
+  if (finished) {
+    statusBar()->showMessage(tr("Foreground: %1").arg(color.name(QColor::HexRgb).toUpper()));
+  }
+}
+
+void MainWindow::show_color_wheel_hud(QPoint global_position) {
+  if (color_wheel_hud_ == nullptr) {
+    return;
+  }
+  if (canvas_ != nullptr) {
+    color_wheel_hud_->panel()->set_foreground(canvas_->primary_color());
+  }
+  color_wheel_hud_->show_at(global_position);
 }
 
 }  // namespace patchy::ui

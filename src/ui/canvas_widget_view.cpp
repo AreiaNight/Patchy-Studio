@@ -335,6 +335,14 @@ void CanvasWidget::notify_view_changed() {
   }
 }
 
+void CanvasWidget::set_scroll_bars_hidden(bool hidden) {
+  if (scroll_bars_hidden_ == hidden) {
+    return;
+  }
+  scroll_bars_hidden_ = hidden;
+  sync_scroll_bars();
+}
+
 void CanvasWidget::sync_scroll_bars() {
   if (horizontal_scroll_bar_ == nullptr || vertical_scroll_bar_ == nullptr) {
     return;
@@ -350,8 +358,8 @@ void CanvasWidget::sync_scroll_bars() {
   vertical_scroll_bar_->setGeometry(width() - bar_thickness_v, 0, bar_thickness_v,
                                     std::max(0, height() - bar_thickness_h));
 
-  const bool bars_visible = document_ != nullptr && document_->width() > 0 && document_->height() > 0 &&
-                            width() > 0 && height() > 0;
+  const bool bars_visible = !scroll_bars_hidden_ && document_ != nullptr && document_->width() > 0 &&
+                            document_->height() > 0 && width() > 0 && height() > 0;
   horizontal_scroll_bar_->setVisible(bars_visible);
   vertical_scroll_bar_->setVisible(bars_visible);
   if (bars_visible) {

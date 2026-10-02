@@ -65,3 +65,11 @@ Writes follow the clone conventions: selection coverage from the drag mask, tran
 ## Palette placement
 
 The Healing flyout (`healingToolButton`) holds Healing Brush (J, the default action), Spot Healing, and Patch; Shift+J cycles through them (the flyout cycle rule in [tools.md](tools.md)). Hotkey ids `tools.healing`, `tools.spot_healing`, `tools.patch` are persisted contracts. Icon silhouettes stay distinct at palette size: bandage (Healing), circle with burst ticks (Spot Healing), rotated stitched square (Patch).
+
+## Local adjustment brushes
+
+Dodge, Burn, Sponge, Blur, and Sharpen share one stroke-start snapshot engine in `canvas_widget_brush.cpp`. They use the procedural Size/Soft footprint plus a separate Strength cap. Dodge and Burn offer Shadows/Midtones/Highlights and Protect Tones; Sponge offers Saturate/Desaturate and Vibrance. Settings are application-wide and persist under stable `tools/local*` and `tools/sponge*` keys. The Detail flyout holds Smudge/Blur/Sharpen; the Toning flyout holds Dodge/Burn/Sponge.
+
+The algorithms are fixed and user-directed. Blur is one alpha-aware 3x3 Gaussian convolution; Sharpen subtracts that fixed blur once from the center sample; Dodge and Burn apply a fixed luminance-range weight through channel screen/multiply or a tone-protecting equal channel offset; Sponge scales chroma around fixed Rec. 709 luma, optionally reducing the effect for already-saturated colors. Nothing ranks pixels, detects edges or regions, samples stroke-start color statistics, searches patches, deconvolves, or changes the footprint based on image content. Keep the patent-boundary comment at the implementation site in sync with `docs/patent-research.md`.
+
+These tools preserve the active layer's alpha and never expand its bounds; selections and palette-mode snapping apply before the write. Results are ordinary destructive RGBA layer pixels; layered PSD/PSB round-trips are exact. `ui_local_adjustment_brushes_use_fixed_math_and_round_trip_psd` pins the five algorithms and every output byte after a PSD read/write cycle.

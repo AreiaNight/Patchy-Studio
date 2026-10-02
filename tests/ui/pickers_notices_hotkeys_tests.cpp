@@ -1251,7 +1251,7 @@ void ui_photoshop_shortcuts_are_registered() {
   auto* brush_opacity = window.findChild<QSpinBox*>(QStringLiteral("brushOpacitySpin"));
   auto* brush_opacity_slider = window.findChild<QSlider*>(QStringLiteral("brushOpacitySlider"));
   auto* brush_flow = window.findChild<QSpinBox*>(QStringLiteral("brushFlowSpin"));
-  auto* brush_airbrush = window.findChild<QCheckBox*>(QStringLiteral("brushAirbrushCheck"));
+  auto* brush_airbrush = window.findChild<QAbstractButton*>(QStringLiteral("brushAirbrushCheck"));
   auto* brush_softness = window.findChild<QSpinBox*>(QStringLiteral("brushSoftnessSpin"));
   auto* brush_softness_slider = window.findChild<QSlider*>(QStringLiteral("brushSoftnessSlider"));
   auto* brush_preset = window.findChild<QComboBox*>(QStringLiteral("brushPresetCombo"));

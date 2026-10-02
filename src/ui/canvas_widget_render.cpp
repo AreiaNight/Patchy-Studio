@@ -10,6 +10,7 @@
 #include "ui/canvas_widget.hpp"
 #include "ui/background_workers.hpp"
 #include "ui/canvas_widget_shared.hpp"
+#include "ui/display_mips.hpp"
 #ifdef Q_OS_WASM
 #include "ui/dialog_utils_wasm.hpp"
 #endif
@@ -150,14 +151,7 @@ int mip_dimension(int size, int level) noexcept {
 }
 
 QImage downscaled_to_mip_level(QImage image, int level) {
-  for (int i = 0; i < level && !image.isNull(); ++i) {
-    const QSize next_size(std::max(1, (image.width() + 1) / 2), std::max(1, (image.height() + 1) / 2));
-    if (next_size == image.size()) {
-      break;
-    }
-    image = image.scaled(next_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation).convertToFormat(image.format());
-  }
-  return image;
+  return display_image_at_mip_level(std::move(image), level);
 }
 
 double pixel_aligned_coordinate(double coordinate, double zoom) noexcept {
@@ -688,7 +682,18 @@ void CanvasWidget::document_changed_impl(QRegion document_region, bool includes_
   // same way (deferred to the release when a drag is in flight).
   clear_preview_scaled_document();
   invalidate_retained_move_caches();
-  cancel_async_render_cache_refresh();
+  // A current full refresh already covers everything outside this region: keep
+  // it and patch the region after it lands (see the follow-up branch below).
+  const bool followup_candidate = async_render_cache_in_flight_ && !async_render_cache_pending_ &&
+                                  async_render_cache_in_flight_generation_ == async_render_cache_generation_ &&
+                                  render_cache_dirty_ && !render_cache_.isNull() && document_ != nullptr &&
+                                  render_cache_.size() == QSize(document_->width(), document_->height()) &&
+                                  !document_region.isEmpty() && isVisible();
+  if (followup_candidate) {
+    invalidate_vector_preview();
+  } else {
+    cancel_async_render_cache_refresh();
+  }
   refresh_free_transform_preview_caches();
   if (mask_display_mode_ != MaskDisplayMode::None) {
     const bool component_preview = layer_edit_target_ == LayerEditTarget::ComponentRed ||
@@ -717,6 +722,27 @@ void CanvasWidget::document_changed_impl(QRegion document_region, bool includes_
   }
   if (document_region.isEmpty()) {
     mark_full_dirty();
+    return;
+  }
+
+  if (followup_candidate) {
+    const auto style_padding = includes_effect_bounds ? 0 : document_effect_padding(*document_);
+    if (style_padding > 0) {
+      document_region = outset_region(document_region, style_padding);
+    }
+    auto followup = async_render_cache_followup_region_.united(
+        document_region.intersected(QRect(0, 0, document_->width(), document_->height())));
+    const auto canvas_area =
+        static_cast<std::int64_t>(document_->width()) * static_cast<std::int64_t>(document_->height());
+    if (region_area(followup) * 2 > canvas_area || followup.rectCount() > kMaxDirtyRegionRects) {
+      // Too much to patch afterwards: restart the refresh from a fresh snapshot.
+      cancel_async_render_cache_refresh();
+      mark_full_dirty();
+      return;
+    }
+    async_render_cache_followup_region_ = std::move(followup);
+    notify_document_changed(reason);
+    update();
     return;
   }
 
@@ -820,7 +846,12 @@ void CanvasWidget::paintEvent(QPaintEvent* event) {
       // what stops big documents (>= overlay scale) from flashing checkerboard
       // on every full invalidation (add layer, undo, blend change, ...).
       if (async_render_cache_in_flight_) {
-        async_render_cache_pending_ = true;
+        // Repaints alone change nothing: marking a current flight pending threw
+        // its result away, and a repaint cadence faster than one composite (a
+        // spinner, hover outlines) then never let the canvas settle.
+        if (async_render_cache_in_flight_generation_ != async_render_cache_generation_) {
+          async_render_cache_pending_ = true;
+        }
       } else {
         start_async_render_cache_refresh();
       }
@@ -1234,8 +1265,10 @@ void CanvasWidget::start_async_render_cache_refresh() {
   const QSize snapshot_size(document_snapshot->width(), document_snapshot->height());
   async_render_cache_in_flight_ = true;
   async_render_cache_pending_ = false;
+  async_render_cache_followup_region_ = QRegion();
   note_background_refresh_state();
   const auto generation = ++async_render_cache_generation_;
+  async_render_cache_in_flight_generation_ = generation;
   auto* app = QApplication::instance();
   QPointer<CanvasWidget> widget(this);
   run_tracked_background_worker([app, widget, generation, snapshot_size, document_snapshot = std::move(document_snapshot)] {
@@ -1275,9 +1308,11 @@ void CanvasWidget::start_async_render_cache_refresh() {
             return;
           }
           // Installing here is content-correct even mid-drag or mid-wait:
-          // every mutation path either bumps the generation or sets pending
-          // (the move precommit-patch commit), so an uncancelled, non-pending
-          // completion always matches the current document. The retained move
+          // every mutation path either bumps the generation, sets pending
+          // (the move precommit-patch commit), or records its bounded region in
+          // async_render_cache_followup_region_ (patched right below), so an
+          // uncancelled, non-pending completion plus its follow-up always
+          // matches the current document. The retained move
           // base/proxy derive from that same content, so this must NOT call
           // invalidate_retained_move_caches().
           widget->quantize_image_for_palette_display(*image);
@@ -1286,6 +1321,18 @@ void CanvasWidget::start_async_render_cache_refresh() {
           widget->async_render_cache_explicit_hold_ = false;
           ++widget->render_cache_diagnostics_.full_refreshes;
           widget->invalidate_display_mip_cache();
+          if (!widget->async_render_cache_followup_region_.isEmpty()) {
+            // Edits made after the snapshot: render just those on top.
+            const auto followup = std::exchange(widget->async_render_cache_followup_region_, QRegion());
+            const auto started_render_operation = !widget->processing_operation_active();
+            if (started_render_operation) {
+              widget->begin_processing_operation();
+            }
+            widget->refresh_render_cache_region(followup);
+            if (started_render_operation) {
+              widget->end_processing_operation();
+            }
+          }
           widget->refresh_curves_clipping_preview();
           if (widget->layer_edit_target_ == LayerEditTarget::ComponentRed ||
               widget->layer_edit_target_ == LayerEditTarget::ComponentGreen ||
@@ -1305,6 +1352,7 @@ void CanvasWidget::cancel_async_render_cache_refresh() noexcept {
   ++async_render_cache_generation_;
   async_render_cache_pending_ = false;
   async_render_cache_explicit_hold_ = false;
+  async_render_cache_followup_region_ = QRegion();
 }
 
 std::vector<RenderedDocumentPatch> CanvasWidget::render_document_patches_with_processing(
@@ -1525,9 +1573,33 @@ bool CanvasWidget::patch_render_cache_patches(const std::vector<RenderedDocument
   }
   render_cache_dirty_ = false;
   render_cache_diagnostics_.partial_patches += static_cast<int>(patches.size());
-  invalidate_display_mip_cache();
+  patch_display_mip_cache(patches);
   refresh_curves_clipping_preview();
   return true;
+}
+
+void CanvasWidget::patch_display_mip_cache(const std::vector<RenderedDocumentPatch>& patches) {
+  // Rebuilding the chain from the full composite on every brush dab made each
+  // zoomed-out stroke frame cost O(document pixels); a mip pixel depends only
+  // on its own 2x2 source block, so the patched rects are all that change.
+  tiling_tile_pixmap_ = QPixmap();
+  tiling_tile_pixmap_size_ = QSize();
+  if (display_mip_cache_.empty() || display_mip_source_size_ != render_cache_.size()) {
+    invalidate_display_mip_cache();
+    return;
+  }
+  for (const auto& patch : patches) {
+    auto rect = patch.document_rect;
+    const QImage* source = &render_cache_;
+    for (auto& level : display_mip_cache_) {
+      rect = update_halved_display_region(*source, level, rect);
+      if (rect.isEmpty()) {
+        invalidate_display_mip_cache();
+        return;
+      }
+      source = &level;
+    }
+  }
 }
 
 void CanvasWidget::invalidate_display_mip_cache() noexcept {
@@ -1839,7 +1911,7 @@ const QImage& CanvasWidget::display_image_for_zoom() {
       break;
     }
     display_mip_cache_.push_back(
-        previous.scaled(next_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation).convertToFormat(previous.format()));
+        halve_display_image(previous));
   }
 
   const auto level = std::min<int>(target_level, static_cast<int>(display_mip_cache_.size()));
@@ -1872,8 +1944,7 @@ const QImage& CanvasWidget::curves_clipping_display_image_for_zoom() {
       break;
     }
     curves_clipping_display_mip_cache_.push_back(
-        previous.scaled(next_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
-            .convertToFormat(previous.format()));
+        halve_display_image(previous));
   }
 
   const auto level =
@@ -1912,7 +1983,7 @@ const QImage& CanvasWidget::move_base_display_image_for_zoom() {
       break;
     }
     move_base_display_mip_cache_.push_back(
-        previous.scaled(next_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation).convertToFormat(previous.format()));
+        halve_display_image(previous));
   }
 
   const auto level = std::min<int>(target_level, static_cast<int>(move_base_display_mip_cache_.size()));
@@ -1949,7 +2020,7 @@ const QImage& CanvasWidget::transform_base_display_image_for_zoom() {
       break;
     }
     transform_base_display_mip_cache_.push_back(
-        previous.scaled(next_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation).convertToFormat(previous.format()));
+        halve_display_image(previous));
   }
 
   const auto level = std::min<int>(target_level, static_cast<int>(transform_base_display_mip_cache_.size()));
@@ -1983,7 +2054,7 @@ const QImage& CanvasWidget::warp_base_display_image_for_zoom() {
       break;
     }
     warp_base_display_mip_cache_.push_back(
-        previous.scaled(next_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation).convertToFormat(previous.format()));
+        halve_display_image(previous));
   }
 
   const auto level = std::min<int>(target_level, static_cast<int>(warp_base_display_mip_cache_.size()));

@@ -1,10 +1,13 @@
 #include "ui/brush_dynamics_popup.hpp"
 
+#include "ui/pattern_library.hpp"
+
 #include "ui/brush_tip_library.hpp"
 #include "ui/dialog_utils.hpp"
 #include "ui/theme_qss.hpp"
 #include "ui/measurement_units.hpp"
 
+#include <QIcon>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCursor>
@@ -286,15 +289,23 @@ BrushDynamicsPanel::BrushDynamicsPanel(QWidget* parent) : QWidget(parent) {
   texture_style_combo_->addItem(tr("Fine Grain"), static_cast<int>(patchy::BrushTextureStyle::FineGrain));
   texture_style_combo_->addItem(tr("Canvas"), static_cast<int>(patchy::BrushTextureStyle::Canvas));
   texture_style_combo_->addItem(tr("Speckle"), static_cast<int>(patchy::BrushTextureStyle::Speckle));
+  texture_style_combo_->addItem(tr("Pattern"), static_cast<int>(patchy::BrushTextureStyle::Pattern));
   texture_grid->addWidget(texture_style_combo_, 1, 1, 1, 2);
-  texture_scale_spin_ = add_percent_row(texture_grid, 2, tr("Scale:"),
+  // Grain: Pattern uses a Pattern Library tile's luminance as the static texture mask.
+  texture_pattern_label_ = new QLabel(tr("Pattern:"), this);
+  texture_grid->addWidget(texture_pattern_label_, 2, 0);
+  texture_pattern_combo_ = new QComboBox(this);
+  texture_pattern_combo_->setObjectName(QStringLiteral("dynamicsTexturePatternCombo"));
+  texture_pattern_combo_->setIconSize(QSize(20, 20));
+  texture_grid->addWidget(texture_pattern_combo_, 2, 1, 1, 2);
+  texture_scale_spin_ = add_percent_row(texture_grid, 3, tr("Scale:"),
                                         QStringLiteral("dynamicsTextureScaleSpin"), 1000);
   texture_scale_spin_->setMinimum(1);
-  texture_depth_spin_ = add_percent_row(texture_grid, 3, tr("Depth:"),
+  texture_depth_spin_ = add_percent_row(texture_grid, 4, tr("Depth:"),
                                         QStringLiteral("dynamicsTextureDepthSpin"), 100);
   texture_invert_check_ = new QCheckBox(tr("Invert Texture"), this);
   texture_invert_check_->setObjectName(QStringLiteral("dynamicsTextureInvertCheck"));
-  texture_grid->addWidget(texture_invert_check_, 4, 0, 1, 2);
+  texture_grid->addWidget(texture_invert_check_, 5, 0, 1, 2);
   layout->addWidget(texture_group);
 
   // Dual Brush: one fixed secondary computed mask.
@@ -383,7 +394,8 @@ BrushDynamicsPanel::BrushDynamicsPanel(QWidget* parent) : QWidget(parent) {
   }
   for (auto* combo : {angle_control_combo_, size_control_combo_, roundness_control_combo_,
                       scatter_control_combo_, count_control_combo_, opacity_control_combo_,
-                      flow_control_combo_, texture_style_combo_, color_control_combo_}) {
+                      flow_control_combo_, texture_style_combo_, texture_pattern_combo_,
+                      color_control_combo_}) {
     connect(combo, &QComboBox::currentIndexChanged, this, emit_edited);
   }
   for (auto* check : {flip_x_check_, flip_y_check_, both_axes_check_, texture_enabled_check_,
@@ -445,6 +457,8 @@ void BrushDynamicsPanel::set_values(const patchy::BrushDynamics& dynamics, doubl
   texture_depth_spin_->setValue(percent_from_fraction(dynamics.texture_depth));
   texture_invert_check_->setChecked(dynamics.texture_invert);
   texture_seed_ = dynamics.texture_seed;
+  texture_pattern_id_ = dynamics.texture_pattern_id;
+  populate_texture_patterns();
   dual_brush_enabled_check_->setChecked(dynamics.dual_brush_enabled);
   dual_brush_size_spin_->setValue(percent_from_fraction(dynamics.dual_brush_size));
   dual_brush_hardness_spin_->setValue(percent_from_fraction(dynamics.dual_brush_hardness));
@@ -503,6 +517,10 @@ patchy::BrushDynamics BrushDynamicsPanel::dynamics() const {
   dynamics.texture_depth = fraction_from_percent(texture_depth_spin_->value());
   dynamics.texture_invert = texture_invert_check_->isChecked();
   dynamics.texture_seed = texture_seed_;
+  dynamics.texture_pattern_id = texture_pattern_id_;
+  if (dynamics.texture_style == patchy::BrushTextureStyle::Pattern && texture_pattern_combo_->currentIndex() >= 0) {
+    dynamics.texture_pattern_id = texture_pattern_combo_->currentData().toString().toStdString();
+  }
   dynamics.dual_brush_enabled = dual_brush_enabled_check_->isChecked();
   dynamics.dual_brush_size = fraction_from_percent(dual_brush_size_spin_->value());
   dynamics.dual_brush_hardness = fraction_from_percent(dual_brush_hardness_spin_->value());
@@ -557,9 +575,36 @@ void BrushDynamicsPanel::refresh_control_dependent_widgets() {
       }
     }
   };
+  const auto pattern_grain = static_cast<patchy::BrushTextureStyle>(texture_style_combo_->currentData().toInt()) == patchy::BrushTextureStyle::Pattern;
+  texture_pattern_label_->setVisible(pattern_grain);
+  texture_pattern_combo_->setVisible(pattern_grain);
   set_group_enabled(QStringLiteral("dynamicsTexture"), texture_enabled_check_->isChecked());
   set_group_enabled(QStringLiteral("dynamicsDualBrush"), dual_brush_enabled_check_->isChecked());
   set_group_enabled(QStringLiteral("dynamicsColor"), color_dynamics_enabled_check_->isChecked());
+}
+
+void BrushDynamicsPanel::set_pattern_library(const PatternLibrary* library) {
+  pattern_library_ = library;
+  populate_texture_patterns();
+}
+
+void BrushDynamicsPanel::populate_texture_patterns() {
+  const QSignalBlocker blocker(texture_pattern_combo_);
+  texture_pattern_combo_->clear();
+  if (pattern_library_ != nullptr) {
+    for (const auto& entry : pattern_library_->entries()) {
+      texture_pattern_combo_->addItem(QIcon(entry.thumbnail), entry.name, entry.id);
+    }
+  }
+  const auto wanted = QString::fromStdString(texture_pattern_id_);
+  auto index = wanted.isEmpty() ? (texture_pattern_combo_->count() > 0 ? 0 : -1)
+                                : texture_pattern_combo_->findData(wanted);
+  if (index < 0 && !wanted.isEmpty()) {
+    // Keep a deleted (or not yet imported) pattern's id instead of silently switching it.
+    texture_pattern_combo_->addItem(tr("Missing pattern"), wanted);
+    index = texture_pattern_combo_->count() - 1;
+  }
+  texture_pattern_combo_->setCurrentIndex(index);
 }
 
 double BrushDynamicsPanel::base_angle_degrees() const {
@@ -673,6 +718,12 @@ void BrushDynamicsButton::schedule_emit() {
   timer->start();
 }
 
+void BrushDynamicsButton::show_popup_at(QPoint global_position) {
+  popup_position_override_ = global_position;
+  show_popup();
+  popup_position_override_.reset();
+}
+
 void BrushDynamicsButton::show_popup() {
   if (tip_id_.isEmpty()) {
     return;
@@ -712,6 +763,7 @@ void BrushDynamicsButton::show_popup() {
   scroll->setFrameShape(QFrame::NoFrame);
   scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   auto* panel = new BrushDynamicsPanel(scroll);
+  panel->set_pattern_library(pattern_library_);
   panel->set_values(dynamics_, base_angle_degrees_, base_roundness_);
   scroll->setWidget(panel);
   layout->addWidget(scroll);
@@ -740,7 +792,8 @@ void BrushDynamicsButton::show_popup() {
     }
   }
   popup->resize(popup_width, popup_height);
-  auto position = mapToGlobal(QPoint(0, height()));
+  auto position = popup_position_override_.value_or(mapToGlobal(QPoint(0, height())));
+  popup_position_override_.reset();
   if (screen != nullptr) {
     const auto available = screen->availableGeometry();
     if (position.y() + popup->height() > available.bottom()) {

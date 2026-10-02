@@ -740,4 +740,8 @@ void CanvasWidget::set_layer_context_actions_callback(std::function<QList<QActio
   layer_context_actions_callback_ = std::move(callback);
 }
 
+void CanvasWidget::set_brush_tip_picker_callback(std::function<bool(QPoint)> callback) {
+  brush_tip_picker_callback_ = std::move(callback);
+}
+
 }  // namespace patchy::ui

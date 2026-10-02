@@ -95,6 +95,8 @@ add_library(patchy_core
   src/core/adjustment_layer.cpp
   src/core/blend_math.cpp
   src/core/brush_dynamics.cpp
+  src/core/pen_pressure.cpp
+  src/core/color_wheel.cpp
   src/core/brush_tip.cpp
   src/core/contour_presets.cpp
   src/core/document.cpp
@@ -943,6 +945,15 @@ ${PATCHY_LUPDATE_MANIFEST_SOURCES}
       src/ui/canvas_widget.cpp
       src/ui/canvas_widget_shared.hpp
       src/ui/canvas_widget_shared.cpp
+      src/ui/display_mips.hpp
+      src/ui/display_mips.cpp
+      src/ui/sparse_stroke_plane.hpp
+      src/ui/pressure_curve_preview.hpp
+      src/ui/pressure_curve_preview.cpp
+      src/ui/color_wheel_widget.hpp
+      src/ui/color_wheel_widget.cpp
+      src/ui/color_wheel_panel.hpp
+      src/ui/color_wheel_panel.cpp
       src/ui/canvas_widget_brush.cpp
       src/ui/canvas_widget_crop.cpp
       src/ui/canvas_widget_cursors.cpp
@@ -1157,6 +1168,15 @@ ${PATCHY_LUPDATE_MANIFEST_SOURCES}
       src/ui/selection_outline.cpp
       src/ui/start_panel.hpp
       src/ui/start_panel.cpp
+      src/ui/studio_widgets.hpp
+      src/ui/studio_widgets.cpp
+      src/ui/studio_shell.hpp
+      src/ui/studio_shell.cpp
+      src/ui/studio_panels.hpp
+      src/ui/studio_panels.cpp
+      src/ui/studio_gallery.hpp
+      src/ui/studio_gallery.cpp
+      src/ui/main_window_studio.cpp
       src/ui/smart_object_render.hpp
       src/ui/smart_object_render.cpp
       src/ui/divide_photos_dialog.hpp
@@ -1782,6 +1802,7 @@ if(PATCHY_BUILD_TESTS)
       tests/ui/warp_tests.cpp
       tests/ui/import_print_resolution_tests.cpp
       tests/ui/divide_photos_tests.cpp
+      tests/ui/studio_shell_tests.cpp
       tests/ui/folder_open_export_tests.cpp
       tests/ui/image_adjustments_curves_tests.cpp
       tests/ui/selection_engines_tests.cpp

@@ -276,6 +276,7 @@ int main(int argc, char* argv[]) {
            legacy_plugin_tests,
            history_panel_tests,
            composite_render_tests,
+           studio_shell_tests,
            readme_screenshot_tests,
        }) {
     auto group = registration();

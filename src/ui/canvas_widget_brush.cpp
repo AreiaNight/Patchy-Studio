@@ -356,6 +356,12 @@ int CanvasWidget::brush_base_roundness() const noexcept {
   return brush_base_roundness_;
 }
 
+void CanvasWidget::set_brush_texture_pattern_resolver(
+    std::function<std::optional<PatternResource>(const QString& pattern_id)> resolver) {
+  brush_texture_pattern_resolver_ = std::move(resolver);
+  brush_texture_masks_.clear();
+}
+
 void CanvasWidget::set_brush_dynamics_test_seed(std::optional<quint32> seed) noexcept {
   brush_dynamics_test_seed_ = seed;
 }
@@ -463,6 +469,23 @@ void CanvasWidget::apply_brush_tip_to_options(EditOptions& options, int brush_si
   }
   options.brush_dynamics = brush_dynamics_;
   options.brush_dynamics.seed = stroke_dynamics_seed_;
+  if (brush_dynamics_.texture_enabled && brush_dynamics_.texture_style == patchy::BrushTextureStyle::Pattern &&
+      !brush_dynamics_.texture_pattern_id.empty()) {
+    auto& mask = brush_texture_masks_[brush_dynamics_.texture_pattern_id];
+    if (mask == nullptr) {
+      patchy::BrushTextureMask built;
+      if (brush_texture_pattern_resolver_) {
+        if (const auto resource = brush_texture_pattern_resolver_(
+                QString::fromStdString(brush_dynamics_.texture_pattern_id));
+            resource.has_value()) {
+          built = patchy::brush_texture_mask_from_tile(resource->tile);
+        }
+      }
+      mask = std::make_shared<const patchy::BrushTextureMask>(std::move(built));
+    }
+    // An empty mask (pattern missing) makes the core fall back to the Fine Grain family.
+    options.brush_texture_mask = mask->values.empty() ? nullptr : mask.get();
+  }
   if (pen_input_settings_.enabled && active_pen_input_sample_.has_value()) {
     // Fill every pen input; the core selects per control (missing inputs stay at their
     // full-value defaults so a mouse paints like Photoshop does without a pen).
@@ -893,6 +916,7 @@ void CanvasWidget::clear_brush_stroke_tracking() noexcept {
   brush_stroke_accumulated_alpha_.clear();
   brush_stroke_union_coverage_.clear();
   brush_stroke_wet_edge_primary_.clear();
+  brush_texture_masks_.clear();
   brush_stroke_wet_edge_pending_rect_ = {};
   brush_stroke_layer_snapshot_.reset();
   brush_stroke_last_stamp_position_.reset();
@@ -1264,7 +1288,7 @@ float CanvasWidget::capped_stroke_coverage(std::int32_t x, std::int32_t y, float
     return 0.0F;
   }
 
-  auto& previous_alpha = brush_stroke_alpha_caps_[stroke_pixel_key(x, y)];
+  auto& previous_alpha = brush_stroke_alpha_caps_.at(x, y);
   if (target_alpha <= previous_alpha + 0.0005F) {
     return 0.0F;
   }
@@ -1285,7 +1309,7 @@ float CanvasWidget::accumulating_stroke_coverage(std::int32_t x, std::int32_t y,
     return 0.0F;
   }
 
-  auto& accumulated_alpha = brush_stroke_accumulated_alpha_[stroke_pixel_key(x, y)];
+  auto& accumulated_alpha = brush_stroke_accumulated_alpha_.at(x, y);
   const auto target_alpha =
       std::min(opacity, 1.0F - (1.0F - accumulated_alpha) * (1.0F - dab_alpha));
   if (target_alpha <= accumulated_alpha + 0.0005F) {
@@ -1454,7 +1478,7 @@ bool CanvasWidget::write_brush_stroke_pixel_from_snapshot_blend(std::int32_t x, 
 
   flow = std::clamp(flow, 0.01F, 1.0F);
   const auto dab_alpha = std::clamp(source_alpha * flow * coverage, 0.0F, source_alpha);
-  auto& accumulated_alpha = brush_stroke_accumulated_alpha_[stroke_pixel_key(x, y)];
+  auto& accumulated_alpha = brush_stroke_accumulated_alpha_.at(x, y);
   const auto target_alpha =
       std::min(source_alpha, 1.0F - (1.0F - accumulated_alpha) * (1.0F - dab_alpha));
   if (target_alpha <= accumulated_alpha + 0.0005F) {
@@ -1609,9 +1633,8 @@ QRect CanvasWidget::finalize_pending_wet_edges(QRect dirty) {
     for (int x = region.left(); x <= region.right(); ++x) {
       const auto key = stroke_pixel_key(x, y);
       const auto union_found = brush_stroke_union_coverage_.find(key);
-      const auto alpha_found = brush_stroke_accumulated_alpha_.find(key);
-      if (union_found == brush_stroke_union_coverage_.end() ||
-          alpha_found == brush_stroke_accumulated_alpha_.end()) {
+      const auto* alpha_found = brush_stroke_accumulated_alpha_.find(x, y);
+      if (union_found == brush_stroke_union_coverage_.end() || alpha_found == nullptr) {
         continue;
       }
 
@@ -1640,7 +1663,7 @@ QRect CanvasWidget::finalize_pending_wet_edges(QRect dirty) {
       auto* pixel = row.data() + static_cast<std::size_t>(x - bounds.x) * channels;
       if (render_brush_stroke_pixel_from_snapshot_target(
               x, y, pixel, channels, primary, secondary, locked,
-              std::clamp(alpha_found->second * wet_factor, 0.0F, 1.0F), false)) {
+              std::clamp(*alpha_found * wet_factor, 0.0F, 1.0F), false)) {
         dirty = united_dirty_rect(dirty, QRect(QPoint(x, y), QSize(1, 1)));
       }
     }
@@ -1771,9 +1794,8 @@ void CanvasWidget::install_brush_stroke_compositor(EditOptions& options, bool er
                                         positive_modulo(y - origin.y(), height));
         const auto pattern_alpha = static_cast<float>(source[3]) / 255.0F;
         const auto cap = source_alpha * pattern_alpha;
-        const auto found = brush_stroke_accumulated_alpha_.find(stroke_pixel_key(x, y));
-        return cap > 0.0F &&
-               (found == brush_stroke_accumulated_alpha_.end() || found->second < cap - 0.0005F);
+        const auto* found = brush_stroke_accumulated_alpha_.find(x, y);
+        return cap > 0.0F && (found == nullptr || *found < cap - 0.0005F);
       };
       const auto* palette_snap = options.palette_snap;
       options.stroke_pixel_writer =
@@ -1797,8 +1819,8 @@ void CanvasWidget::install_brush_stroke_compositor(EditOptions& options, bool er
   }
 
   options.stroke_pixel_gate = [this, source_alpha](std::int32_t x, std::int32_t y) {
-    const auto found = brush_stroke_accumulated_alpha_.find(stroke_pixel_key(x, y));
-    return found == brush_stroke_accumulated_alpha_.end() || found->second < source_alpha - 0.0005F;
+    const auto* found = brush_stroke_accumulated_alpha_.find(x, y);
+    return found == nullptr || *found < source_alpha - 0.0005F;
   };
   const auto* palette_snap = options.palette_snap;
   options.stroke_pixel_writer = [this, secondary, lock_transparent_pixels, erase, palette_snap](

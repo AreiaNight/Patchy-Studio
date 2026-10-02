@@ -2166,6 +2166,8 @@ void clear_brush_tip_test_state() {
   QDir(brush_tip_test_storage_dir()).removeRecursively();
   auto settings = patchy::ui::app_settings();
   settings.remove(QStringLiteral("tools/brushTip"));
+  // The Round/Square dynamics persist across windows; every brush test starts plain.
+  settings.remove(QStringLiteral("tools/roundBrushSession"));
   // Suppress first-run default-tip seeding so library contents stay deterministic; the
   // dedicated seeding test resets this to 0 explicitly.
   settings.setValue(QStringLiteral("brushes/defaultTipsVersion"), 999999);

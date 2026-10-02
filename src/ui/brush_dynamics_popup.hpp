@@ -8,14 +8,19 @@
 #include <QToolButton>
 #include <QWidget>
 
+#include <optional>
+#include <string>
+
 class QCheckBox;
 class QComboBox;
+class QLabel;
 class QFrame;
 class QSpinBox;
 
 namespace patchy::ui {
 
 struct BrushTipEntry;
+class PatternLibrary;
 
 // The dynamics editing form (Tip Shape / Shape Dynamics / Scattering / Transfer / texture /
 // dual brush / color / effects + Reset), shared by the options-bar Dynamics popup and the
@@ -26,6 +31,8 @@ class BrushDynamicsPanel : public QWidget {
 
 public:
   explicit BrushDynamicsPanel(QWidget* parent = nullptr);
+  // The patterns Brush Texture can use (Grain: Pattern). Null leaves only the stored id.
+  void set_pattern_library(const PatternLibrary* library);
 
   void set_values(const patchy::BrushDynamics& dynamics, double base_angle_degrees,
                   double base_roundness);
@@ -41,6 +48,9 @@ private:
   // Fade-steps spins show only while their combo says Fade; minimum Transfer rows are live
   // only while their matching control has a real source.
   void refresh_control_dependent_widgets();
+  // Rebuilds the pattern list from the library, keeping texture_pattern_id_ selected (a
+  // "Missing pattern" row holds an id the library no longer has).
+  void populate_texture_patterns();
 
   QSpinBox* base_angle_spin_{nullptr};
   QSpinBox* base_roundness_spin_{nullptr};
@@ -78,6 +88,10 @@ private:
   QSpinBox* texture_scale_spin_{nullptr};
   QSpinBox* texture_depth_spin_{nullptr};
   QCheckBox* texture_invert_check_{nullptr};
+  QLabel* texture_pattern_label_{nullptr};
+  QComboBox* texture_pattern_combo_{nullptr};
+  const PatternLibrary* pattern_library_{nullptr};  // owned by MainWindow, which outlives the panel
+  std::string texture_pattern_id_;  // kept while another grain is chosen
   std::uint32_t texture_seed_{0x5A17C9E3U};  // imported/persisted, intentionally not user-edited
   QCheckBox* dual_brush_enabled_check_{nullptr};
   QSpinBox* dual_brush_size_spin_{nullptr};
@@ -97,9 +111,9 @@ private:
 };
 
 // Options-bar "Dynamics" button for the Brush tool: opens a popup hosting a BrushDynamicsPanel
-// for the active bitmap tip, or for the procedural Round brush's session-only dynamics. Edits
-// are debounced and emitted via dynamics_edited; MainWindow persists bitmap-tip values to the
-// library sidecar, while Round values live in the window for the session and reset on launch.
+// for the active bitmap tip, or for the procedural Round/Square brush's dynamics. Edits are
+// debounced and emitted via dynamics_edited; MainWindow persists bitmap-tip values to the
+// library sidecar and Round/Square values to settings (tools/roundBrushSession).
 class BrushDynamicsButton : public QToolButton {
   Q_OBJECT
 
@@ -110,14 +124,19 @@ public:
   // popup is open for the same tip, the reload is skipped so a library changed() echo of our
   // own edit does not fight the open controls.
   void set_active_entry(const BrushTipEntry* entry);
-  // Loads the button's model for the procedural Round brush's session-only dynamics; the id is
-  // the builtin round key MainWindow routes on. Same popup/edit flow as a bitmap tip.
+  // Loads the button's model for the procedural Round/Square brush's dynamics; the id is the
+  // builtin key MainWindow routes on. Same popup/edit flow as a bitmap tip.
   void set_round_session(const QString& round_tip_id, const patchy::BrushDynamics& dynamics,
                          double base_angle_degrees, double base_roundness);
   // True while a bitmap tip is active; MainWindow::refresh_options_bar combines this with the
   // document-editability flag instead of blanket-enabling the button.
   [[nodiscard]] bool has_active_tip() const noexcept { return !tip_id_.isEmpty(); }
+  // Pattern Library for the Texture group's pattern choices.
+  void set_pattern_library(const PatternLibrary* library) { pattern_library_ = library; }
   void retranslate();
+  // Opens the popup with its top-left corner at `global_position` (kept on screen), for a
+  // caller whose button is hidden (the Patchy Studio brush library).
+  void show_popup_at(QPoint global_position);
 
 signals:
   void dynamics_edited(const QString& tip_id, const patchy::BrushDynamics& dynamics,
@@ -129,6 +148,7 @@ private:
   void refresh_active_indicator();
 
   QString tip_id_;
+  const PatternLibrary* pattern_library_{nullptr};  // owned by MainWindow, which outlives the panel
   bool round_session_{false};  // model is the Round brush's session dynamics, not a library tip
   patchy::BrushDynamics dynamics_{};
   double base_angle_degrees_{0.0};
@@ -138,6 +158,7 @@ private:
   // while the popup is still closing), which would instantly reopen it. See show_popup().
   QElapsedTimer popup_clock_;
   qint64 popup_dismissed_ms_{-1};
+  std::optional<QPoint> popup_position_override_;
 };
 
 }  // namespace patchy::ui

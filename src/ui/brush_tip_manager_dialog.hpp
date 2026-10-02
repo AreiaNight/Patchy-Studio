@@ -9,6 +9,8 @@ class QWidget;
 
 namespace patchy::ui {
 
+class PatternLibrary;
+
 class BrushTipLibrary;
 
 // Opens the modal Brush Tips manager: browse the library with a live stroke preview (rendered by
@@ -19,8 +21,10 @@ class BrushTipLibrary;
 // Selection", or a null image when nothing is available — the button is disabled then.
 // activate_tip is called when the user chooses a tip to paint with (double-click or the Use
 // button); pass the currently active id in initial_tip_id so it is preselected.
+// patterns (optional) feeds the dynamics editor's Texture pattern choices.
 void request_brush_tip_manager(QWidget* parent, BrushTipLibrary& library, const QString& initial_tip_id,
                                const std::function<QImage()>& capture_define_source,
-                               const std::function<void(const QString&)>& activate_tip);
+                               const std::function<void(const QString&)>& activate_tip,
+                               const PatternLibrary* patterns = nullptr);
 
 }  // namespace patchy::ui

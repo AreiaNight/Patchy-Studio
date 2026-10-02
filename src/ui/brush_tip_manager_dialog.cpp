@@ -153,7 +153,8 @@ private:
 
 void request_brush_tip_manager(QWidget* parent, BrushTipLibrary& library, const QString& initial_tip_id,
                                const std::function<QImage()>& capture_define_source,
-                               const std::function<void(const QString&)>& activate_tip) {
+                               const std::function<void(const QString&)>& activate_tip,
+                               const PatternLibrary* patterns) {
   QDialog dialog(parent);
   PresetManagerScaffold scaffold(dialog, QStringLiteral("brushTipManagerDialog"),
                                  QObject::tr("Brush Tips"));
@@ -386,6 +387,7 @@ void request_brush_tip_manager(QWidget* parent, BrushTipLibrary& library, const 
     editor.setWindowTitle(QObject::tr("Brush Dynamics: %1").arg(entry->name));
     auto* editor_layout = new QVBoxLayout(&editor);
     auto* panel = new BrushDynamicsPanel(&editor);
+    panel->set_pattern_library(patterns);
     panel->set_values(entry->dynamics, entry->base_angle_degrees, entry->base_roundness);
     editor_layout->addWidget(panel);
     auto* editor_buttons = new QDialogButtonBox(QDialogButtonBox::Close, &editor);

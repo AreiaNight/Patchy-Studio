@@ -28,6 +28,10 @@
 #include "ui/brush_tip_picker.hpp"
 #include "ui/blend_if_range_editor.hpp"
 #include "ui/blend_mode_ui.hpp"
+#include "ui/display_mips.hpp"
+#include "ui/color_wheel_panel.hpp"
+#include "ui/color_wheel_widget.hpp"
+#include "ui/app_settings.hpp"
 #include "ui/color_panel.hpp"
 #include "ui/default_brush_tips.hpp"
 #include "ui/dialog_utils.hpp"
@@ -177,6 +181,8 @@
 #include <QVariant>
 #include <QWheelEvent>
 #include <QWindow>
+#include <QCursor>
+#include <QAbstractButton>
 #include <QWidget>
 
 #include <algorithm>
@@ -184,6 +190,7 @@
 #include <array>
 #include <cstdint>
 #include <cmath>
+#include <chrono>
 #include <cstring>
 #include <exception>
 #include <filesystem>
@@ -191,6 +198,7 @@
 #include <functional>
 #include <iostream>
 #include <limits>
+#include <numbers>
 #include <memory>
 #include <optional>
 #include <span>
@@ -251,7 +259,7 @@ void ui_startup_defaults_to_round_brush() {
   auto* brush_size = window.findChild<QSpinBox*>(QStringLiteral("brushSizeSpin"));
   auto* brush_opacity = window.findChild<QSpinBox*>(QStringLiteral("brushOpacitySpin"));
   auto* brush_flow = window.findChild<QSpinBox*>(QStringLiteral("brushFlowSpin"));
-  auto* brush_airbrush = window.findChild<QCheckBox*>(QStringLiteral("brushAirbrushCheck"));
+  auto* brush_airbrush = window.findChild<QAbstractButton*>(QStringLiteral("brushAirbrushCheck"));
   auto* brush_softness = window.findChild<QSpinBox*>(QStringLiteral("brushSoftnessSpin"));
   auto* gradient_method = window.findChild<QComboBox*>(QStringLiteral("gradientMethodCombo"));
   auto* gradient_opacity = window.findChild<QSpinBox*>(QStringLiteral("gradientOpacitySpin"));
@@ -1100,6 +1108,562 @@ void ui_zoomed_out_canvas_uses_downsampled_display_mip() {
 
   CHECK(midtone_samples > 0);
   CHECK(midtone_samples > source_tone_samples * 4);
+}
+
+// Deterministic RGBA content with fully transparent patches, so the halving's
+// premultiplied averaging and its zero-alpha branch are both exercised.
+QImage display_mip_test_image(int width, int height, QImage::Format format) {
+  QImage image(width, height, QImage::Format_RGBA8888);
+  std::uint64_t state = 0x9E3779B97F4A7C15ULL;
+  for (int y = 0; y < height; ++y) {
+    auto* row = image.scanLine(y);
+    for (int x = 0; x < width; ++x) {
+      state += 0x9E3779B97F4A7C15ULL;
+      auto z = state;
+      z = (z ^ (z >> 30U)) * 0xBF58476D1CE4E5B9ULL;
+      z = (z ^ (z >> 27U)) * 0x94D049BB133111EBULL;
+      z ^= z >> 31U;
+      row[x * 4 + 0] = static_cast<std::uint8_t>(z);
+      row[x * 4 + 1] = static_cast<std::uint8_t>(z >> 8U);
+      row[x * 4 + 2] = static_cast<std::uint8_t>(z >> 16U);
+      row[x * 4 + 3] = ((x / 7 + y / 5) % 4 == 0) ? 0 : static_cast<std::uint8_t>(z >> 24U);
+    }
+  }
+  return image.convertToFormat(format);
+}
+
+void ui_display_mip_incremental_update_matches_full_halving() {
+  for (const auto format : {QImage::Format_RGBA8888, QImage::Format_RGBA8888_Premultiplied}) {
+    // Odd sizes on purpose: edge blocks average one or two source pixels.
+    auto base = display_mip_test_image(301, 157, format);
+    std::vector<QImage> chain;
+    for (int level = 1; level <= 3; ++level) {
+      chain.push_back(patchy::ui::halve_display_image(level == 1 ? base : chain.back()));
+    }
+    CHECK(chain[0].size() == QSize(151, 79));
+    CHECK(chain[2].size() == QSize(38, 20));
+    CHECK(chain[2] == patchy::ui::display_image_at_mip_level(base, 3));
+
+    // Straight alpha averages in premultiplied space: a block with no coverage is
+    // transparent black, never the average of its hidden colors.
+    if (format == QImage::Format_RGBA8888) {
+      QImage clear(2, 2, QImage::Format_RGBA8888);
+      clear.fill(QColor(255, 0, 0, 0));
+      const auto half = patchy::ui::halve_display_image(clear);
+      CHECK(half.size() == QSize(1, 1));
+      CHECK(half.constScanLine(0)[0] == 0 && half.constScanLine(0)[3] == 0);
+    }
+
+    // Repaint scattered rects (edges and odd offsets included) and patch the
+    // chain level by level; it must match a chain rebuilt from scratch.
+    const auto replacement = display_mip_test_image(301, 157, format).mirrored(true, false);
+    for (const auto& rect : {QRect(0, 0, 3, 3), QRect(37, 11, 51, 29), QRect(290, 150, 11, 7),
+                             QRect(1, 100, 300, 1), QRect(150, 0, 1, 157)}) {
+      for (int y = rect.top(); y <= rect.bottom(); ++y) {
+        std::memcpy(base.scanLine(y) + rect.left() * 4, replacement.constScanLine(y) + rect.left() * 4,
+                    static_cast<std::size_t>(rect.width()) * 4);
+      }
+      auto dirty = rect;
+      const QImage* source = &base;
+      for (auto& level : chain) {
+        dirty = patchy::ui::update_halved_display_region(*source, level, dirty);
+        CHECK(!dirty.isEmpty());
+        source = &level;
+      }
+    }
+    std::vector<QImage> rebuilt;
+    for (int level = 1; level <= 3; ++level) {
+      rebuilt.push_back(patchy::ui::halve_display_image(level == 1 ? base : rebuilt.back()));
+    }
+    for (std::size_t level = 0; level < chain.size(); ++level) {
+      CHECK(chain[level] == rebuilt[level]);
+    }
+
+    // A mismatched destination is refused so the caller rebuilds instead.
+    QImage wrong(10, 10, format);
+    CHECK(patchy::ui::update_halved_display_region(base, wrong, QRect(0, 0, 4, 4)).isEmpty());
+  }
+}
+
+// A zoomed-out region edit (every brush dab) patches the display mips in place:
+// the canvas must look exactly like a fresh canvas that built the whole chain.
+void ui_zoomed_out_region_edit_patches_display_mips_in_place() {
+  patchy::Document document(640, 480, patchy::PixelFormat::rgb8());
+  patchy::PixelBuffer pixels(640, 480, patchy::PixelFormat::rgba8());
+  for (std::int32_t y = 0; y < pixels.height(); ++y) {
+    for (std::int32_t x = 0; x < pixels.width(); ++x) {
+      auto* px = pixels.pixel(x, y);
+      px[0] = static_cast<std::uint8_t>(x * 3);
+      px[1] = static_cast<std::uint8_t>(y * 5);
+      px[2] = static_cast<std::uint8_t>((x ^ y) & 0xFF);
+      px[3] = ((x / 16 + y / 16) % 3 == 0) ? 0 : 255;
+    }
+  }
+  document.add_pixel_layer("Content", std::move(pixels));
+
+  patchy::ui::CanvasWidget canvas;
+  canvas.resize(260, 220);
+  canvas.set_document(&document);
+  canvas.set_zoom(0.3);
+  canvas.show();
+  QApplication::processEvents();
+  (void)canvas.grab();  // builds the mip chain
+
+  const auto before = canvas.render_cache_diagnostics();
+  auto* layer = document.find_layer(std::as_const(document).layers().back().id());
+  CHECK(layer != nullptr);
+  const QRect edited(101, 57, 83, 45);
+  for (int y = edited.top(); y <= edited.bottom(); ++y) {
+    for (int x = edited.left(); x <= edited.right(); ++x) {
+      auto* px = layer->pixels().pixel(x, y);
+      px[0] = 250;
+      px[1] = static_cast<std::uint8_t>(x);
+      px[2] = 10;
+      px[3] = 200;
+    }
+  }
+  canvas.document_changed(edited);
+  QApplication::processEvents();
+  const auto after = canvas.render_cache_diagnostics();
+  CHECK(after.partial_patches > before.partial_patches);
+  CHECK(after.full_refreshes == before.full_refreshes);
+  const auto patched = canvas.grab().toImage();
+
+  patchy::ui::CanvasWidget fresh;
+  fresh.resize(260, 220);
+  fresh.set_document(&document);
+  fresh.set_zoom(0.3);
+  fresh.show();
+  QApplication::processEvents();
+  CHECK(canvas.zoom() == fresh.zoom());
+  CHECK(patched == fresh.grab().toImage());
+}
+
+// A deferred full recomposite must land while the canvas keeps repainting, and
+// bounded region edits made while it runs are patched on top instead of
+// restarting it (the July 2026 brush-on-a-new-layer stall: every dab restarted
+// the flight and the stroke ran against a stale frame at 13 fps).
+void ui_async_full_refresh_survives_repaints_and_region_edits() {
+  // Past the 8 Mpx threshold so full invalidations defer to the async path.
+  constexpr int kSide = 3000;
+  patchy::Document document(kSide, kSide, patchy::PixelFormat::rgb8());
+  patchy::PixelBuffer pixels(kSide, kSide, patchy::PixelFormat::rgba8());
+  pixels.clear(255);
+  document.add_pixel_layer("Paper", std::move(pixels));
+  const auto layer_id = std::as_const(document).layers().back().id();
+
+  patchy::ui::CanvasWidget canvas;
+  canvas.resize(300, 300);
+  canvas.set_document(&document);
+  canvas.show();
+  canvas.set_zoom(1.0);
+  QApplication::processEvents();
+  const auto settle = [&](int seconds, bool spam_repaints) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(seconds);
+    while (!canvas.render_settled() && std::chrono::steady_clock::now() < deadline) {
+      if (spam_repaints) {
+        canvas.repaint();
+      }
+      QApplication::processEvents();
+    }
+    return canvas.render_settled();
+  };
+  CHECK(settle(30, false));
+
+  EnvironmentVariableRestorer restore_render_delay("PATCHY_PROCESSING_RENDER_TEST_DELAY_MS");
+  qputenv("PATCHY_PROCESSING_RENDER_TEST_DELAY_MS", QByteArray("150"));
+
+  // 1. Repaints faster than one composite used to discard every result.
+  auto before = canvas.render_cache_diagnostics();
+  canvas.document_changed();
+  canvas.repaint();  // starts the deferred refresh
+  CHECK(!canvas.render_settled());
+  CHECK(settle(10, true));
+  CHECK(canvas.render_cache_diagnostics().full_refreshes == before.full_refreshes + 1);
+
+  // 2. Region edits during the flight: kept, then patched on top.
+  before = canvas.render_cache_diagnostics();
+  canvas.document_changed();
+  canvas.repaint();
+  CHECK(!canvas.render_settled());
+  const auto view_center = canvas.document_point_for_widget_position(QPoint(150, 150));
+  for (int dab = 0; dab < 5; ++dab) {
+    auto* layer = document.find_layer(layer_id);
+    const QRect dab_rect(view_center.x() - 40 + dab * 15, view_center.y() - 10, 12, 12);
+    for (int y = dab_rect.top(); y <= dab_rect.bottom(); ++y) {
+      for (int x = dab_rect.left(); x <= dab_rect.right(); ++x) {
+        auto* px = layer->pixels().pixel(x, y);
+        px[0] = 20;
+        px[1] = 40;
+        px[2] = 220;
+      }
+    }
+    canvas.document_changed(dab_rect);
+    canvas.repaint();
+  }
+  CHECK(settle(10, true));
+  const auto after = canvas.render_cache_diagnostics();
+  CHECK(after.full_refreshes == before.full_refreshes + 1);
+  CHECK(after.partial_patches > before.partial_patches);
+  qputenv("PATCHY_PROCESSING_RENDER_TEST_DELAY_MS", QByteArray("0"));
+  const auto patched = canvas.grab().toImage();
+  canvas.force_refresh();
+  CHECK(settle(30, false));
+  CHECK(patched == canvas.grab().toImage());
+  CHECK(color_close(canvas_pixel(canvas, QPoint(view_center.x() - 40 + 5, view_center.y() - 5)),
+                    QColor(20, 40, 220), 2));
+}
+
+namespace {
+
+void click_widget(QWidget& widget, QPointF position, Qt::MouseButton button = Qt::LeftButton) {
+  QMouseEvent press(QEvent::MouseButtonPress, position, widget.mapToGlobal(position), button, button, Qt::NoModifier);
+  QApplication::sendEvent(&widget, &press);
+  QMouseEvent release(QEvent::MouseButtonRelease, position, widget.mapToGlobal(position), button, Qt::NoButton,
+                      Qt::NoModifier);
+  QApplication::sendEvent(&widget, &release);
+}
+
+void drag_widget(QWidget& widget, QPointF from, QPointF to) {
+  QMouseEvent press(QEvent::MouseButtonPress, from, widget.mapToGlobal(from), Qt::LeftButton, Qt::LeftButton,
+                    Qt::NoModifier);
+  QApplication::sendEvent(&widget, &press);
+  for (int step = 1; step <= 8; ++step) {
+    const auto point = from + (to - from) * (step / 8.0);
+    QMouseEvent move(QEvent::MouseMove, point, widget.mapToGlobal(point), Qt::NoButton, Qt::LeftButton,
+                     Qt::NoModifier);
+    QApplication::sendEvent(&widget, &move);
+  }
+  QMouseEvent release(QEvent::MouseButtonRelease, to, widget.mapToGlobal(to), Qt::LeftButton, Qt::NoButton,
+                      Qt::NoModifier);
+  QApplication::sendEvent(&widget, &release);
+}
+
+bool colors_close(QColor a, QColor b, int tolerance) {
+  return std::abs(a.red() - b.red()) <= tolerance && std::abs(a.green() - b.green()) <= tolerance &&
+         std::abs(a.blue() - b.blue()) <= tolerance;
+}
+
+patchy::ui::ColorWheelPanel* expanded_color_wheel_panel(patchy::ui::MainWindow& window) {
+  auto* action = window.findChild<QAction*>(QStringLiteral("windowColorWheelAction"));
+  CHECK(action != nullptr);
+  if (action != nullptr && !action->isChecked()) {
+    action->trigger();
+  }
+  process_events_for(50);
+  return window.findChild<patchy::ui::ColorWheelPanel*>(QStringLiteral("colorWheelPanel"));
+}
+
+}  // namespace
+
+// The Color Wheel panel: clicking the field sets the foreground, the swatch keeps the color it
+// replaced (and restores it on click), and foreground changes from elsewhere (swap, eyedropper)
+// move the wheel and push the old color into the "previous" half.
+void ui_color_wheel_panel_sets_foreground_and_tracks_previous() {
+  SettingsValueRestorer restore_visible(QStringLiteral("colorWheel/panelVisible"));
+  SettingsValueRestorer restore_shape(QStringLiteral("colorWheel/shape"));
+  SettingsValueRestorer restore_model(QStringLiteral("colorWheel/model"));
+  SettingsValueRestorer restore_tone(QStringLiteral("colorWheel/toneLock"));
+  patchy::ui::app_settings().remove(QStringLiteral("colorWheel"));
+  patchy::ui::MainWindow window;
+  show_window(window);
+  auto* canvas = require_canvas(window);
+  auto* panel = expanded_color_wheel_panel(window);
+  CHECK(panel != nullptr && panel->isVisible());
+  auto* wheel = panel->wheel();
+  CHECK(wheel->shape() == patchy::ColorWheelShape::Square);
+  CHECK(wheel->width() >= 120);
+
+  canvas->set_primary_color(QColor(20, 90, 200));
+  require_action(window, "colorSwapAction")->trigger();  // any foreground change reaches the panel
+  require_action(window, "colorSwapAction")->trigger();
+  QApplication::processEvents();
+  CHECK(colors_close(panel->current_color(), QColor(20, 90, 200), 0));
+
+  // Pick a known color from the field: its marker position maps back to (nearly) that color.
+  const QColor target(200, 60, 40);
+  wheel->set_color(target);  // puts the field on the target's hue without emitting
+  click_widget(*wheel, wheel->field_position_for_color(target));
+  QApplication::processEvents();
+  CHECK(colors_close(canvas->primary_color(), target, 8));
+  CHECK(colors_close(panel->previous_color(), QColor(20, 90, 200), 0));
+  const auto picked = canvas->primary_color();
+
+  // The previous half of the swatch goes back.
+  auto* swatch = panel->findChild<QWidget*>(QStringLiteral("colorWheelCompareSwatch"));
+  CHECK(swatch != nullptr);
+  click_widget(*swatch, QPointF(swatch->width() / 2.0, swatch->height() * 0.75));
+  QApplication::processEvents();
+  CHECK(colors_close(canvas->primary_color(), QColor(20, 90, 200), 0));
+  CHECK(colors_close(panel->previous_color(), picked, 0));
+
+  // An external change (the X swap) follows: new = the swapped-in color, previous = the old.
+  canvas->set_secondary_color(QColor(250, 240, 10));
+  require_action(window, "colorSwapAction")->trigger();
+  QApplication::processEvents();
+  CHECK(colors_close(panel->current_color(), QColor(250, 240, 10), 0));
+  CHECK(colors_close(panel->previous_color(), QColor(20, 90, 200), 0));
+  CHECK(colors_close(wheel->color(), QColor(250, 240, 10), 0));
+
+  // The hex field follows the color and takes a typed code (three digits expand like CSS).
+  auto* hex = panel->findChild<QLineEdit*>(QStringLiteral("colorWheelHexEdit"));
+  CHECK(hex != nullptr && hex->isVisible());
+  CHECK(hex->text() == QStringLiteral("#FAF00A"));
+  hex->setFocus();
+  hex->setText(QStringLiteral("f80"));
+  QTest::keyClick(hex, Qt::Key_Return);
+  QApplication::processEvents();
+  CHECK(colors_close(canvas->primary_color(), QColor(255, 136, 0), 0));
+  CHECK(colors_close(panel->previous_color(), QColor(250, 240, 10), 0));
+  hex->setText(QStringLiteral("#12"));  // incomplete: reverts
+  QTest::keyClick(hex, Qt::Key_Return);
+  hex->clearFocus();
+  QApplication::processEvents();
+  CHECK(colors_close(canvas->primary_color(), QColor(255, 136, 0), 0));
+  CHECK(hex->text() == QStringLiteral("#FF8800"));
+}
+
+// Tone Lock keeps the perceptual lightness while the ring changes hue; shape, model and Tone
+// Lock persist and the HUD shares them.
+void ui_color_wheel_tone_lock_and_settings_persist() {
+  SettingsValueRestorer restore_shape(QStringLiteral("colorWheel/shape"));
+  SettingsValueRestorer restore_model(QStringLiteral("colorWheel/model"));
+  SettingsValueRestorer restore_tone(QStringLiteral("colorWheel/toneLock"));
+  SettingsValueRestorer restore_visible(QStringLiteral("colorWheel/panelVisible"));
+  SettingsValueRestorer restore_expanded(QStringLiteral("colorWheel/panelExpanded"));
+  patchy::ui::app_settings().remove(QStringLiteral("colorWheel"));
+  {
+    patchy::ui::MainWindow window;
+    show_window(window);
+    auto* canvas = require_canvas(window);
+    // Closed by default (the right column must fit 1080p fully expanded); Window > Color Wheel
+    // opens it expanded and the menu item follows.
+    auto* dock = window.findChild<QDockWidget*>(QStringLiteral("colorWheelDock"));
+    auto* menu_action = window.findChild<QAction*>(QStringLiteral("windowColorWheelAction"));
+    CHECK(dock != nullptr && menu_action != nullptr);
+    CHECK(!dock->isVisible() && !menu_action->isChecked());
+    auto* panel = expanded_color_wheel_panel(window);
+    CHECK(dock->isVisible() && menu_action->isChecked() && panel->isVisible());
+    CHECK(panel != nullptr);
+    auto* tone = panel->findChild<QToolButton*>(QStringLiteral("colorWheelToneLockButton"));
+    auto* shape = panel->findChild<QComboBox*>(QStringLiteral("colorWheelShapeCombo"));
+    auto* model = panel->findChild<QComboBox*>(QStringLiteral("colorWheelModelCombo"));
+    CHECK(tone != nullptr && shape != nullptr && model != nullptr);
+    tone->setChecked(true);
+    shape->setCurrentIndex(shape->findData(static_cast<int>(patchy::ColorWheelShape::Diamond)));
+    model->setCurrentIndex(model->findData(static_cast<int>(patchy::ColorWheelModel::Ryb)));
+    auto* hud = window.findChild<patchy::ui::ColorWheelHud*>(QStringLiteral("colorWheelHud"));
+    CHECK(hud != nullptr);
+    CHECK(hud->panel()->wheel()->shape() == patchy::ColorWheelShape::Diamond);
+    CHECK(hud->panel()->wheel()->model() == patchy::ColorWheelModel::Ryb);
+    CHECK(hud->panel()->wheel()->tone_lock());
+
+    // A dark red swept to the yellow side of the ring stays a dark color (not a bright yellow).
+    const QColor dark_red(110, 20, 20);
+    canvas->set_primary_color(dark_red);
+    require_action(window, "colorSwapAction")->trigger();
+    require_action(window, "colorSwapAction")->trigger();
+    QApplication::processEvents();
+    auto* wheel = panel->wheel();
+    drag_widget(*wheel, wheel->ring_position_for_hue(0.0), wheel->ring_position_for_hue(60.0));
+    QApplication::processEvents();
+    const auto result = canvas->primary_color();
+    const auto lightness = [](QColor color) {
+      return patchy::wheel_perceptual_lightness(patchy::ui::to_wheel_rgb(color));
+    };
+    CHECK(std::abs(lightness(result) - lightness(dark_red)) < 0.02);
+    CHECK(std::abs(result.hsvHueF() * 360.0 - 60.0) < 25.0);
+  }
+  {
+    // A new window (a restart) restores the choices.
+    patchy::ui::MainWindow window;
+    show_window(window);
+    auto* dock = window.findChild<QDockWidget*>(QStringLiteral("colorWheelDock"));
+    CHECK(dock != nullptr && dock->isVisible());  // it was left open
+    // ...and expanded, with the wheel showing, not a bare title strip.
+    auto* toggle = dock->findChild<QToolButton*>(QStringLiteral("colorWheelDockCollapseButton"));
+    auto* panel = window.findChild<patchy::ui::ColorWheelPanel*>(QStringLiteral("colorWheelPanel"));
+    CHECK(toggle != nullptr && toggle->isChecked());
+    CHECK(panel != nullptr && panel->isVisible() && panel->wheel()->height() >= 100);
+    CHECK(window.minimumSizeHint().height() <= 950);
+    CHECK(panel->wheel()->shape() == patchy::ColorWheelShape::Diamond);
+    CHECK(panel->wheel()->model() == patchy::ColorWheelModel::Ryb);
+    CHECK(panel->wheel()->tone_lock());
+    toggle->setChecked(false);  // the user collapses it
+    QApplication::processEvents();
+  }
+  {
+    // A collapsed panel stays collapsed but open; the menu item still expands it.
+    patchy::ui::MainWindow window;
+    show_window(window);
+    auto* dock = window.findChild<QDockWidget*>(QStringLiteral("colorWheelDock"));
+    auto* toggle = dock->findChild<QToolButton*>(QStringLiteral("colorWheelDockCollapseButton"));
+    CHECK(dock->isVisible() && toggle != nullptr && !toggle->isChecked());
+    toggle->setChecked(true);
+    QApplication::processEvents();
+    CHECK(patchy::ui::app_settings().value(QStringLiteral("colorWheel/panelExpanded")).toBool());
+  }
+}
+
+// Harmonies: the combo places markers that follow the main hue, the strip offers their colors,
+// dragging an analogous marker changes (and persists) the spread. Saved colors: "+" fills the
+// first empty slot, a full row drops its oldest, a click uses a color, and the HUD shares them.
+void ui_color_wheel_harmony_and_saved_colors() {
+  SettingsValueRestorer restore_visible(QStringLiteral("colorWheel/panelVisible"));
+  SettingsValueRestorer restore_harmony(QStringLiteral("colorWheel/harmony"));
+  SettingsValueRestorer restore_spread(QStringLiteral("colorWheel/harmonySpread"));
+  SettingsValueRestorer restore_saved(QStringLiteral("colorWheel/savedColors"));
+  SettingsValueRestorer restore_shape(QStringLiteral("colorWheel/shape"));
+  patchy::ui::app_settings().remove(QStringLiteral("colorWheel"));
+  {
+    patchy::ui::MainWindow window;
+    show_window(window);
+    auto* canvas = require_canvas(window);
+    auto* panel = expanded_color_wheel_panel(window);
+    CHECK(panel != nullptr);
+    auto* wheel = panel->wheel();
+    auto* harmony = panel->findChild<QComboBox*>(QStringLiteral("colorWheelHarmonyCombo"));
+    auto* strip = panel->findChild<QWidget*>(QStringLiteral("colorWheelHarmonyStrip"));
+    CHECK(harmony != nullptr && strip != nullptr);
+    CHECK(!strip->isVisible());  // no harmony, no strip
+
+    canvas->set_primary_color(QColor(220, 40, 40));
+    require_action(window, "colorSwapAction")->trigger();
+    require_action(window, "colorSwapAction")->trigger();
+    harmony->setCurrentIndex(harmony->findData(static_cast<int>(patchy::ColorHarmony::Complementary)));
+    QApplication::processEvents();
+    CHECK(strip->isVisible());
+    auto colors = wheel->harmony_colors();
+    CHECK(colors.size() == 1U);
+    CHECK(std::abs(colors[0].hsvHueF() * 360.0 - 180.0) < 3.0);  // RGB complement of red is cyan
+
+    // Clicking the strip's color makes it the foreground.
+    click_widget(*strip, QPointF(strip->width() / 2.0, strip->height() / 2.0));
+    QApplication::processEvents();
+    CHECK(colors_close(canvas->primary_color(), colors[0], 0));
+
+    // Analogous: dragging the second marker widens the spread, and it persists.
+    harmony->setCurrentIndex(harmony->findData(static_cast<int>(patchy::ColorHarmony::Analogous)));
+    QApplication::processEvents();
+    CHECK(std::abs(wheel->harmony_spread() - patchy::kHarmonySpreadDefault) < 1e-9);
+    const auto base_angle = patchy::wheel_angle_for_hue(wheel->hue(), wheel->model());
+    const auto target_angle = (base_angle + 60.0) * std::numbers::pi / 180.0;
+    const auto radius = (wheel->harmony_marker_position(1) - wheel->center());
+    const auto ring = std::hypot(radius.x(), radius.y());
+    const QPointF target(wheel->center().x() + ring * std::cos(target_angle),
+                         wheel->center().y() - ring * std::sin(target_angle));
+    drag_widget(*wheel, wheel->harmony_marker_position(1), target);
+    QApplication::processEvents();
+    CHECK(std::abs(wheel->harmony_spread() - 60.0) < 2.0);
+    CHECK(std::abs(patchy::ui::app_settings().value(QStringLiteral("colorWheel/harmonySpread")).toDouble() - 60.0) < 2.0);
+    CHECK(patchy::ui::app_settings().value(QStringLiteral("colorWheel/harmony")).toString() == QStringLiteral("analogous"));
+
+    // Saved colors.
+    auto* hud = window.findChild<patchy::ui::ColorWheelHud*>(QStringLiteral("colorWheelHud"));
+    CHECK(hud != nullptr);
+    auto* save = panel->findChild<QToolButton*>(QStringLiteral("colorWheelSaveColorButton"));
+    CHECK(save != nullptr);
+    for (int index = 0; index < patchy::ui::kSavedColorSlots + 1; ++index) {
+      canvas->set_primary_color(QColor(10 * index, 100, 200));
+      require_action(window, "colorSwapAction")->trigger();
+      require_action(window, "colorSwapAction")->trigger();
+      save->click();
+    }
+    const auto& saved = panel->saved_colors();
+    CHECK(static_cast<int>(saved.size()) == patchy::ui::kSavedColorSlots);
+    CHECK(colors_close(saved.front(), QColor(10, 100, 200), 0));  // the oldest (0) dropped out
+    CHECK(colors_close(saved.back(), QColor(80, 100, 200), 0));
+    CHECK(hud->panel()->saved_colors() == saved);  // shared with the HUD
+    auto* saved_strip = panel->findChild<QWidget*>(QStringLiteral("colorWheelSavedColorsStrip"));
+    CHECK(saved_strip != nullptr);
+    const auto cell_width = saved_strip->width() / static_cast<double>(patchy::ui::kSavedColorSlots);
+    click_widget(*saved_strip, QPointF(cell_width * 2.5, saved_strip->height() / 2.0));
+    QApplication::processEvents();
+    CHECK(colors_close(canvas->primary_color(), QColor(30, 100, 200), 0));
+  }
+  {
+    // A restart keeps the harmony, its spread and the saved colors.
+    patchy::ui::MainWindow window;
+    show_window(window);
+    auto* panel = expanded_color_wheel_panel(window);
+    CHECK(panel->wheel()->harmony() == patchy::ColorHarmony::Analogous);
+    CHECK(std::abs(panel->wheel()->harmony_spread() - 60.0) < 2.0);
+    CHECK(colors_close(panel->saved_colors().back(), QColor(80, 100, 200), 0));
+  }
+}
+
+// The HUD opens at the pointer from Window > Color Wheel at Pointer or a pen button, sets the
+// foreground, hides after a pick unless kept open, resizes with the mouse wheel, and closes on
+// Escape or an outside click.
+void ui_color_wheel_hud_opens_picks_and_dismisses() {
+  SettingsValueRestorer restore_size(QStringLiteral("colorWheel/hudSize"));
+  SettingsValueRestorer restore_persistent(QStringLiteral("colorWheel/hudPersistent"));
+  SettingsValueRestorer restore_shape(QStringLiteral("colorWheel/shape"));
+  patchy::ui::app_settings().remove(QStringLiteral("colorWheel"));
+  patchy::ui::MainWindow window;
+  show_window(window);
+  auto* canvas = require_canvas(window);
+  auto* hud = window.findChild<patchy::ui::ColorWheelHud*>(QStringLiteral("colorWheelHud"));
+  CHECK(hud != nullptr);
+  CHECK(!hud->isVisible());
+
+  const auto pointer = canvas->mapToGlobal(QPoint(canvas->width() / 2, canvas->height() / 2));
+  QCursor::setPos(pointer);
+  require_action(window, "windowColorWheelHudAction")->trigger();
+  QApplication::processEvents();
+  CHECK(hud->isVisible());
+  CHECK(hud->width() == 260);
+
+  // A pick sets the foreground and, not kept open, hides the HUD.
+  auto* wheel = hud->panel()->wheel();
+  click_widget(*wheel, wheel->center() + QPointF(wheel->width() * 0.1, wheel->height() * 0.1));
+  QApplication::processEvents();
+  CHECK(!hud->isVisible());
+  CHECK(canvas->primary_color() == wheel->color());
+
+  // Mouse wheel resizes (and remembers); Escape closes.
+  hud->show_at(pointer);
+  QWheelEvent grow(QPointF(20, 20), hud->mapToGlobal(QPointF(20, 20)), QPoint(), QPoint(0, 240), Qt::NoButton,
+                   Qt::NoModifier, Qt::NoScrollPhase, false);
+  QApplication::sendEvent(hud, &grow);
+  CHECK(hud->width() == 300);
+  CHECK(patchy::ui::app_settings().value(QStringLiteral("colorWheel/hudSize")).toInt() == 300);
+  QKeyEvent escape(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+  QApplication::sendEvent(hud, &escape);
+  CHECK(!hud->isVisible());
+
+  // Kept open: survives picks; an outside click still does not close it. Unpinned, it does.
+  hud->show_at(pointer);
+  auto* pin = hud->findChild<QToolButton*>(QStringLiteral("colorWheelHudPinButton"));
+  CHECK(pin != nullptr);
+  pin->setChecked(true);
+  CHECK(hud->persistent());
+  click_widget(*wheel, wheel->center() + QPointF(-wheel->width() * 0.1, wheel->height() * 0.05));
+  QApplication::processEvents();
+  CHECK(hud->isVisible());
+  auto* status = window.statusBar();
+  click_widget(*status, QPointF(5, 5));
+  CHECK(hud->isVisible());
+  pin->setChecked(false);
+  click_widget(*status, QPointF(5, 5));
+  CHECK(!hud->isVisible());
+
+  // A pen button set to Show color wheel opens it too.
+  auto settings = canvas->pen_input_settings();
+  settings.primary_button_action = patchy::ui::PenButtonAction::ShowColorWheel;
+  canvas->set_pen_input_settings(settings);
+  const auto point = QPoint(canvas->width() / 2, canvas->height() / 2);
+  send_tablet(*canvas, QEvent::TabletPress, point, 1.0, Qt::RightButton, Qt::RightButton);
+  send_tablet(*canvas, QEvent::TabletRelease, point, 0.0, Qt::RightButton, Qt::NoButton);
+  QApplication::processEvents();
+  CHECK(hud->isVisible());
+  hud->hide();
+  // The pen-hover cursor override lasts until a real mouse event, as when the user goes back to
+  // the mouse; end the pen session that way so no override leaks into later tests.
+  QMouseEvent mouse_move(QEvent::MouseMove, QPointF(point), canvas->mapToGlobal(QPointF(point)), Qt::NoButton,
+                         Qt::NoButton, Qt::NoModifier);
+  QApplication::sendEvent(canvas, &mouse_move);
+  CHECK(QApplication::overrideCursor() == nullptr);
 }
 
 void ui_stamp_and_gradient_flyouts_swap_tools() {
@@ -3307,6 +3871,63 @@ void ui_collapsed_right_docks_have_uniform_title_height() {
   save_widget_artifact("ui_collapsed_right_docks_uniform_titles", window);
 }
 
+// Every right-dock panel shows its icons/panel-*.svg glyph in its title bar and,
+// when tabified, on its tab. Qt builds those tab bars without icons and rebuilds
+// them when a panel is hidden or regrouped, so the icon must come back each time.
+void ui_right_dock_panels_show_icons_in_titles_and_tabs() {
+  patchy::ui::MainWindow window;
+  show_window(window);
+  process_events_for(30);
+  const auto tab_icon_for = [&window](const QDockWidget* dock) {
+    for (auto* tab_bar : window.findChildren<QTabBar*>()) {
+      for (int index = 0; index < tab_bar->count(); ++index) {
+        if (tab_bar->tabData(index).value<quintptr>() == reinterpret_cast<quintptr>(dock)) {
+          return std::optional<QIcon>(tab_bar->tabIcon(index));
+        }
+      }
+    }
+    return std::optional<QIcon>();
+  };
+  const auto opaque_pixels = [](const QIcon& icon) {
+    const auto image = icon.pixmap(QSize(16, 16)).toImage().convertToFormat(QImage::Format_ARGB32);
+    int count = 0;
+    for (int y = 0; y < image.height(); ++y) {
+      for (int x = 0; x < image.width(); ++x) {
+        count += qAlpha(image.pixel(x, y)) > 128 ? 1 : 0;
+      }
+    }
+    return count;
+  };
+  for (const auto* prefix :
+       {"layers", "channels", "paths", "history", "properties", "info", "palette", "colorWheel"}) {
+    auto* dock = window.findChild<QDockWidget*>(QString::fromLatin1(prefix) + QStringLiteral("Dock"));
+    CHECK(dock != nullptr);
+    // A typo'd qrc alias renders an empty icon silently.
+    CHECK(opaque_pixels(dock->windowIcon()) > 20);
+    auto* title_icon = dock->findChild<QWidget*>(QString::fromLatin1(prefix) + QStringLiteral("DockTitleIcon"));
+    CHECK(title_icon != nullptr);
+    CHECK(title_icon->testAttribute(Qt::WA_TransparentForMouseEvents));
+  }
+  auto* layers = window.findChild<QDockWidget*>(QStringLiteral("layersDock"));
+  auto* channels = window.findChild<QDockWidget*>(QStringLiteral("channelsDock"));
+  auto* paths = window.findChild<QDockWidget*>(QStringLiteral("pathsDock"));
+  for (auto* dock : {layers, channels, paths}) {
+    const auto icon = tab_icon_for(dock);
+    CHECK(icon.has_value());
+    CHECK(icon.has_value() && icon->cacheKey() == dock->windowIcon().cacheKey());
+  }
+  save_widget_artifact("ui_right_dock_panel_icons", window);
+
+  channels->hide();
+  process_events_for(30);
+  channels->show();
+  window.tabifyDockWidget(layers, channels);
+  process_events_for(30);
+  const auto channels_icon = tab_icon_for(channels);
+  CHECK(channels_icon.has_value());
+  CHECK(channels_icon.has_value() && channels_icon->cacheKey() == channels->windowIcon().cacheKey());
+}
+
 void ui_short_panel_scroll_bar_drags_by_handle() {
   // A squeezed panel's scrollbar is short. Without box properties on the
   // scroll bar's QSS widget rule, the groove rect came from the native
@@ -3764,6 +4385,17 @@ std::vector<patchy::test::TestCase> canvas_view_tools_tests() {
        ui_canvas_deep_zoom_without_grid_keeps_pixels_sharp},
       {"ui_zoomed_out_canvas_uses_downsampled_display_mip",
        ui_zoomed_out_canvas_uses_downsampled_display_mip},
+      {"ui_display_mip_incremental_update_matches_full_halving",
+       ui_display_mip_incremental_update_matches_full_halving},
+      {"ui_zoomed_out_region_edit_patches_display_mips_in_place",
+       ui_zoomed_out_region_edit_patches_display_mips_in_place},
+      {"ui_async_full_refresh_survives_repaints_and_region_edits",
+       ui_async_full_refresh_survives_repaints_and_region_edits},
+      {"ui_color_wheel_panel_sets_foreground_and_tracks_previous",
+       ui_color_wheel_panel_sets_foreground_and_tracks_previous},
+      {"ui_color_wheel_tone_lock_and_settings_persist", ui_color_wheel_tone_lock_and_settings_persist},
+      {"ui_color_wheel_harmony_and_saved_colors", ui_color_wheel_harmony_and_saved_colors},
+      {"ui_color_wheel_hud_opens_picks_and_dismisses", ui_color_wheel_hud_opens_picks_and_dismisses},
       {"ui_shape_flyout_and_zoom_tool_work", ui_shape_flyout_and_zoom_tool_work},
       {"ui_zoom_tool_scrubby_option_persists_and_reaches_canvas",
        ui_zoom_tool_scrubby_option_persists_and_reaches_canvas},
@@ -3802,6 +4434,7 @@ std::vector<patchy::test::TestCase> canvas_view_tools_tests() {
       {"ui_right_dock_panels_expand_within_window_height", ui_right_dock_panels_expand_within_window_height},
       {"ui_collapsed_right_docks_have_uniform_title_height",
        ui_collapsed_right_docks_have_uniform_title_height},
+      {"ui_right_dock_panels_show_icons_in_titles_and_tabs", ui_right_dock_panels_show_icons_in_titles_and_tabs},
       {"ui_right_dock_separator_drags_between_docks", ui_right_dock_separator_drags_between_docks},
       {"ui_right_dock_contents_clear_width_handle", ui_right_dock_contents_clear_width_handle},
       {"ui_short_panel_scroll_bar_drags_by_handle", ui_short_panel_scroll_bar_drags_by_handle},

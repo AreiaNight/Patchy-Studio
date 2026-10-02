@@ -458,6 +458,14 @@ void MainWindow::add_document_session(Document document, QString title, QString 
 }
 
 void MainWindow::update_start_panel_visibility() {
+  if (studio_shell_ != nullptr) {
+    // The studio gallery replaces the start panel.
+    if (start_panel_ != nullptr) {
+      start_panel_->hide();
+    }
+    notify_studio_shell();
+    return;
+  }
   if (start_panel_ == nullptr || document_tabs_ == nullptr) {
     return;
   }
@@ -479,6 +487,7 @@ void MainWindow::activate_document_tab(int index) {
 }
 
 void MainWindow::activate_document_canvas(CanvasWidget* canvas, const std::function<void()>& progress) {
+  notify_studio_shell();
   if (preview_dialog_edit_locked() && canvas != preview_dialog_edit_lock_canvas_) {
     if (auto* locked_canvas = preview_dialog_edit_lock_canvas_.data(); locked_canvas != nullptr) {
       if (auto* locked_session = session_for_canvas(locked_canvas);
@@ -1501,7 +1510,7 @@ void MainWindow::refresh_document_window_title() {
     setWindowFilePath(QString());
     setWindowModified(false);
 #endif
-    setWindowTitle(QStringLiteral("Patchy"));
+    setWindowTitle(studio_shell_requested_ ? QStringLiteral("Patchy Studio") : QStringLiteral("Patchy"));
     return;
   }
 

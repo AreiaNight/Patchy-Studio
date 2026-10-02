@@ -110,5 +110,15 @@
     <file alias="tool-pan.svg">icons/tool-pan.svg</file>
     <file alias="tool-zoom.svg">icons/tool-zoom.svg</file>
     <file alias="tool-flyout-corner.svg">icons/tool-flyout-corner.svg</file>
+    <file alias="gear.svg">icons/gear.svg</file>
+    <file alias="airbrush.svg">icons/airbrush.svg</file>
+    <file alias="panel-layers.svg">icons/panel-layers.svg</file>
+    <file alias="panel-channels.svg">icons/panel-channels.svg</file>
+    <file alias="panel-paths.svg">icons/panel-paths.svg</file>
+    <file alias="panel-history.svg">icons/panel-history.svg</file>
+    <file alias="panel-properties.svg">icons/panel-properties.svg</file>
+    <file alias="panel-info.svg">icons/panel-info.svg</file>
+    <file alias="panel-palette.svg">icons/panel-palette.svg</file>
+    <file alias="panel-color-wheel.svg">icons/panel-color-wheel.svg</file>
   </qresource>
 </RCC>

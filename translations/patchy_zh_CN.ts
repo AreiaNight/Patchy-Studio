@@ -8581,6 +8581,10 @@ RGB：%2, %3, %4</translation>
         <source>Import Notes</source>
         <translation>导入说明</translation>
     </message>
+    <message>
+        <source>Open the classic Patchy interface instead of Patchy Studio.</source>
+        <translation>打开经典 Patchy 界面，而不是 Patchy Studio。</translation>
+    </message>
 </context>
 <context>
     <name>ScannerImport</name>
@@ -9247,6 +9251,18 @@ RGB：%2, %3, %4</translation>
     <message>
         <source>Reset the tip shape and all dynamics to defaults</source>
         <translation>将笔尖形状和所有动态恢复为默认值</translation>
+    </message>
+    <message>
+        <source>Pattern</source>
+        <translation>图案</translation>
+    </message>
+    <message>
+        <source>Pattern:</source>
+        <translation>图案:</translation>
+    </message>
+    <message>
+        <source>Missing pattern</source>
+        <translation>缺失的图案</translation>
     </message>
 </context>
 <context>
@@ -10183,6 +10199,112 @@ RGB：%2, %3, %4</translation>
     <message>
         <source>Delete channel</source>
         <translation>删除通道</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::ColorWheelHud</name>
+    <message>
+        <source>Keep the wheel on screen between strokes</source>
+        <translation>在笔画之间保持色轮显示</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::ColorWheelPanel</name>
+    <message>
+        <source>New color (top) and previous color (bottom). Click the previous color to go back to it.</source>
+        <translation>新颜色（上）和之前的颜色（下）。单击之前的颜色可恢复为该颜色。</translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation>正方形</translation>
+    </message>
+    <message>
+        <source>Triangle</source>
+        <translation>三角形</translation>
+    </message>
+    <message>
+        <source>Diamond</source>
+        <translation>菱形</translation>
+    </message>
+    <message>
+        <source>Shape of the field inside the ring</source>
+        <translation>色环内区域的形状</translation>
+    </message>
+    <message>
+        <source>RGB</source>
+        <translation>RGB</translation>
+    </message>
+    <message>
+        <source>Painter&apos;s RYB</source>
+        <translation>画家 RYB</translation>
+    </message>
+    <message>
+        <source>Wheel layout: RGB, or the painter&apos;s red, yellow and blue wheel</source>
+        <translation>色轮布局：RGB，或红、黄、蓝的画家色轮</translation>
+    </message>
+    <message>
+        <source>Tone Lock</source>
+        <translation>锁定明度</translation>
+    </message>
+    <message>
+        <source>Keep the lightness while you change the hue, so shadows stay shadows</source>
+        <translation>更改色相时保持明度，让阴影仍然是阴影</translation>
+    </message>
+    <message>
+        <source>Save Current Color Here</source>
+        <translation>将当前颜色保存到此处</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>移除</translation>
+    </message>
+    <message>
+        <source>No Harmony</source>
+        <translation>无配色</translation>
+    </message>
+    <message>
+        <source>Complementary</source>
+        <translation>互补色</translation>
+    </message>
+    <message>
+        <source>Analogous</source>
+        <translation>类似色</translation>
+    </message>
+    <message>
+        <source>Triadic</source>
+        <translation>三角配色</translation>
+    </message>
+    <message>
+        <source>Split Complementary</source>
+        <translation>分裂互补色</translation>
+    </message>
+    <message>
+        <source>Rectangle</source>
+        <translation>矩形</translation>
+    </message>
+    <message>
+        <source>Color harmony: markers on the ring follow the main color; drag an outer marker to widen or narrow analogous, split and rectangle harmonies</source>
+        <translation>颜色配色：色环上的标记跟随主色；拖动外侧标记可放宽或收窄类似色、分裂互补色和矩形配色</translation>
+    </message>
+    <message>
+        <source>Harmony colors. Click one to use it.</source>
+        <translation>配色颜色。单击一个即可使用。</translation>
+    </message>
+    <message>
+        <source>Save the current color</source>
+        <translation>保存当前颜色</translation>
+    </message>
+    <message>
+        <source>Saved colors. Click one to use it, click an empty slot to save the current color there, right-click for more.</source>
+        <translation>已保存的颜色。单击一个即可使用，单击空槽可将当前颜色保存到那里，右键单击可查看更多选项。</translation>
+    </message>
+    <message>
+        <source>Hex code of the new color. Type a code and press Enter to use it.</source>
+        <translation>新颜色的十六进制代码。输入代码并按 Enter 键即可使用。</translation>
     </message>
 </context>
 <context>
@@ -11873,14 +11995,6 @@ RGB：%2, %3, %4</translation>
     <message>
         <source>Flow:</source>
         <translation>流量:</translation>
-    </message>
-    <message>
-        <source>Airbrush</source>
-        <translation>喷枪</translation>
-    </message>
-    <message>
-        <source>Build paint while the pointer is held still</source>
-        <translation>指针停留不动时持续堆积颜料</translation>
     </message>
     <message>
         <source>Stroke smoothing - 0% paints the raw pointer path</source>
@@ -18155,6 +18269,34 @@ Y: %2
         <source>The placed position or size is out of range</source>
         <translation>置入的位置或大小超出范围</translation>
     </message>
+    <message>
+        <source>Pressure curve:</source>
+        <translation>压力曲线:</translation>
+    </message>
+    <message>
+        <source>How pen pressure maps to brush size, opacity and brush dynamics. Negative values feel firmer (more pressure for the same result), positive values feel softer. 0 is linear.</source>
+        <translation>笔压如何映射到画笔大小、不透明度和画笔动态。负值手感更硬（同样的效果需要更大压力），正值手感更软。0 为线性。</translation>
+    </message>
+    <message>
+        <source>Color Wheel</source>
+        <translation>色轮</translation>
+    </message>
+    <message>
+        <source>Color Wheel at Pointer</source>
+        <translation>指针处的色轮</translation>
+    </message>
+    <message>
+        <source>Foreground: %1</source>
+        <translation>前景色: %1</translation>
+    </message>
+    <message>
+        <source>Show color wheel</source>
+        <translation>显示色轮</translation>
+    </message>
+    <message>
+        <source>Airbrush: build paint while the pointer is held still</source>
+        <translation>喷枪: 指针停留不动时持续堆积颜料</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -19643,6 +19785,335 @@ Y: %2
     <message>
         <source>Free · Windows, macOS &amp; Linux</source>
         <translation>免费 · Windows、macOS和Linux</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioActionsPanel</name>
+    <message>
+        <source>Actions</source>
+        <translation>操作</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>添加</translation>
+    </message>
+    <message>
+        <source>Add text</source>
+        <translation>添加文字</translation>
+    </message>
+    <message>
+        <source>Canvas</source>
+        <translation>画布</translation>
+    </message>
+    <message>
+        <source>Share</source>
+        <translation>共享</translation>
+    </message>
+    <message>
+        <source>Prefs</source>
+        <translation>偏好</translation>
+    </message>
+    <message>
+        <source>Light interface</source>
+        <translation>浅色界面</translation>
+    </message>
+    <message>
+        <source>Right-hand interface</source>
+        <translation>右手界面</translation>
+    </message>
+    <message>
+        <source>Full screen</source>
+        <translation>全屏</translation>
+    </message>
+    <message>
+        <source>Help</source>
+        <translation>帮助</translation>
+    </message>
+    <message>
+        <source>About Patchy Studio</source>
+        <translation>关于 Patchy Studio</translation>
+    </message>
+    <message>
+        <source>Tips: B, S and E pick Brush, Smudge and Eraser. [ and ] change the brush size. Ctrl+Z undoes, Ctrl+Shift+Z redoes. Space+drag pans, Alt+click picks a color.</source>
+        <translation>提示：B、S、E 分别选择画笔、涂抹和橡皮擦。[ 和 ] 调整画笔大小。Ctrl+Z 撤销，Ctrl+Shift+Z 重做。空格+拖动平移视图，Alt+单击拾取颜色。</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioAdjustmentsPanel</name>
+    <message>
+        <source>Adjustments</source>
+        <translation>调整</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioBrushLibraryPanel</name>
+    <message>
+        <source>Brush Library</source>
+        <translation>画笔库</translation>
+    </message>
+    <message>
+        <source>Import brushes (.abr)</source>
+        <translation>导入画笔 (.abr)</translation>
+    </message>
+    <message>
+        <source>Brush settings</source>
+        <translation>画笔设置</translation>
+    </message>
+    <message>
+        <source>All brushes</source>
+        <translation>所有画笔</translation>
+    </message>
+    <message>
+        <source>Basic</source>
+        <translation>基本</translation>
+    </message>
+    <message>
+        <source>Round</source>
+        <translation>圆形</translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation>正方形</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioColorPanel</name>
+    <message>
+        <source>Colors</source>
+        <translation>颜色</translation>
+    </message>
+    <message>
+        <source>History</source>
+        <translation>历史</translation>
+    </message>
+    <message>
+        <source>Colors you paint with appear here.</source>
+        <translation>你绘画用过的颜色会显示在这里。</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioGallery</name>
+    <message>
+        <source>Patchy Studio</source>
+        <translation>Patchy Studio</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>导入</translation>
+    </message>
+    <message>
+        <source>Open a file from disk</source>
+        <translation>从磁盘打开文件</translation>
+    </message>
+    <message>
+        <source>New canvas</source>
+        <translation>新建画布</translation>
+    </message>
+    <message>
+        <source>OPEN</source>
+        <translation>已打开</translation>
+    </message>
+    <message>
+        <source>RECENT</source>
+        <translation>最近</translation>
+    </message>
+    <message>
+        <source>Tap + to start a new canvas, or Import to open a file.</source>
+        <translation>点按 + 新建画布，或点按导入打开文件。</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation>正方形</translation>
+    </message>
+    <message>
+        <source>4K</source>
+        <translation>4K</translation>
+    </message>
+    <message>
+        <source>A4 (300 PPI)</source>
+        <translation>A4 (300 PPI)</translation>
+    </message>
+    <message>
+        <source>Comic page</source>
+        <translation>漫画页</translation>
+    </message>
+    <message>
+        <source>Sketch</source>
+        <translation>草图</translation>
+    </message>
+    <message>
+        <source>%1 × %2 px</source>
+        <translation>%1 × %2 像素</translation>
+    </message>
+    <message>
+        <source>Screen size</source>
+        <translation>屏幕尺寸</translation>
+    </message>
+    <message>
+        <source>Custom size...</source>
+        <translation>自定义尺寸...</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioLayersPanel</name>
+    <message>
+        <source>Layers</source>
+        <translation>图层</translation>
+    </message>
+    <message>
+        <source>New layer</source>
+        <translation>新建图层</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>不透明度</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioShell</name>
+    <message>
+        <source>Gallery</source>
+        <translation>图库</translation>
+    </message>
+    <message>
+        <source>Show the gallery of open and recent artwork</source>
+        <translation>显示已打开和最近作品的图库</translation>
+    </message>
+    <message>
+        <source>Actions</source>
+        <translation>操作</translation>
+    </message>
+    <message>
+        <source>Adjustments</source>
+        <translation>调整</translation>
+    </message>
+    <message>
+        <source>Selection</source>
+        <translation>选区</translation>
+    </message>
+    <message>
+        <source>Transform</source>
+        <translation>变换</translation>
+    </message>
+    <message>
+        <source>Paint (tap again for the Brush Library)</source>
+        <translation>绘画（再次点按打开画笔库）</translation>
+    </message>
+    <message>
+        <source>Smudge (tap again for the Brush Library)</source>
+        <translation>涂抹（再次点按打开画笔库）</translation>
+    </message>
+    <message>
+        <source>Erase (tap again for the Brush Library)</source>
+        <translation>擦除（再次点按打开画笔库）</translation>
+    </message>
+    <message>
+        <source>Layers</source>
+        <translation>图层</translation>
+    </message>
+    <message>
+        <source>Colors</source>
+        <translation>颜色</translation>
+    </message>
+    <message>
+        <source>Brush size</source>
+        <translation>画笔大小</translation>
+    </message>
+    <message>
+        <source>Brush opacity</source>
+        <translation>画笔不透明度</translation>
+    </message>
+    <message>
+        <source>Eyedropper: pick a color from the canvas</source>
+        <translation>吸管：从画布拾取颜色</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>撤销</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>重做</translation>
+    </message>
+    <message>
+        <source>%1 px</source>
+        <translation>%1 像素</translation>
+    </message>
+    <message>
+        <source>%1%</source>
+        <translation>%1%</translation>
+    </message>
+    <message>
+        <source>Automatic</source>
+        <translation>自动</translation>
+    </message>
+    <message>
+        <source>Freehand</source>
+        <translation>手绘</translation>
+    </message>
+    <message>
+        <source>Rectangle</source>
+        <translation>矩形</translation>
+    </message>
+    <message>
+        <source>Ellipse</source>
+        <translation>椭圆</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>添加</translation>
+    </message>
+    <message>
+        <source>Subtract</source>
+        <translation>减去</translation>
+    </message>
+    <message>
+        <source>Invert</source>
+        <translation>反转</translation>
+    </message>
+    <message>
+        <source>Copy &amp; Paste</source>
+        <translation>复制并粘贴</translation>
+    </message>
+    <message>
+        <source>Expand</source>
+        <translation>扩展</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>清除</translation>
+    </message>
+    <message>
+        <source>Freeform</source>
+        <translation>自由变换</translation>
+    </message>
+    <message>
+        <source>Warp</source>
+        <translation>变形</translation>
+    </message>
+    <message>
+        <source>Flip Horizontal</source>
+        <translation>水平翻转</translation>
+    </message>
+    <message>
+        <source>Flip Vertical</source>
+        <translation>垂直翻转</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>完成</translation>
+    </message>
+    <message>
+        <source>New canvas</source>
+        <translation>新建画布</translation>
     </message>
 </context>
 <context>

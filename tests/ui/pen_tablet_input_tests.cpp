@@ -1,4 +1,5 @@
 #include "ui/canvas_widget.hpp"
+#include "core/pen_pressure.hpp"
 #include "core/adjustment_layer.hpp"
 #include "core/contour_presets.hpp"
 #include "core/gradient_presets.hpp"
@@ -323,6 +324,56 @@ void ui_pen_pressure_respects_brush_control_override() {
   const auto erased_width = row_alpha_count(24, 62, 82, 0) - row_alpha_count(24, 62, 82, 200);
   CHECK(erased_width >= 3);
   CHECK(erased_width <= 14);
+}
+
+// The Preferences pressure curve shapes live tablet pressure once, at the sample:
+// the raw value stays available, a soft curve lifts light pressure, and the
+// painted dab follows the shaped value (soft paints fuller than linear).
+void ui_pen_pressure_curve_shapes_tablet_pressure() {
+  const auto paint_center_alpha = [](int curve, float* shaped, float* raw) {
+    patchy::Document document(64, 64, patchy::PixelFormat::rgba8());
+    auto& layer = document.add_pixel_layer("Paint",
+                                           solid_pixels(64, 64, patchy::PixelFormat::rgba8(), QColor(0, 0, 0, 0)));
+    const auto layer_id = layer.id();
+    patchy::ui::CanvasWidget canvas;
+    canvas.resize(120, 120);
+    canvas.set_document(&document);
+    canvas.set_tool(patchy::ui::CanvasTool::Brush);
+    canvas.set_primary_color(Qt::black);
+    canvas.set_brush_size(20);
+    canvas.set_brush_opacity(100);
+    canvas.set_brush_softness(0);
+    patchy::ui::CanvasWidget::PenInputSettings settings;
+    settings.pressure_size = false;
+    settings.pressure_opacity = true;
+    settings.pressure_opacity_min_percent = 1;
+    settings.pressure_curve = curve;
+    canvas.set_pen_input_settings(settings);
+    canvas.show();
+    QApplication::processEvents();
+    const auto position = canvas.widget_position_for_document_point(QPoint(32, 32));
+    send_tablet(canvas, QEvent::TabletPress, position, 0.25);
+    const auto sample = canvas.last_pen_input_sample();
+    send_tablet(canvas, QEvent::TabletRelease, position, 0.0, Qt::LeftButton, Qt::NoButton);
+    CHECK(sample.has_value());
+    *shaped = sample.has_value() ? sample->pressure : -1.0F;
+    *raw = sample.has_value() ? sample->raw_pressure : -1.0F;
+    return static_cast<int>(std::as_const(document).find_layer(layer_id)->pixels().pixel(32, 32)[3]);
+  };
+
+  float shaped = 0.0F;
+  float raw = 0.0F;
+  const auto linear_alpha = paint_center_alpha(0, &shaped, &raw);
+  CHECK(std::abs(raw - 0.25F) < 0.001F);
+  CHECK(std::abs(shaped - 0.25F) < 0.001F);
+  const auto soft_alpha = paint_center_alpha(80, &shaped, &raw);
+  CHECK(std::abs(raw - 0.25F) < 0.001F);
+  CHECK(std::abs(shaped - patchy::apply_pen_pressure_curve(0.25F, 80)) < 0.0001F);
+  CHECK(shaped > 0.6F);
+  const auto firm_alpha = paint_center_alpha(-80, &shaped, &raw);
+  CHECK(shaped < 0.05F);
+  CHECK(soft_alpha > linear_alpha + 60);
+  CHECK(firm_alpha < linear_alpha);
 }
 
 void ui_pen_missing_pressure_uses_full_pressure_and_hover_does_not_paint() {
@@ -774,6 +825,7 @@ void ui_pen_tilt_shape_can_elongate_brush_dabs() {
 
 std::vector<patchy::test::TestCase> pen_tablet_input_tests() {
   return {
+      {"ui_pen_pressure_curve_shapes_tablet_pressure", ui_pen_pressure_curve_shapes_tablet_pressure},
       {"ui_pen_pressure_controls_brush_size_and_opacity",
        ui_pen_pressure_controls_brush_size_and_opacity},
       {"ui_pen_pressure_respects_brush_control_override", ui_pen_pressure_respects_brush_control_override},

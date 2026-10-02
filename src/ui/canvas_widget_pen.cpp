@@ -9,6 +9,7 @@
 #include "ui/canvas_widget.hpp"
 #include "ui/canvas_widget_shared.hpp"
 
+#include "core/pen_pressure.hpp"
 #include "core/adjustment_layer.hpp"
 #include "core/blend_math.hpp"
 #include "core/layer_metadata.hpp"
@@ -144,8 +145,13 @@ CanvasWidget::PenInputSample CanvasWidget::pen_input_sample_from_tablet_event(co
   }
 
   sample.pressure_available = capabilities.testFlag(QInputDevice::Capability::Pressure);
-  sample.pressure = sample.pressure_available && std::isfinite(event.pressure())
-                        ? std::clamp(static_cast<float>(event.pressure()), 0.0F, 1.0F)
+  sample.raw_pressure = sample.pressure_available && std::isfinite(event.pressure())
+                            ? std::clamp(static_cast<float>(event.pressure()), 0.0F, 1.0F)
+                            : 1.0F;
+  // Shaped once here, so global size/opacity, brush dynamics and every other
+  // pressure consumer see the same response.
+  sample.pressure = sample.pressure_available
+                        ? apply_pen_pressure_curve(sample.raw_pressure, pen_input_settings_.pressure_curve)
                         : 1.0F;
   sample.x_tilt = std::isfinite(event.xTilt()) ? static_cast<float>(event.xTilt()) : 0.0F;
   sample.y_tilt = std::isfinite(event.yTilt()) ? static_cast<float>(event.yTilt()) : 0.0F;
@@ -249,6 +255,7 @@ bool CanvasWidget::perform_pen_button_action(PenButtonAction action, const PenIn
     case PenButtonAction::ToggleEraser:
     case PenButtonAction::IncreaseBrushSize:
     case PenButtonAction::DecreaseBrushSize:
+    case PenButtonAction::ShowColorWheel:
       if (pen_button_action_callback_) {
         pen_button_action_callback_(action);
       }

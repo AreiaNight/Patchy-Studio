@@ -8608,6 +8608,10 @@ RGB: %2, %3, %4</translation>
         <source>Import Notes</source>
         <translation>Note di importazione</translation>
     </message>
+    <message>
+        <source>Open the classic Patchy interface instead of Patchy Studio.</source>
+        <translation>Apre l'interfaccia classica di Patchy invece di Patchy Studio.</translation>
+    </message>
 </context>
 <context>
     <name>ScannerImport</name>
@@ -9274,6 +9278,18 @@ RGB: %2, %3, %4</translation>
     <message>
         <source>Reset the tip shape and all dynamics to defaults</source>
         <translation>Ripristina la forma della punta e tutte le dinamiche ai valori predefiniti</translation>
+    </message>
+    <message>
+        <source>Pattern</source>
+        <translation>Pattern</translation>
+    </message>
+    <message>
+        <source>Pattern:</source>
+        <translation>Pattern:</translation>
+    </message>
+    <message>
+        <source>Missing pattern</source>
+        <translation>Pattern mancante</translation>
     </message>
 </context>
 <context>
@@ -10210,6 +10226,112 @@ RGB: %2, %3, %4</translation>
     <message>
         <source>Delete channel</source>
         <translation>Elimina canale</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::ColorWheelHud</name>
+    <message>
+        <source>Keep the wheel on screen between strokes</source>
+        <translation>Mantieni la ruota sullo schermo tra un tratto e l&apos;altro</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Chiudi</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::ColorWheelPanel</name>
+    <message>
+        <source>New color (top) and previous color (bottom). Click the previous color to go back to it.</source>
+        <translation>Colore nuovo (sopra) e colore precedente (sotto). Fai clic sul colore precedente per tornarci.</translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation>Quadrato</translation>
+    </message>
+    <message>
+        <source>Triangle</source>
+        <translation>Triangolo</translation>
+    </message>
+    <message>
+        <source>Diamond</source>
+        <translation>Rombo</translation>
+    </message>
+    <message>
+        <source>Shape of the field inside the ring</source>
+        <translation>Forma del campo dentro l&apos;anello</translation>
+    </message>
+    <message>
+        <source>RGB</source>
+        <translation>RGB</translation>
+    </message>
+    <message>
+        <source>Painter&apos;s RYB</source>
+        <translation>RYB del pittore</translation>
+    </message>
+    <message>
+        <source>Wheel layout: RGB, or the painter&apos;s red, yellow and blue wheel</source>
+        <translation>Disposizione della ruota: RGB o la ruota del pittore rosso, giallo e blu</translation>
+    </message>
+    <message>
+        <source>Tone Lock</source>
+        <translation>Blocca tono</translation>
+    </message>
+    <message>
+        <source>Keep the lightness while you change the hue, so shadows stay shadows</source>
+        <translation>Mantieni la luminosità mentre cambi la tonalità, così le ombre restano ombre</translation>
+    </message>
+    <message>
+        <source>Save Current Color Here</source>
+        <translation>Salva qui il colore attuale</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Rimuovi</translation>
+    </message>
+    <message>
+        <source>No Harmony</source>
+        <translation>Nessuna armonia</translation>
+    </message>
+    <message>
+        <source>Complementary</source>
+        <translation>Complementari</translation>
+    </message>
+    <message>
+        <source>Analogous</source>
+        <translation>Analoghi</translation>
+    </message>
+    <message>
+        <source>Triadic</source>
+        <translation>Triade</translation>
+    </message>
+    <message>
+        <source>Split Complementary</source>
+        <translation>Complementari divisi</translation>
+    </message>
+    <message>
+        <source>Rectangle</source>
+        <translation>Rettangolo</translation>
+    </message>
+    <message>
+        <source>Color harmony: markers on the ring follow the main color; drag an outer marker to widen or narrow analogous, split and rectangle harmonies</source>
+        <translation>Armonia dei colori: gli indicatori sull&apos;anello seguono il colore principale; trascina un indicatore esterno per allargare o restringere le armonie analoghe, divise e a rettangolo</translation>
+    </message>
+    <message>
+        <source>Harmony colors. Click one to use it.</source>
+        <translation>Colori dell&apos;armonia. Fai clic su uno per usarlo.</translation>
+    </message>
+    <message>
+        <source>Save the current color</source>
+        <translation>Salva il colore attuale</translation>
+    </message>
+    <message>
+        <source>Saved colors. Click one to use it, click an empty slot to save the current color there, right-click for more.</source>
+        <translation>Colori salvati. Fai clic su uno per usarlo, su uno spazio vuoto per salvarvi il colore attuale, o fai clic destro per altre opzioni.</translation>
+    </message>
+    <message>
+        <source>Hex code of the new color. Type a code and press Enter to use it.</source>
+        <translation>Codice esadecimale del colore nuovo. Digita un codice e premi Invio per usarlo.</translation>
     </message>
 </context>
 <context>
@@ -11900,14 +12022,6 @@ RGB: %2, %3, %4</translation>
     <message>
         <source>Flow:</source>
         <translation>Flusso:</translation>
-    </message>
-    <message>
-        <source>Airbrush</source>
-        <translation>Aerografo</translation>
-    </message>
-    <message>
-        <source>Build paint while the pointer is held still</source>
-        <translation>Accumula colore mentre il puntatore rimane fermo</translation>
     </message>
     <message>
         <source>Stroke smoothing - 0% paints the raw pointer path</source>
@@ -18207,6 +18321,34 @@ Y: %2
         <source>The placed position or size is out of range</source>
         <translation>La posizione o le dimensioni dell&apos;inserimento non sono valide</translation>
     </message>
+    <message>
+        <source>Pressure curve:</source>
+        <translation>Curva di pressione:</translation>
+    </message>
+    <message>
+        <source>How pen pressure maps to brush size, opacity and brush dynamics. Negative values feel firmer (more pressure for the same result), positive values feel softer. 0 is linear.</source>
+        <translation>Come la pressione della penna agisce su dimensione del pennello, opacità e dinamica del pennello. I valori negativi risultano più duri (serve più pressione per lo stesso risultato), quelli positivi più morbidi. 0 è lineare.</translation>
+    </message>
+    <message>
+        <source>Color Wheel</source>
+        <translation>Ruota dei colori</translation>
+    </message>
+    <message>
+        <source>Color Wheel at Pointer</source>
+        <translation>Ruota dei colori sul puntatore</translation>
+    </message>
+    <message>
+        <source>Foreground: %1</source>
+        <translation>Primo piano: %1</translation>
+    </message>
+    <message>
+        <source>Show color wheel</source>
+        <translation>Mostra la ruota dei colori</translation>
+    </message>
+    <message>
+        <source>Airbrush: build paint while the pointer is held still</source>
+        <translation>Aerografo: accumula colore mentre il puntatore rimane fermo</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -19696,6 +19838,335 @@ Y: %2
     <message>
         <source>Free · Windows, macOS &amp; Linux</source>
         <translation>Gratis · Windows, macOS e Linux</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioActionsPanel</name>
+    <message>
+        <source>Actions</source>
+        <translation>Azioni</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>Aggiungi</translation>
+    </message>
+    <message>
+        <source>Add text</source>
+        <translation>Aggiungi testo</translation>
+    </message>
+    <message>
+        <source>Canvas</source>
+        <translation>Tela</translation>
+    </message>
+    <message>
+        <source>Share</source>
+        <translation>Condividi</translation>
+    </message>
+    <message>
+        <source>Prefs</source>
+        <translation>Pref.</translation>
+    </message>
+    <message>
+        <source>Light interface</source>
+        <translation>Interfaccia chiara</translation>
+    </message>
+    <message>
+        <source>Right-hand interface</source>
+        <translation>Interfaccia per destrimani</translation>
+    </message>
+    <message>
+        <source>Full screen</source>
+        <translation>Schermo intero</translation>
+    </message>
+    <message>
+        <source>Help</source>
+        <translation>Aiuto</translation>
+    </message>
+    <message>
+        <source>About Patchy Studio</source>
+        <translation>Informazioni su Patchy Studio</translation>
+    </message>
+    <message>
+        <source>Tips: B, S and E pick Brush, Smudge and Eraser. [ and ] change the brush size. Ctrl+Z undoes, Ctrl+Shift+Z redoes. Space+drag pans, Alt+click picks a color.</source>
+        <translation>Suggerimenti: B, S ed E scelgono Pennello, Sfumino e Gomma. [ e ] cambiano la dimensione del pennello. Ctrl+Z annulla, Ctrl+Maiusc+Z ripete. Spazio+trascina sposta la vista, Alt+clic preleva un colore.</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioAdjustmentsPanel</name>
+    <message>
+        <source>Adjustments</source>
+        <translation>Regolazioni</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioBrushLibraryPanel</name>
+    <message>
+        <source>Brush Library</source>
+        <translation>Libreria pennelli</translation>
+    </message>
+    <message>
+        <source>Import brushes (.abr)</source>
+        <translation>Importa pennelli (.abr)</translation>
+    </message>
+    <message>
+        <source>Brush settings</source>
+        <translation>Impostazioni pennello</translation>
+    </message>
+    <message>
+        <source>All brushes</source>
+        <translation>Tutti i pennelli</translation>
+    </message>
+    <message>
+        <source>Basic</source>
+        <translation>Base</translation>
+    </message>
+    <message>
+        <source>Round</source>
+        <translation>Rotondo</translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation>Quadrato</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioColorPanel</name>
+    <message>
+        <source>Colors</source>
+        <translation>Colori</translation>
+    </message>
+    <message>
+        <source>History</source>
+        <translation>Cronologia</translation>
+    </message>
+    <message>
+        <source>Colors you paint with appear here.</source>
+        <translation>Qui compaiono i colori con cui dipingi.</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioGallery</name>
+    <message>
+        <source>Patchy Studio</source>
+        <translation>Patchy Studio</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>Importa</translation>
+    </message>
+    <message>
+        <source>Open a file from disk</source>
+        <translation>Apri un file dal disco</translation>
+    </message>
+    <message>
+        <source>New canvas</source>
+        <translation>Nuova tela</translation>
+    </message>
+    <message>
+        <source>OPEN</source>
+        <translation>APERTI</translation>
+    </message>
+    <message>
+        <source>RECENT</source>
+        <translation>RECENTI</translation>
+    </message>
+    <message>
+        <source>Tap + to start a new canvas, or Import to open a file.</source>
+        <translation>Tocca + per iniziare una nuova tela oppure Importa per aprire un file.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Chiudi</translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation>Quadrato</translation>
+    </message>
+    <message>
+        <source>4K</source>
+        <translation>4K</translation>
+    </message>
+    <message>
+        <source>A4 (300 PPI)</source>
+        <translation>A4 (300 PPI)</translation>
+    </message>
+    <message>
+        <source>Comic page</source>
+        <translation>Pagina di fumetto</translation>
+    </message>
+    <message>
+        <source>Sketch</source>
+        <translation>Schizzo</translation>
+    </message>
+    <message>
+        <source>%1 × %2 px</source>
+        <translation>%1 × %2 px</translation>
+    </message>
+    <message>
+        <source>Screen size</source>
+        <translation>Dimensione schermo</translation>
+    </message>
+    <message>
+        <source>Custom size...</source>
+        <translation>Dimensione personalizzata...</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioLayersPanel</name>
+    <message>
+        <source>Layers</source>
+        <translation>Livelli</translation>
+    </message>
+    <message>
+        <source>New layer</source>
+        <translation>Nuovo livello</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>Opacità</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::StudioShell</name>
+    <message>
+        <source>Gallery</source>
+        <translation>Galleria</translation>
+    </message>
+    <message>
+        <source>Show the gallery of open and recent artwork</source>
+        <translation>Mostra la galleria delle opere aperte e recenti</translation>
+    </message>
+    <message>
+        <source>Actions</source>
+        <translation>Azioni</translation>
+    </message>
+    <message>
+        <source>Adjustments</source>
+        <translation>Regolazioni</translation>
+    </message>
+    <message>
+        <source>Selection</source>
+        <translation>Selezione</translation>
+    </message>
+    <message>
+        <source>Transform</source>
+        <translation>Trasforma</translation>
+    </message>
+    <message>
+        <source>Paint (tap again for the Brush Library)</source>
+        <translation>Dipingi (tocca di nuovo per la libreria pennelli)</translation>
+    </message>
+    <message>
+        <source>Smudge (tap again for the Brush Library)</source>
+        <translation>Sfuma (tocca di nuovo per la libreria pennelli)</translation>
+    </message>
+    <message>
+        <source>Erase (tap again for the Brush Library)</source>
+        <translation>Cancella (tocca di nuovo per la libreria pennelli)</translation>
+    </message>
+    <message>
+        <source>Layers</source>
+        <translation>Livelli</translation>
+    </message>
+    <message>
+        <source>Colors</source>
+        <translation>Colori</translation>
+    </message>
+    <message>
+        <source>Brush size</source>
+        <translation>Dimensione pennello</translation>
+    </message>
+    <message>
+        <source>Brush opacity</source>
+        <translation>Opacità pennello</translation>
+    </message>
+    <message>
+        <source>Eyedropper: pick a color from the canvas</source>
+        <translation>Contagocce: preleva un colore dalla tela</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>Annulla</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>Ripeti</translation>
+    </message>
+    <message>
+        <source>%1 px</source>
+        <translation>%1 px</translation>
+    </message>
+    <message>
+        <source>%1%</source>
+        <translation>%1%</translation>
+    </message>
+    <message>
+        <source>Automatic</source>
+        <translation>Automatica</translation>
+    </message>
+    <message>
+        <source>Freehand</source>
+        <translation>A mano libera</translation>
+    </message>
+    <message>
+        <source>Rectangle</source>
+        <translation>Rettangolo</translation>
+    </message>
+    <message>
+        <source>Ellipse</source>
+        <translation>Ellisse</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>Aggiungi</translation>
+    </message>
+    <message>
+        <source>Subtract</source>
+        <translation>Sottrai</translation>
+    </message>
+    <message>
+        <source>Invert</source>
+        <translation>Inverti</translation>
+    </message>
+    <message>
+        <source>Copy &amp; Paste</source>
+        <translation>Copia e incolla</translation>
+    </message>
+    <message>
+        <source>Expand</source>
+        <translation>Espandi</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Rimuovi</translation>
+    </message>
+    <message>
+        <source>Freeform</source>
+        <translation>Libera</translation>
+    </message>
+    <message>
+        <source>Warp</source>
+        <translation>Altera</translation>
+    </message>
+    <message>
+        <source>Flip Horizontal</source>
+        <translation>Rifletti orizzontale</translation>
+    </message>
+    <message>
+        <source>Flip Vertical</source>
+        <translation>Rifletti verticale</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Annulla</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Fine</translation>
+    </message>
+    <message>
+        <source>New canvas</source>
+        <translation>Nuova tela</translation>
     </message>
 </context>
 <context>

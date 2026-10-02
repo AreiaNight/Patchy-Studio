@@ -402,6 +402,32 @@ const ThemePalette& dark_palette() {
       .icon_folder_fill = rgb(0x3a3320),
       .icon_success = rgb(0x9be9a8),
       .icon_surface = rgb(0x242628),
+
+      // Patchy Studio shell.
+      .studio_bar_bg = QColor(18, 18, 20, 232),
+      .studio_bar_border = QColor(255, 255, 255, 18),
+      .studio_icon = rgb(0xd8d8dc),
+      .studio_icon_hover = rgb(0xffffff),
+      .studio_accent = rgb(0x3b8cff),
+      .studio_text = rgb(0xf2f2f4),
+      .studio_text_muted = rgb(0x9a9aa2),
+      .studio_panel_bg = QColor(28, 28, 31, 246),
+      .studio_panel_border = QColor(255, 255, 255, 26),
+      .studio_row_bg = rgb(0x26262a),
+      .studio_row_hover_bg = rgb(0x2f2f34),
+      .studio_row_selected_bg = rgb(0x2a6fdb),
+      .studio_row_selected_text = rgb(0xffffff),
+      .studio_separator = QColor(255, 255, 255, 22),
+      .studio_slider_track = QColor(255, 255, 255, 34),
+      .studio_slider_fill = QColor(255, 255, 255, 70),
+      .studio_slider_thumb = rgb(0xf4f4f6),
+      .studio_gallery_bg = rgb(0x121214),
+      .studio_card_bg = rgb(0x1e1e22),
+      .studio_card_border = QColor(255, 255, 255, 20),
+      .studio_card_hover_border = rgb(0x3b8cff),
+      .studio_shadow = QColor(0, 0, 0, 110),
+      .studio_bubble_bg = QColor(12, 12, 14, 220),
+      .studio_bubble_text = rgb(0xffffff),
   };
   return palette;
 }
@@ -669,6 +695,33 @@ const ThemePalette& light_palette() {
     light.icon_folder_fill = rgb(0xfdf0c8);
     light.icon_success = rgb(0x1f8a3d);
     light.icon_surface = rgb(0xf0f0f0);
+
+    // Patchy Studio: Procreate's light interface keeps the canvas chrome a soft
+    // frosted white with the same blue accent, and shadows stay dark.
+    light.studio_bar_bg = QColor(246, 246, 248, 236);
+    light.studio_bar_border = QColor(0, 0, 0, 22);
+    light.studio_icon = rgb(0x2c2c30);
+    light.studio_icon_hover = rgb(0x000000);
+    light.studio_accent = rgb(0x1f74f0);
+    light.studio_text = rgb(0x1c1c1e);
+    light.studio_text_muted = rgb(0x6e6e74);
+    light.studio_panel_bg = QColor(250, 250, 252, 248);
+    light.studio_panel_border = QColor(0, 0, 0, 28);
+    light.studio_row_bg = rgb(0xffffff);
+    light.studio_row_hover_bg = rgb(0xececf0);
+    light.studio_row_selected_bg = rgb(0x1f74f0);
+    light.studio_row_selected_text = rgb(0xffffff);
+    light.studio_separator = QColor(0, 0, 0, 24);
+    light.studio_slider_track = QColor(0, 0, 0, 30);
+    light.studio_slider_fill = QColor(0, 0, 0, 60);
+    light.studio_slider_thumb = rgb(0xffffff);
+    light.studio_gallery_bg = rgb(0xe9e9ee);
+    light.studio_card_bg = rgb(0xffffff);
+    light.studio_card_border = QColor(0, 0, 0, 22);
+    light.studio_card_hover_border = rgb(0x1f74f0);
+    light.studio_shadow = QColor(0, 0, 0, 60);
+    light.studio_bubble_bg = QColor(20, 20, 22, 210);
+    light.studio_bubble_text = rgb(0xffffff);
 
     return light;
   }();
@@ -1051,6 +1104,30 @@ std::span<const ThemePaletteRole> theme_palette_roles() {
       PATCHY_THEME_ROLE(icon_folder_fill),
       PATCHY_THEME_ROLE(icon_success),
       PATCHY_THEME_ROLE(icon_surface),
+      PATCHY_THEME_ROLE(studio_bar_bg),
+      PATCHY_THEME_ROLE(studio_bar_border),
+      PATCHY_THEME_ROLE(studio_icon),
+      PATCHY_THEME_ROLE(studio_icon_hover),
+      PATCHY_THEME_ROLE(studio_accent),
+      PATCHY_THEME_ROLE(studio_text),
+      PATCHY_THEME_ROLE(studio_text_muted),
+      PATCHY_THEME_ROLE(studio_panel_bg),
+      PATCHY_THEME_ROLE(studio_panel_border),
+      PATCHY_THEME_ROLE(studio_row_bg),
+      PATCHY_THEME_ROLE(studio_row_hover_bg),
+      PATCHY_THEME_ROLE(studio_row_selected_bg),
+      PATCHY_THEME_ROLE(studio_row_selected_text),
+      PATCHY_THEME_ROLE(studio_separator),
+      PATCHY_THEME_ROLE(studio_slider_track),
+      PATCHY_THEME_ROLE(studio_slider_fill),
+      PATCHY_THEME_ROLE(studio_slider_thumb),
+      PATCHY_THEME_ROLE(studio_gallery_bg),
+      PATCHY_THEME_ROLE(studio_card_bg),
+      PATCHY_THEME_ROLE(studio_card_border),
+      PATCHY_THEME_ROLE(studio_card_hover_border),
+      PATCHY_THEME_ROLE(studio_shadow),
+      PATCHY_THEME_ROLE(studio_bubble_bg),
+      PATCHY_THEME_ROLE(studio_bubble_text),
   });
 #undef PATCHY_THEME_ROLE
   return roles;
