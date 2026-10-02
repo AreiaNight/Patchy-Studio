@@ -20042,6 +20042,30 @@ Y: %2
         <source>%1%</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Rotate the view left</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rotate the view (double-click to straighten)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rotate the view right</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>0°</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Straighten the view</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1°</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::StudioShell</name>

@@ -20035,6 +20035,30 @@ Clipped to the layer below</source>
         <source>%1%</source>
         <translation>%1%</translation>
     </message>
+    <message>
+        <source>Rotate the view left</source>
+        <translation>表示を左に回転</translation>
+    </message>
+    <message>
+        <source>Rotate the view (double-click to straighten)</source>
+        <translation>表示を回転（ダブルクリックで元に戻す）</translation>
+    </message>
+    <message>
+        <source>Rotate the view right</source>
+        <translation>表示を右に回転</translation>
+    </message>
+    <message>
+        <source>0°</source>
+        <translation>0°</translation>
+    </message>
+    <message>
+        <source>Straighten the view</source>
+        <translation>表示の回転をリセット</translation>
+    </message>
+    <message>
+        <source>%1°</source>
+        <translation>%1°</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::StudioShell</name>

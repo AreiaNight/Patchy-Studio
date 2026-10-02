@@ -812,7 +812,19 @@ void CanvasWidget::document_changed_impl(QRegion document_region, bool includes_
 void CanvasWidget::paintEvent(QPaintEvent* event) {
   ZoomTraceScope trace("paint", zoom_);
   QPainter painter(this);
-  const auto exposed_rect = event != nullptr ? event->rect() : rect();
+  auto exposed_rect = event != nullptr ? event->rect() : rect();
+  if (view_rotated()) {
+    // Everything below paints in view space through one painter transform.
+    // A partial update names a screen rect, which is some other region of
+    // view space, so any partial paint is followed by a full one.
+    painter.fillRect(exposed_rect, backdrop_color());
+    if (event != nullptr && !event->rect().contains(rect())) {
+      update();
+    }
+    const auto transform = view_to_widget_transform();
+    exposed_rect = transform.inverted().mapRect(QRectF(rect())).toAlignedRect();
+    painter.setTransform(transform);
+  }
   painter.fillRect(exposed_rect, backdrop_color());
 
   if (document_ == nullptr || document_->width() == 0 || document_->height() == 0) {
@@ -1166,10 +1178,14 @@ void CanvasWidget::paintEvent(QPaintEvent* event) {
     painter.restore();
   }
   draw_zoom_preview(painter);
+  painter.save();
+  painter.resetTransform();  // rulers stay on the screen edges in a rotated view
   draw_rulers(painter);
+  painter.restore();
   draw_brush_hover_outline(painter);
   draw_stroke_leash_overlay(painter);
   draw_brush_adjust_overlay(painter);
+  painter.resetTransform();
   draw_processing_overlay(painter);
   if (vertical_scroll_bar_ != nullptr && vertical_scroll_bar_->isVisible() &&
       horizontal_scroll_bar_ != nullptr && horizontal_scroll_bar_->isVisible()) {
@@ -1487,8 +1503,10 @@ bool CanvasWidget::wait_for_processing_operation(std::function<bool()> operation
       }
       const auto release = *deferred_wait_release_;
       deferred_wait_release_.reset();
-      QMouseEvent replay(QEvent::MouseButtonRelease, release.position, release.position,
-                         release.global_position, release.button, release.buttons, release.modifiers);
+      // The parked position is already in view space; a rotated view must not map it again.
+      const auto position = widget_point_from_view(release.position);
+      QMouseEvent replay(QEvent::MouseButtonRelease, position, position, release.global_position, release.button,
+                         release.buttons, release.modifiers);
       QApplication::sendEvent(this, &replay);
     });
   }

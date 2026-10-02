@@ -20035,6 +20035,30 @@ Y: %2
         <source>%1%</source>
         <translation>%1%</translation>
     </message>
+    <message>
+        <source>Rotate the view left</source>
+        <translation>向左旋转视图</translation>
+    </message>
+    <message>
+        <source>Rotate the view (double-click to straighten)</source>
+        <translation>旋转视图（双击摆正）</translation>
+    </message>
+    <message>
+        <source>Rotate the view right</source>
+        <translation>向右旋转视图</translation>
+    </message>
+    <message>
+        <source>0°</source>
+        <translation>0°</translation>
+    </message>
+    <message>
+        <source>Straighten the view</source>
+        <translation>摆正视图</translation>
+    </message>
+    <message>
+        <source>%1°</source>
+        <translation>%1°</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::StudioShell</name>

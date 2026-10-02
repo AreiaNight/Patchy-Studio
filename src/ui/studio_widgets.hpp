@@ -51,7 +51,7 @@ enum class StudioIcon {
   Import,
   More,
   Minus,
-  RotateLeft,
+  RotateRight,
 };
 
 // Draws `icon` as 1.6px-at-24px line art centered in `rect`.

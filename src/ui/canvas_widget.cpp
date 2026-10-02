@@ -1195,7 +1195,7 @@ void CanvasWidget::set_info_callback(std::function<void(CanvasInfoState)> callba
 }
 
 void CanvasWidget::refresh_info_display() const {
-  emit_info_for_widget_position(mapFromGlobal(QCursor::pos()));
+  emit_info_for_widget_position(view_point_from_widget(QPointF(mapFromGlobal(QCursor::pos()))).toPoint());
 }
 
 void CanvasWidget::set_document_changed_callback(std::function<void()> callback) {

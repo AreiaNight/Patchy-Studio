@@ -51,11 +51,15 @@ private:
   [[nodiscard]] CanvasWidget* canvas() const;
   void poll_overview();
   void zoom_by(double factor);
+  void rotate_by(double degrees);
+  void set_rotation(double degrees);
 
   StudioShell& shell_;
   StudioNavigatorView* view_{nullptr};
   StudioNavigatorSlider* zoom_slider_{nullptr};
   QLabel* zoom_label_{nullptr};
+  StudioNavigatorSlider* rotation_slider_{nullptr};
+  QLabel* rotation_label_{nullptr};
   QTimer* poll_timer_{nullptr};
   qint64 overview_key_{0};
   QSize overview_document_size_;

@@ -335,6 +335,27 @@ void ui_studio_navigator_zooms_pans_and_follows_handedness() {
   click(studio_button(window, "studioNavigatorFit"));
   CHECK(canvas->zoom() < 6.0);
 
+  // Rotation: whole steps from the buttons, the label, the slider's
+  // double-click and the straighten button.
+  click(studio_button(window, "studioNavigatorRotateRight"));
+  click(studio_button(window, "studioNavigatorRotateRight"));
+  CHECK(std::abs(canvas->view_rotation() - 30.0) < 1e-9);
+  auto* rotation_label = window.findChild<QLabel*>(QStringLiteral("studioNavigatorRotationLabel"));
+  CHECK(rotation_label != nullptr && rotation_label->text() == QStringLiteral("30°"));
+  canvas->set_zoom_centered(2.0);
+  process_events_for(500);
+  save_widget_artifact("studio-navigator-rotated", window);
+  auto* rotation_slider = window.findChild<QWidget*>(QStringLiteral("studioNavigatorRotationSlider"));
+  CHECK(rotation_slider != nullptr);
+  const QPoint rotation_middle(rotation_slider->width() / 2, rotation_slider->height() / 2);
+  send_mouse(*rotation_slider, QEvent::MouseButtonDblClick, rotation_middle, Qt::LeftButton, Qt::LeftButton);
+  process_events_for(30);
+  CHECK(canvas->view_rotation() == 0.0);
+  click(studio_button(window, "studioNavigatorRotateLeft"));
+  CHECK(std::abs(canvas->view_rotation() + 15.0) < 1e-9);
+  click(studio_button(window, "studioNavigatorStraighten"));
+  CHECK(canvas->view_rotation() == 0.0);
+
   // The close button hides it and the Prefs toggle shows it again.
   click(studio_button(window, "studioNavigatorClose"));
   CHECK(!navigator->isVisible());

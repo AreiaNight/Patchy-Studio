@@ -16,7 +16,7 @@ Procreate-like face instead of the Photoshop-style chrome. Launching the app ope
 | `ui/studio_panels.{hpp,cpp}` | The dropping panels: Brush Library, Layers, Colors, Actions, Adjustments. They reach the editor only through `StudioShell`'s public bridge. |
 | `ui/studio_gallery.{hpp,cpp}` | The gallery of open and recent artwork, the New canvas presets, and the thumbnail cache. |
 | `ui/studio_widgets.{hpp,cpp}` | Painted primitives: line icons, icon/color buttons, pill sliders, the value bubble, `StudioPopover`, and the shared panel QSS. |
-| `ui/studio_navigator.{hpp,cpp}` | The navigator panel: overview thumbnail with the viewport outline, zoom row, Fit and 100%. |
+| `ui/studio_navigator.{hpp,cpp}` | The navigator panel: overview thumbnail with the viewport outline, zoom and rotation rows, Fit, 100% and 0°. |
 | `ui/main_window_studio.cpp` | `MainWindow::enable_studio_shell` and `notify_studio_shell`. |
 
 ## How the shell drives the editor
@@ -84,7 +84,11 @@ the space above it. It drives the active canvas through its view API only
 step, which only repaints the navigator. The overview comes from the canvas render cache
 (`overview_image`), polled every 400 ms while visible and rebuilt only when
 `overview_image_key()` or the document size changed, never mid-stroke. The zoom slider
-is log-scaled between the canvas zoom limits; a double-click resets to 100%.
+is log-scaled between the canvas zoom limits; a double-click resets to 100%. The
+rotation row turns the view in 15 degree steps or freely from its slider (double-click or
+0° straightens); the thumbnail stays upright and the viewport outline turns, as in
+Photoshop. View rotation itself lives in the canvas: see "View rotation" in
+[view-navigation.md](view-navigation.md).
 
 Actions > Prefs offers Dominant hand as two explicit choices. Left-handed moves the side
 bar and the navigator to the right edge. The old single "Right-hand interface" switch

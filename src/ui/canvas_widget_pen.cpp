@@ -118,8 +118,10 @@ void CanvasWidget::tabletEvent(QTabletEvent* event) {
 
 CanvasWidget::PenInputSample CanvasWidget::pen_input_sample_from_tablet_event(const QTabletEvent& event) const {
   PenInputSample sample;
-  sample.widget_position = event.position();
-  sample.document_position = document_position_f(event.position());
+  // View space (see view_point_from_widget): identical to the widget position
+  // unless the view is rotated.
+  sample.widget_position = view_point_from_widget(event.position());
+  sample.document_position = document_position_f(sample.widget_position);
   sample.button = event.button();
   sample.buttons = event.buttons();
   sample.modifiers = event.modifiers();
@@ -431,8 +433,7 @@ bool CanvasWidget::dispatch_tablet_as_mouse(QTabletEvent* event, const PenInputS
     }
   }
 
-  QMouseEvent mouse_event(mouse_type, sample.widget_position,
-                          QPointF(mapToGlobal(sample.widget_position.toPoint())), button, buttons,
+  QMouseEvent mouse_event(mouse_type, sample.widget_position, event->globalPosition(), button, buttons,
                           sample.modifiers);
   handling_tablet_event_ = true;
   switch (mouse_type) {
@@ -469,8 +470,9 @@ void CanvasWidget::finish_pen_stroke_at_last_position() {
   }
   pen_stroke_active_ = false;
   const auto position = pen_stroke_last_position_;
-  QMouseEvent release(QEvent::MouseButtonRelease, position, QPointF(mapToGlobal(position.toPoint())),
-                      Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+  QMouseEvent release(QEvent::MouseButtonRelease, position,
+                      QPointF(mapToGlobal(widget_point_from_view(position).toPoint())), Qt::LeftButton,
+                      Qt::NoButton, Qt::NoModifier);
   const bool was_handling_tablet_event = handling_tablet_event_;
   handling_tablet_event_ = true;
   mouseReleaseEvent(&release);

@@ -282,8 +282,8 @@ void paint_studio_icon(QPainter& painter, StudioIcon icon, const QRectF& rect, c
     case StudioIcon::Minus:
       painter.drawLine(QPointF(5.0, 12.0), QPointF(19.0, 12.0));
       break;
-    case StudioIcon::RotateLeft: {
-      // Rotate, mirrored about the vertical center line.
+    case StudioIcon::RotateRight: {
+      // Rotate (a counter-clockwise turn) mirrored about the vertical center line.
       QPainterPath arc;
       arc.arcMoveTo(QRectF(4.5, 4.5, 15.0, 15.0), 60.0);
       arc.arcTo(QRectF(4.5, 4.5, 15.0, 15.0), 60.0, 280.0);

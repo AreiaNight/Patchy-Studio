@@ -465,6 +465,11 @@ public:
   // before the first render. overview_image_key() changes whenever that cache does.
   [[nodiscard]] QImage overview_image(QSize bound) const;
   [[nodiscard]] qint64 overview_image_key() const noexcept;
+  // View rotation: the whole canvas view turns about the widget center, like
+  // Photoshop's Rotate View. Document pixels never change. Degrees clockwise,
+  // normalized to (-180, 180]; 0 is the unrotated view.
+  [[nodiscard]] double view_rotation() const noexcept;
+  void set_view_rotation(double degrees);
   // Recenters the document in the viewport at the current zoom. Used after
   // operations that change document geometry (crop, image/canvas resize,
   // canvas rotate), where the stale pan could otherwise leave the remaining
@@ -2154,6 +2159,16 @@ private:
   bool handle_opacity_digit_key(int key, Qt::KeyboardModifiers modifiers, bool auto_repeat);
   bool perform_pen_button_action(PenButtonAction action, const PenInputSample& sample);
   bool dispatch_tablet_as_mouse(QTabletEvent* event, const PenInputSample& sample);
+  // Rotated view: every pan/zoom formula, hit test and paint call works in the
+  // unrotated "view space". Pointer positions enter it once, at event() and in
+  // the tablet sample builder; paintEvent leaves it through one painter transform.
+  [[nodiscard]] bool view_rotated() const noexcept { return view_rotation_degrees_ != 0.0; }
+  [[nodiscard]] QTransform view_to_widget_transform() const;
+  [[nodiscard]] QPointF view_point_from_widget(QPointF widget_point) const;
+  [[nodiscard]] QPointF widget_point_from_view(QPointF view_point) const;
+  // Re-sends a mouse or wheel event with its position in view space; false for
+  // other events.
+  bool dispatch_rotated_pointer_event(QEvent* event);
   // Ends a pen stroke whose tablet release never arrived, at the stroke's last
   // tip position, so nothing joins it to wherever the pen lands next.
   void finish_pen_stroke_at_last_position();
@@ -2167,6 +2182,7 @@ private:
   Document* document_{nullptr};
   double zoom_{1.0};
   QPointF pan_{40.0, 40.0};
+  double view_rotation_degrees_{0.0};
   bool wheel_zooms_{true};
   bool zoom_scrubby_{false};
   bool zoom_tool_zooms_out_{false};

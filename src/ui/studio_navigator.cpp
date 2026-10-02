@@ -28,6 +28,7 @@ namespace {
 constexpr int kOverviewPollMs = 400;
 constexpr double kZoomButtonFactor = 1.25;
 constexpr double kWheelZoomFactor = 1.1;
+constexpr double kRotationButtonStep = 15.0;
 
 }  // namespace
 
@@ -365,6 +366,34 @@ StudioNavigator::StudioNavigator(StudioShell& shell, QWidget* parent) : QWidget(
   zoom_row->addWidget(zoom_label_);
   column->addLayout(zoom_row);
 
+  auto* rotation_row = new QHBoxLayout;
+  rotation_row->setSpacing(2);
+  auto* rotate_left =
+      make_small_button(content, StudioIcon::Rotate, tr("Rotate the view left"), "studioNavigatorRotateLeft");
+  connect(rotate_left, &QAbstractButton::clicked, this, [this] { rotate_by(-kRotationButtonStep); });
+  rotation_row->addWidget(rotate_left);
+  rotation_slider_ = new StudioNavigatorSlider(content);
+  rotation_slider_->setObjectName(QStringLiteral("studioNavigatorRotationSlider"));
+  rotation_slider_->setToolTip(tr("Rotate the view (double-click to straighten)"));
+  rotation_slider_->set_range(-180, 180, 0);
+  connect(rotation_slider_, &StudioNavigatorSlider::value_changed, this, [this](int degrees) {
+    if (!syncing_) {
+      set_rotation(degrees);
+    }
+  });
+  connect(rotation_slider_, &StudioNavigatorSlider::reset_requested, this, [this] { set_rotation(0.0); });
+  rotation_row->addWidget(rotation_slider_, 1);
+  auto* rotate_right =
+      make_small_button(content, StudioIcon::RotateRight, tr("Rotate the view right"), "studioNavigatorRotateRight");
+  connect(rotate_right, &QAbstractButton::clicked, this, [this] { rotate_by(kRotationButtonStep); });
+  rotation_row->addWidget(rotate_right);
+  rotation_label_ = new QLabel(content);
+  rotation_label_->setObjectName(QStringLiteral("studioNavigatorRotationLabel"));
+  rotation_label_->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+  rotation_label_->setMinimumWidth(46);
+  rotation_row->addWidget(rotation_label_);
+  column->addLayout(rotation_row);
+
   auto* buttons = new QHBoxLayout;
   buttons->setSpacing(6);
   auto* fit = new QPushButton(tr("Fit"), content);
@@ -389,6 +418,13 @@ StudioNavigator::StudioNavigator(StudioShell& shell, QWidget* parent) : QWidget(
     }
   });
   buttons->addWidget(actual, 1);
+  auto* straighten = new QPushButton(tr("0°"), content);
+  straighten->setObjectName(QStringLiteral("studioNavigatorStraighten"));
+  straighten->setToolTip(tr("Straighten the view"));
+  straighten->setCursor(Qt::PointingHandCursor);
+  straighten->setFocusPolicy(Qt::NoFocus);
+  connect(straighten, &QPushButton::clicked, this, [this] { set_rotation(0.0); });
+  buttons->addWidget(straighten, 1);
   column->addLayout(buttons);
 
   poll_timer_ = new QTimer(this);
@@ -396,7 +432,7 @@ StudioNavigator::StudioNavigator(StudioShell& shell, QWidget* parent) : QWidget(
   connect(poll_timer_, &QTimer::timeout, this, [this] { poll_overview(); });
 }
 
-QSize StudioNavigator::sizeHint() const { return {244, 238}; }
+QSize StudioNavigator::sizeHint() const { return {244, 266}; }
 
 int StudioNavigator::slider_position_for_zoom(double zoom) {
   const double minimum = CanvasWidget::minimum_zoom();
@@ -423,8 +459,12 @@ void StudioNavigator::sync_from_canvas() {
   if (canvas_widget != nullptr) {
     zoom_slider_->set_value(slider_position_for_zoom(canvas_widget->zoom()));
     zoom_label_->setText(tr("%1%").arg(std::lround(canvas_widget->zoom() * 100.0)));
+    const auto degrees = static_cast<int>(std::lround(canvas_widget->view_rotation()));
+    rotation_slider_->set_value(degrees);
+    rotation_label_->setText(tr("%1°").arg(degrees));
   } else {
     zoom_label_->clear();
+    rotation_label_->clear();
   }
   syncing_ = false;
   view_->update();
@@ -466,6 +506,20 @@ void StudioNavigator::poll_overview() {
 void StudioNavigator::zoom_by(double factor) {
   if (auto* canvas_widget = canvas(); canvas_widget != nullptr) {
     canvas_widget->set_zoom_centered(canvas_widget->zoom() * factor);
+  }
+}
+
+void StudioNavigator::rotate_by(double degrees) {
+  if (auto* canvas_widget = canvas(); canvas_widget != nullptr) {
+    // Buttons land on whole steps, so a few presses always come back to straight.
+    const auto current = canvas_widget->view_rotation();
+    set_rotation(std::round((current + degrees) / kRotationButtonStep) * kRotationButtonStep);
+  }
+}
+
+void StudioNavigator::set_rotation(double degrees) {
+  if (auto* canvas_widget = canvas(); canvas_widget != nullptr) {
+    canvas_widget->set_view_rotation(degrees);
   }
 }
 

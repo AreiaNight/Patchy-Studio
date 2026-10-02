@@ -20088,6 +20088,30 @@ Y: %2
         <source>%1%</source>
         <translation>%1 %</translation>
     </message>
+    <message>
+        <source>Rotate the view left</source>
+        <translation>Rotar la vista a la izquierda</translation>
+    </message>
+    <message>
+        <source>Rotate the view (double-click to straighten)</source>
+        <translation>Rotar la vista (doble clic para enderezar)</translation>
+    </message>
+    <message>
+        <source>Rotate the view right</source>
+        <translation>Rotar la vista a la derecha</translation>
+    </message>
+    <message>
+        <source>0°</source>
+        <translation>0°</translation>
+    </message>
+    <message>
+        <source>Straighten the view</source>
+        <translation>Enderezar la vista</translation>
+    </message>
+    <message>
+        <source>%1°</source>
+        <translation>%1°</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::StudioShell</name>
