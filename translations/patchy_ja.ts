@@ -18297,6 +18297,10 @@ Clipped to the layer below</source>
         <source>Airbrush: build paint while the pointer is held still</source>
         <translation>エアブラシ: ポインターを静止したまま押し続けると塗料が蓄積します</translation>
     </message>
+    <message>
+        <source>Press on the graph with the pen to check that its pressure reaches Patchy.</source>
+        <translation>ペンでグラフを押して、筆圧が Patchy に届いているか確認します。</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -18764,6 +18768,13 @@ Clipped to the layer below</source>
     <message>
         <source>%1 Copy</source>
         <translation>%1 のコピー</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::PressureCurvePreview</name>
+    <message>
+        <source>No pressure</source>
+        <translation>筆圧なし</translation>
     </message>
 </context>
 <context>
@@ -19857,6 +19868,14 @@ Clipped to the layer below</source>
         <source>Navigator</source>
         <translation>ナビゲーター</translation>
     </message>
+    <message>
+        <source>Flip view horizontally</source>
+        <translation>表示を左右反転</translation>
+    </message>
+    <message>
+        <source>Flip view vertically</source>
+        <translation>表示を上下反転</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::StudioAdjustmentsPanel</name>
@@ -19992,6 +20011,10 @@ Clipped to the layer below</source>
         <source>Opacity</source>
         <translation>不透明度</translation>
     </message>
+    <message>
+        <source>Clipping mask: clipped to the layer below</source>
+        <translation>クリッピングマスク：下のレイヤーでクリップ</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::StudioNavigator</name>
@@ -20058,6 +20081,14 @@ Clipped to the layer below</source>
     <message>
         <source>%1°</source>
         <translation>%1°</translation>
+    </message>
+    <message>
+        <source>Flip the view horizontally</source>
+        <translation>表示を左右反転</translation>
+    </message>
+    <message>
+        <source>Flip the view vertically</source>
+        <translation>表示を上下反転</translation>
     </message>
 </context>
 <context>

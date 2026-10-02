@@ -18349,6 +18349,10 @@ Y: %2
         <source>Airbrush: build paint while the pointer is held still</source>
         <translation>Airbrush: Farbe aufbauen, solange der Zeiger stillgehalten wird</translation>
     </message>
+    <message>
+        <source>Press on the graph with the pen to check that its pressure reaches Patchy.</source>
+        <translation>Drücken Sie mit dem Stift auf die Grafik, um zu prüfen, ob sein Druck bei Patchy ankommt.</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -18817,6 +18821,13 @@ Y: %2
     <message>
         <source>%1 Copy</source>
         <translation>%1 Kopie</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::PressureCurvePreview</name>
+    <message>
+        <source>No pressure</source>
+        <translation>Kein Druck</translation>
     </message>
 </context>
 <context>
@@ -19910,6 +19921,14 @@ Y: %2
         <source>Navigator</source>
         <translation>Navigator</translation>
     </message>
+    <message>
+        <source>Flip view horizontally</source>
+        <translation>Ansicht horizontal spiegeln</translation>
+    </message>
+    <message>
+        <source>Flip view vertically</source>
+        <translation>Ansicht vertikal spiegeln</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::StudioAdjustmentsPanel</name>
@@ -20045,6 +20064,10 @@ Y: %2
         <source>Opacity</source>
         <translation>Deckkraft</translation>
     </message>
+    <message>
+        <source>Clipping mask: clipped to the layer below</source>
+        <translation>Schnittmaske: an die Ebene darunter geschnitten</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::StudioNavigator</name>
@@ -20111,6 +20134,14 @@ Y: %2
     <message>
         <source>%1°</source>
         <translation>%1°</translation>
+    </message>
+    <message>
+        <source>Flip the view horizontally</source>
+        <translation>Ansicht horizontal spiegeln</translation>
+    </message>
+    <message>
+        <source>Flip the view vertically</source>
+        <translation>Ansicht vertikal spiegeln</translation>
     </message>
 </context>
 <context>

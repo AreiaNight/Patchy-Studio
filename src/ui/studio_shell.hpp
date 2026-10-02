@@ -19,6 +19,7 @@
 #include "core/layer.hpp"
 
 #include <QColor>
+#include <QPoint>
 #include <QObject>
 #include <QPixmap>
 #include <QPointer>
@@ -197,6 +198,9 @@ private:
   StudioGallery* gallery_{nullptr};
   StudioNavigator* navigator_{nullptr};
   bool navigator_enabled_{true};
+  // Where the user dragged the navigator (host coordinates); unset keeps it in
+  // the default bottom corner on the side-bar side.
+  std::optional<QPoint> navigator_position_;
 
   // The tool to return to after a one-shot eyedropper pick or leaving Selection.
   std::optional<CanvasTool> return_tool_;

@@ -9,6 +9,7 @@
 #include "ui/canvas_widget.hpp"
 #include "ui/color_wheel_panel.hpp"
 #include "ui/main_window.hpp"
+#include "ui/pressure_curve_preview.hpp"
 #include "ui/studio_widgets.hpp"
 
 #include "test_harness.hpp"
@@ -21,6 +22,7 @@
 #include <QDockWidget>
 #include <QLabel>
 #include <QListWidget>
+#include <QMenu>
 #include <QMenuBar>
 #include <QPolygonF>
 #include <QPushButton>
@@ -37,6 +39,7 @@ using patchy::test::ui::process_events_for;
 using patchy::test::ui::require_hotkey_action;
 using patchy::test::ui::save_widget_artifact;
 using patchy::test::ui::send_mouse;
+using patchy::test::ui::send_tablet;
 using patchy::test::ui::show_window;
 using patchy::ui::CanvasTool;
 using patchy::ui::MainWindow;
@@ -356,6 +359,17 @@ void ui_studio_navigator_zooms_pans_and_follows_handedness() {
   click(studio_button(window, "studioNavigatorStraighten"));
   CHECK(canvas->view_rotation() == 0.0);
 
+  // View flips toggle and show their state.
+  auto* flip_h = studio_button(window, "studioNavigatorFlipHorizontal");
+  click(flip_h);
+  CHECK(canvas->view_flipped_horizontally() && flip_h->isChecked());
+  click(studio_button(window, "studioNavigatorFlipVertical"));
+  CHECK(canvas->view_flipped_vertically());
+  save_widget_artifact("studio-navigator-flipped", window);
+  click(flip_h);
+  click(studio_button(window, "studioNavigatorFlipVertical"));
+  CHECK(!canvas->view_flipped_horizontally() && !canvas->view_flipped_vertically());
+
   // The close button hides it and the Prefs toggle shows it again.
   click(studio_button(window, "studioNavigatorClose"));
   CHECK(!navigator->isVisible());
@@ -367,6 +381,159 @@ void ui_studio_navigator_zooms_pans_and_follows_handedness() {
   CHECK(navigator->isVisible());
 }
 
+// The navigator drags from its header, stays inside the canvas area, and a
+// double-click on the header sends it back to its corner.
+void ui_studio_navigator_moves_freely() {
+  const auto studio = request_studio();
+  MainWindow window;
+  window.enable_studio_shell();
+  show_window(window);
+  process_events_for(60);
+  auto* navigator = window.findChild<QWidget*>(QStringLiteral("studioNavigator"));
+  CHECK(navigator != nullptr && navigator->isVisible());
+  auto* host = navigator->parentWidget();
+  const auto corner = navigator->pos();
+  const QPoint grab(60, 18);  // the header, beside the title
+  send_mouse(*navigator, QEvent::MouseButtonPress, grab, Qt::LeftButton, Qt::LeftButton);
+  send_mouse(*navigator, QEvent::MouseMove, grab + QPoint(300, -200), Qt::NoButton, Qt::LeftButton);
+  send_mouse(*navigator, QEvent::MouseButtonRelease, grab, Qt::LeftButton, Qt::NoButton);
+  process_events_for(30);
+  CHECK(navigator->pos() == corner + QPoint(300, -200));
+  save_widget_artifact("studio-navigator-moved", window);
+
+  // Dragged far past the edge, it stops inside the canvas area.
+  send_mouse(*navigator, QEvent::MouseButtonPress, grab, Qt::LeftButton, Qt::LeftButton);
+  send_mouse(*navigator, QEvent::MouseMove, grab + QPoint(5000, 5000), Qt::NoButton, Qt::LeftButton);
+  send_mouse(*navigator, QEvent::MouseButtonRelease, grab, Qt::LeftButton, Qt::NoButton);
+  process_events_for(30);
+  CHECK(navigator->geometry().right() < host->width());
+  CHECK(navigator->geometry().bottom() < host->height());
+
+  send_mouse(*navigator, QEvent::MouseButtonDblClick, grab, Qt::LeftButton, Qt::LeftButton);
+  process_events_for(30);
+  CHECK(navigator->pos() == corner);
+}
+
+// Layer rows mark clipping masks and open the layer menu on a right-click,
+// which also makes the clicked layer active.
+void ui_studio_layers_mark_clipping_and_open_menu_on_right_click() {
+  const auto studio = request_studio();
+  MainWindow window;
+  window.enable_studio_shell();
+  show_window(window);
+  process_events_for(60);
+  auto* canvas = MainWindowTestAccess::canvas(window);
+  auto* document = MainWindowTestAccess::document_for_canvas(window, canvas);
+  CHECK(document != nullptr);
+  click(studio_button(window, "studioLayersButton"));
+  click(studio_button(window, "studioAddLayerButton"));
+  process_events_for(60);
+  const auto clipped_id = document->active_layer_id();
+  CHECK(clipped_id.has_value());
+  require_hotkey_action(window, QStringLiteral("layer.toggle_clipping_mask"))->trigger();
+  process_events_for(120);
+  CHECK(document->find_layer(*clipped_id)->clipped());
+
+  QWidget* clipped_row = nullptr;
+  QWidget* other_row = nullptr;
+  auto* add_layer = studio_button(window, "studioAddLayerButton");
+  for (auto* row : add_layer->parentWidget()->findChildren<QWidget*>()) {
+    if (row->height() != 58 || !row->isVisible()) {
+      continue;
+    }
+    if (row->toolTip().contains(QStringLiteral("Clipping mask"))) {
+      clipped_row = row;
+    } else if (other_row == nullptr) {
+      other_row = row;
+    }
+  }
+  CHECK(clipped_row != nullptr);
+  CHECK(other_row != nullptr);
+  save_widget_artifact("studio-layers-clipping", window);
+
+  send_mouse(*other_row, QEvent::MouseButtonPress, QPoint(120, 20), Qt::RightButton, Qt::RightButton);
+  process_events_for(60);
+  CHECK(document->active_layer_id() != clipped_id);
+  QMenu* menu = nullptr;
+  for (auto* candidate : QApplication::topLevelWidgets()) {
+    if (auto* found = qobject_cast<QMenu*>(candidate);
+        found != nullptr && found->objectName() == QStringLiteral("studioMenu") && found->isVisible()) {
+      menu = found;
+    }
+  }
+  CHECK(menu != nullptr);
+  CHECK(!menu->actions().isEmpty());
+  menu->close();
+  process_events_for(30);
+}
+
+// Pen pressure reaches the Studio brush: a light press paints a narrower dab
+// than a firm one with the default brush and pen settings, and the Preferences
+// pressure graph reads live tablet pressure.
+void ui_studio_pen_pressure_reaches_the_brush() {
+  const auto studio = request_studio();
+  MainWindow window;
+  window.enable_studio_shell();
+  show_window(window);
+  process_events_for(60);
+  auto* canvas = MainWindowTestAccess::canvas(window);
+  auto* document = MainWindowTestAccess::document_for_canvas(window, canvas);
+  CHECK(canvas != nullptr && document != nullptr);
+  click(studio_button(window, "studioLayersButton"));
+  click(studio_button(window, "studioAddLayerButton"));
+  click(studio_button(window, "studioLayersButton"));
+  process_events_for(60);
+  click(studio_button(window, "studioBrushButton"));
+  CHECK(canvas->tool() == CanvasTool::Brush);
+  canvas->set_zoom_centered(1.0);
+  canvas->set_brush_dynamics(patchy::BrushDynamics{});
+  canvas->set_brush_size(40);
+  canvas->set_brush_opacity(100);
+  canvas->set_primary_color(Qt::black);
+  process_events_for(30);
+  const auto layer_id = *document->active_layer_id();
+  const auto center = document->width() / 2;
+  const auto row_y = document->height() / 2;
+  const auto light = QPoint(center - 60, row_y);
+  const auto firm = QPoint(center + 60, row_y);
+  for (const auto& [point, pressure] : {std::pair{light, 0.1}, std::pair{firm, 1.0}}) {
+    const auto position = canvas->widget_position_for_document_point(point);
+    send_tablet(*canvas, QEvent::TabletPress, position, pressure);
+    send_tablet(*canvas, QEvent::TabletRelease, position, 0.0, Qt::LeftButton, Qt::NoButton);
+  }
+  process_events_for(60);
+  const auto& pixels = document->find_layer(layer_id)->pixels();
+  const auto bounds = document->find_layer(layer_id)->bounds();
+  const auto width_at = [&](QPoint point) {
+    int count = 0;
+    for (int x = point.x() - 30; x <= point.x() + 30; ++x) {
+      const int local_x = x - bounds.x;
+      const int local_y = point.y() - bounds.y;
+      if (local_x >= 0 && local_y >= 0 && local_x < pixels.width() && local_y < pixels.height() &&
+          pixels.pixel(local_x, local_y)[3] > 0U) {
+        ++count;
+      }
+    }
+    return count;
+  };
+  const auto light_width = width_at(light);
+  const auto firm_width = width_at(firm);
+  CHECK(light_width > 0);
+  CHECK(firm_width >= 36);
+  CHECK(light_width < firm_width / 2);
+  const auto sample = canvas->last_pen_input_sample();
+  CHECK(sample.has_value() && sample->pressure_available);
+
+  patchy::ui::PressureCurvePreview preview;
+  preview.resize(preview.sizeHint());
+  preview.show();
+  process_events_for(30);
+  send_tablet(preview, QEvent::TabletPress, QPoint(40, 40), 0.62);
+  CHECK(preview.live_pressure().has_value());
+  CHECK(std::abs(*preview.live_pressure() - 0.62F) < 0.01F);
+  CHECK(preview.live_device_has_pressure());
+}
+
 }  // namespace
 
 std::vector<patchy::test::TestCase> studio_shell_tests() {
@@ -376,5 +543,9 @@ std::vector<patchy::test::TestCase> studio_shell_tests() {
       {"ui_studio_shell_paints_undoes_and_transforms", ui_studio_shell_paints_undoes_and_transforms},
       {"ui_studio_navigator_zooms_pans_and_follows_handedness",
        ui_studio_navigator_zooms_pans_and_follows_handedness},
+      {"ui_studio_navigator_moves_freely", ui_studio_navigator_moves_freely},
+      {"ui_studio_layers_mark_clipping_and_open_menu_on_right_click",
+       ui_studio_layers_mark_clipping_and_open_menu_on_right_click},
+      {"ui_studio_pen_pressure_reaches_the_brush", ui_studio_pen_pressure_reaches_the_brush},
   };
 }

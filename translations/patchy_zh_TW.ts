@@ -18297,6 +18297,10 @@ Y：%2
         <source>Airbrush: build paint while the pointer is held still</source>
         <translation>噴槍：指標靜止不動時持續堆疊顏料</translation>
     </message>
+    <message>
+        <source>Press on the graph with the pen to check that its pressure reaches Patchy.</source>
+        <translation>用筆按壓圖表，檢查壓力是否傳到 Patchy。</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -18764,6 +18768,13 @@ Y：%2
     <message>
         <source>%1 Copy</source>
         <translation>%1 拷貝</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::PressureCurvePreview</name>
+    <message>
+        <source>No pressure</source>
+        <translation>無壓力</translation>
     </message>
 </context>
 <context>
@@ -19857,6 +19868,14 @@ Y：%2
         <source>Navigator</source>
         <translation>導覽器</translation>
     </message>
+    <message>
+        <source>Flip view horizontally</source>
+        <translation>水平翻轉檢視</translation>
+    </message>
+    <message>
+        <source>Flip view vertically</source>
+        <translation>垂直翻轉檢視</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::StudioAdjustmentsPanel</name>
@@ -19992,6 +20011,10 @@ Y：%2
         <source>Opacity</source>
         <translation>不透明度</translation>
     </message>
+    <message>
+        <source>Clipping mask: clipped to the layer below</source>
+        <translation>剪裁遮色片：剪裁至下方圖層</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::StudioNavigator</name>
@@ -20058,6 +20081,14 @@ Y：%2
     <message>
         <source>%1°</source>
         <translation>%1°</translation>
+    </message>
+    <message>
+        <source>Flip the view horizontally</source>
+        <translation>水平翻轉檢視</translation>
+    </message>
+    <message>
+        <source>Flip the view vertically</source>
+        <translation>垂直翻轉檢視</translation>
     </message>
 </context>
 <context>

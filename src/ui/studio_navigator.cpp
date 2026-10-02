@@ -425,6 +425,26 @@ StudioNavigator::StudioNavigator(StudioShell& shell, QWidget* parent) : QWidget(
   straighten->setFocusPolicy(Qt::NoFocus);
   connect(straighten, &QPushButton::clicked, this, [this] { set_rotation(0.0); });
   buttons->addWidget(straighten, 1);
+  // View mirrors, checkable so they show the current state.
+  const auto add_flip = [this, content, buttons](StudioIcon icon, const QString& tip, const char* name,
+                                                 bool horizontal) {
+    auto* button = make_small_button(content, icon, tip, name);
+    button->setCheckable(true);
+    connect(button, &QAbstractButton::clicked, this, [this, horizontal] {
+      if (auto* canvas_widget = canvas(); canvas_widget != nullptr) {
+        const bool flip_h = canvas_widget->view_flipped_horizontally();
+        const bool flip_v = canvas_widget->view_flipped_vertically();
+        canvas_widget->set_view_flipped(horizontal ? !flip_h : flip_h, horizontal ? flip_v : !flip_v);
+      }
+      sync_from_canvas();
+    });
+    buttons->addWidget(button);
+    return button;
+  };
+  flip_horizontal_button_ = add_flip(StudioIcon::FlipHorizontal, tr("Flip the view horizontally"),
+                                     "studioNavigatorFlipHorizontal", true);
+  flip_vertical_button_ =
+      add_flip(StudioIcon::FlipVertical, tr("Flip the view vertically"), "studioNavigatorFlipVertical", false);
   column->addLayout(buttons);
 
   poll_timer_ = new QTimer(this);
@@ -462,6 +482,8 @@ void StudioNavigator::sync_from_canvas() {
     const auto degrees = static_cast<int>(std::lround(canvas_widget->view_rotation()));
     rotation_slider_->set_value(degrees);
     rotation_label_->setText(tr("%1°").arg(degrees));
+    flip_horizontal_button_->setChecked(canvas_widget->view_flipped_horizontally());
+    flip_vertical_button_->setChecked(canvas_widget->view_flipped_vertically());
   } else {
     zoom_label_->clear();
     rotation_label_->clear();
@@ -528,6 +550,46 @@ void StudioNavigator::paintEvent(QPaintEvent*) {
   // Inset far enough that the drop shadow stays inside the widget.
   paint_studio_surface(painter, QRectF(rect()).adjusted(4, 3, -4, -6), 14.0, theme().studio_bar_bg,
                        theme().studio_bar_border);
+}
+
+// Presses that no control takes (the header, the margins) bubble up here and
+// move the panel.
+void StudioNavigator::mousePressEvent(QMouseEvent* event) {
+  if (event->button() != Qt::LeftButton) {
+    QWidget::mousePressEvent(event);
+    return;
+  }
+  moving_ = true;
+  move_grab_offset_ = event->position().toPoint();
+  setCursor(Qt::ClosedHandCursor);
+  raise();
+  event->accept();
+}
+
+void StudioNavigator::mouseMoveEvent(QMouseEvent* event) {
+  if (moving_ && parentWidget() != nullptr) {
+    const auto pointer = parentWidget()->mapFromGlobal(event->globalPosition().toPoint());
+    emit move_requested(pointer - move_grab_offset_);
+    event->accept();
+    return;
+  }
+  QWidget::mouseMoveEvent(event);
+}
+
+void StudioNavigator::mouseReleaseEvent(QMouseEvent* event) {
+  if (moving_ && event->button() == Qt::LeftButton) {
+    moving_ = false;
+    unsetCursor();
+    emit move_finished();
+    event->accept();
+    return;
+  }
+  QWidget::mouseReleaseEvent(event);
+}
+
+void StudioNavigator::mouseDoubleClickEvent(QMouseEvent* event) {
+  emit reset_position_requested();
+  event->accept();
 }
 
 void StudioNavigator::showEvent(QShowEvent* event) {

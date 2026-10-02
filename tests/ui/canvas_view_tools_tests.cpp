@@ -4439,6 +4439,25 @@ void ui_canvas_view_rotation_maps_input_and_paint() {
   CHECK(std::abs(after.x() - before.x()) > 10);
   CHECK(std::abs(after.y() - before.y()) <= 1);
 
+  // A horizontal flip mirrors the straight view; input still lands on the
+  // document point under the pointer.
+  canvas.set_view_rotation(0.0);
+  canvas.set_view_flipped(true, false);
+  CHECK(canvas.view_flipped_horizontally() && !canvas.view_flipped_vertically());
+  const auto flipped_left = canvas.widget_position_for_document_point(QPoint(0, 40));
+  const auto flipped_right = canvas.widget_position_for_document_point(QPoint(120, 40));
+  CHECK(flipped_left.x() > flipped_right.x());
+  CHECK(flipped_left.y() == flipped_right.y());
+  drag(canvas, canvas.widget_position_for_document_point(QPoint(100, 10)),
+       canvas.widget_position_for_document_point(QPoint(110, 10)));
+  CHECK(painted(105, 10));
+  CHECK(!painted(15, 10));
+  canvas.set_view_flipped(false, true);
+  const auto flipped_top = canvas.widget_position_for_document_point(QPoint(60, 0));
+  const auto flipped_bottom = canvas.widget_position_for_document_point(QPoint(60, 80));
+  CHECK(flipped_top.y() > flipped_bottom.y());
+  canvas.set_view_flipped(false, false);
+
   // Straight again: plain mapping.
   canvas.set_view_rotation(0.0);
   const auto straight_left = canvas.widget_position_for_document_point(QPoint(0, 0));

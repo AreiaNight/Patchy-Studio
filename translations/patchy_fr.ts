@@ -18349,6 +18349,10 @@ Y : %2
         <source>Airbrush: build paint while the pointer is held still</source>
         <translation>Aérographe : accumule la peinture tant que le pointeur reste immobile</translation>
     </message>
+    <message>
+        <source>Press on the graph with the pen to check that its pressure reaches Patchy.</source>
+        <translation>Appuyez sur le graphique avec le stylet pour vérifier que sa pression parvient à Patchy.</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -18817,6 +18821,13 @@ Y : %2
     <message>
         <source>%1 Copy</source>
         <translation>%1 copie</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::PressureCurvePreview</name>
+    <message>
+        <source>No pressure</source>
+        <translation>Aucune pression</translation>
     </message>
 </context>
 <context>
@@ -19910,6 +19921,14 @@ Y : %2
         <source>Navigator</source>
         <translation>Navigateur</translation>
     </message>
+    <message>
+        <source>Flip view horizontally</source>
+        <translation>Retourner la vue horizontalement</translation>
+    </message>
+    <message>
+        <source>Flip view vertically</source>
+        <translation>Retourner la vue verticalement</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::StudioAdjustmentsPanel</name>
@@ -20045,6 +20064,10 @@ Y : %2
         <source>Opacity</source>
         <translation>Opacité</translation>
     </message>
+    <message>
+        <source>Clipping mask: clipped to the layer below</source>
+        <translation>Masque d&apos;écrêtage : écrêté sur le calque inférieur</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::StudioNavigator</name>
@@ -20111,6 +20134,14 @@ Y : %2
     <message>
         <source>%1°</source>
         <translation>%1°</translation>
+    </message>
+    <message>
+        <source>Flip the view horizontally</source>
+        <translation>Retourner la vue horizontalement</translation>
+    </message>
+    <message>
+        <source>Flip the view vertically</source>
+        <translation>Retourner la vue verticalement</translation>
     </message>
 </context>
 <context>

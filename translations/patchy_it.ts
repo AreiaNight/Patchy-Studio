@@ -18349,6 +18349,10 @@ Y: %2
         <source>Airbrush: build paint while the pointer is held still</source>
         <translation>Aerografo: accumula colore mentre il puntatore rimane fermo</translation>
     </message>
+    <message>
+        <source>Press on the graph with the pen to check that its pressure reaches Patchy.</source>
+        <translation>Premi sul grafico con la penna per verificare che la sua pressione arrivi a Patchy.</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -18817,6 +18821,13 @@ Y: %2
     <message>
         <source>%1 Copy</source>
         <translation>%1 copia</translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::PressureCurvePreview</name>
+    <message>
+        <source>No pressure</source>
+        <translation>Nessuna pressione</translation>
     </message>
 </context>
 <context>
@@ -19910,6 +19921,14 @@ Y: %2
         <source>Navigator</source>
         <translation>Navigatore</translation>
     </message>
+    <message>
+        <source>Flip view horizontally</source>
+        <translation>Rifletti vista orizzontalmente</translation>
+    </message>
+    <message>
+        <source>Flip view vertically</source>
+        <translation>Rifletti vista verticalmente</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::StudioAdjustmentsPanel</name>
@@ -20045,6 +20064,10 @@ Y: %2
         <source>Opacity</source>
         <translation>Opacità</translation>
     </message>
+    <message>
+        <source>Clipping mask: clipped to the layer below</source>
+        <translation>Maschera di ritaglio: ritagliato sul livello sottostante</translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::StudioNavigator</name>
@@ -20111,6 +20134,14 @@ Y: %2
     <message>
         <source>%1°</source>
         <translation>%1°</translation>
+    </message>
+    <message>
+        <source>Flip the view horizontally</source>
+        <translation>Rifletti la vista orizzontalmente</translation>
+    </message>
+    <message>
+        <source>Flip the view vertically</source>
+        <translation>Rifletti la vista verticalmente</translation>
     </message>
 </context>
 <context>

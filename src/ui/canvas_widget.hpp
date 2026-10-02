@@ -470,6 +470,12 @@ public:
   // normalized to (-180, 180]; 0 is the unrotated view.
   [[nodiscard]] double view_rotation() const noexcept;
   void set_view_rotation(double degrees);
+  // View flip: mirrors the view across the widget's vertical (horizontal flip)
+  // or horizontal (vertical flip) center line, a quick check of a drawing's
+  // proportions. Like rotation, view only: pixels and undo are untouched.
+  [[nodiscard]] bool view_flipped_horizontally() const noexcept { return view_flip_horizontal_; }
+  [[nodiscard]] bool view_flipped_vertically() const noexcept { return view_flip_vertical_; }
+  void set_view_flipped(bool horizontal, bool vertical);
   // Recenters the document in the viewport at the current zoom. Used after
   // operations that change document geometry (crop, image/canvas resize,
   // canvas rotate), where the stale pan could otherwise leave the remaining
@@ -2159,10 +2165,13 @@ private:
   bool handle_opacity_digit_key(int key, Qt::KeyboardModifiers modifiers, bool auto_repeat);
   bool perform_pen_button_action(PenButtonAction action, const PenInputSample& sample);
   bool dispatch_tablet_as_mouse(QTabletEvent* event, const PenInputSample& sample);
-  // Rotated view: every pan/zoom formula, hit test and paint call works in the
-  // unrotated "view space". Pointer positions enter it once, at event() and in
-  // the tablet sample builder; paintEvent leaves it through one painter transform.
-  [[nodiscard]] bool view_rotated() const noexcept { return view_rotation_degrees_ != 0.0; }
+  // Rotated or flipped view: every pan/zoom formula, hit test and paint call
+  // works in the untransformed "view space". Pointer positions enter it once, at
+  // event() and in the tablet sample builder; paintEvent leaves it through one
+  // painter transform.
+  [[nodiscard]] bool view_transformed() const noexcept {
+    return view_rotation_degrees_ != 0.0 || view_flip_horizontal_ || view_flip_vertical_;
+  }
   [[nodiscard]] QTransform view_to_widget_transform() const;
   [[nodiscard]] QPointF view_point_from_widget(QPointF widget_point) const;
   [[nodiscard]] QPointF widget_point_from_view(QPointF view_point) const;
@@ -2183,6 +2192,8 @@ private:
   double zoom_{1.0};
   QPointF pan_{40.0, 40.0};
   double view_rotation_degrees_{0.0};
+  bool view_flip_horizontal_{false};
+  bool view_flip_vertical_{false};
   bool wheel_zooms_{true};
   bool zoom_scrubby_{false};
   bool zoom_tool_zooms_out_{false};

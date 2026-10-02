@@ -9067,11 +9067,11 @@ void MainWindow::add_text_at(QPoint document_point, QRect requested_text_box, bo
   if (!editing_layer.has_value()) {
     editor->selectAll();
   }
-  // The inline editor is an ordinary child widget and cannot turn with the
-  // canvas, so typing straightens a rotated view first (docs/studio.md).
-  if (canvas_->view_rotation() != 0.0) {
-    canvas_->set_view_rotation(0.0);
-  }
+  // The inline editor is an ordinary child widget and cannot turn or mirror
+  // with the canvas, so typing straightens and unflips the view first
+  // (docs/view-navigation.md).
+  canvas_->set_view_rotation(0.0);
+  canvas_->set_view_flipped(false, false);
   const auto widget_point = canvas_->widget_position_for_document_point(document_point);
   editor->setGeometry(widget_point.x(), widget_point.y(),
                       std::max(80, static_cast<int>(std::round(document_editor_width * canvas_->zoom()))),

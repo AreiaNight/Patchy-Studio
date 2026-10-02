@@ -813,7 +813,7 @@ void CanvasWidget::paintEvent(QPaintEvent* event) {
   ZoomTraceScope trace("paint", zoom_);
   QPainter painter(this);
   auto exposed_rect = event != nullptr ? event->rect() : rect();
-  if (view_rotated()) {
+  if (view_transformed()) {
     // Everything below paints in view space through one painter transform.
     // A partial update names a screen rect, which is some other region of
     // view space, so any partial paint is followed by a full one.

@@ -265,7 +265,7 @@ bool CanvasWidget::dispatch_rotated_pointer_event(QEvent* event) {
 }
 
 bool CanvasWidget::event(QEvent* event) {
-  if (view_rotated() && dispatch_rotated_pointer_event(event)) {
+  if (view_transformed() && dispatch_rotated_pointer_event(event)) {
     return true;
   }
   if (event->type() == QEvent::ShortcutOverride) {
@@ -350,7 +350,7 @@ void CanvasWidget::wheelEvent(QWheelEvent* event) {
   const QPointF screen_delta = pan_vertically ? QPointF(0.0, step) : QPointF(step, 0.0);
   // The wheel scrolls along the screen axes; pan_ lives in view space, so a
   // rotated view turns the step back by the view rotation.
-  pan_ += view_rotated() ? view_point_from_widget(screen_delta) - view_point_from_widget(QPointF(0.0, 0.0))
+  pan_ += view_transformed() ? view_point_from_widget(screen_delta) - view_point_from_widget(QPointF(0.0, 0.0))
                          : screen_delta;
   constrain_pan();
   event->accept();

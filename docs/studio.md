@@ -61,6 +61,9 @@ their rows only when a signature of what they show changes.
 - The side bar's square button is a one-shot eyedropper: it returns to the previous tool
   after the first release on the canvas.
 - A press on the canvas closes an open panel. Esc closes it too.
+- Layers panel: a right-click on a row makes it active and opens the layer menu at the
+  pointer. Clipped layers show an accent arrow bending down toward their base and a
+  tooltip.
 - A newly opened document hides the gallery; closing the last one shows it.
 
 ## Input
@@ -72,7 +75,11 @@ events from touch devices and every non-tablet mouse event while a pen stroke is
 stroke whose tablet release is lost ends at its last tip position on the next hover move or
 press (`finish_pen_stroke_at_last_position`). Before this, a hover after a lost release, or
 a pointer event injected mid-stroke, painted a straight line across the artwork. Test:
-`ui_pen_stroke_ignores_foreign_pointer_events`.
+`ui_pen_stroke_ignores_foreign_pointer_events`. Pen pressure in Studio uses the classic
+pen settings (Preferences > Pen, keys `input/pen/*` in `PatchyStudio.ini`);
+`ui_studio_pen_pressure_reaches_the_brush` pins that a light press paints narrower than a
+firm one. The Preferences pressure graph is a live test pad: pressing on it with the pen
+marks the raw and shaped pressure, or shows "No pressure" for a device without it.
 
 ## Navigator and handedness
 
@@ -87,8 +94,14 @@ step, which only repaints the navigator. The overview comes from the canvas rend
 is log-scaled between the canvas zoom limits; a double-click resets to 100%. The
 rotation row turns the view in 15 degree steps or freely from its slider (double-click or
 0° straightens); the thumbnail stays upright and the viewport outline turns, as in
-Photoshop. View rotation itself lives in the canvas: see "View rotation" in
-[view-navigation.md](view-navigation.md).
+Photoshop. The bottom row also holds the view flips (horizontal, vertical), which
+Actions > Canvas repeats. View rotation and flips live in the canvas: see "View rotation"
+in [view-navigation.md](view-navigation.md).
+
+A press on the navigator's background (header, margins) drags it anywhere in the canvas
+area; it is clamped below the top bar, saved as `studio/navigatorPosition` when the drag
+ends, and a double-click there (or switching hands) clears it back to the corner. While
+it floats, the side bar centers over the full height.
 
 Actions > Prefs offers Dominant hand as two explicit choices. Left-handed moves the side
 bar and the navigator to the right edge. The old single "Right-hand interface" switch
@@ -101,7 +114,7 @@ Studio stores preferences in `PatchyStudio.ini` beside classic Patchy's `Patchy.
 (`app_settings()`), so window layout, dock state and recent files never leak between the
 two apps, while the brush library folder is shared. Studio keys (persisted identifiers):
 `studio/rightHanded` (true = side bar on the right, the left-handed layout),
-`studio/colorHistory`, `studio/navigatorVisible`. Its single-instance channel is
+`studio/colorHistory`, `studio/navigatorVisible`, `studio/navigatorPosition`. Its single-instance channel is
 `PatchyStudio-SingleInstance-<user>`. On Windows the shell keeps the native window frame
 (`use_custom_window_chrome` is off when Studio was requested), because the classic custom
 frame lives in the menu bar Studio hides.

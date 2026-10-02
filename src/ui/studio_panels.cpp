@@ -15,6 +15,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QButtonGroup>
+#include <QCoreApplication>
 #include <QComboBox>
 #include <QEnterEvent>
 #include <QHBoxLayout>
@@ -383,6 +384,7 @@ struct LayerRowInfo {
   bool collapsed{false};
   bool active{false};
   bool selected{false};
+  bool clipped{false};
   int depth{0};
   BlendMode blend{BlendMode::Normal};
   int opacity{100};
@@ -396,10 +398,15 @@ public:
     setCursor(Qt::PointingHandCursor);
     setMouseTracking(true);
     thumbnail_ = shell_.layer_thumbnail(layer);
+    if (info_.clipped) {
+      setToolTip(
+          QCoreApplication::translate("patchy::ui::StudioLayersPanel", "Clipping mask: clipped to the layer below"));
+    }
   }
 
   std::function<void()> on_blend_clicked;
-  std::function<void()> on_active_clicked;
+  // A right-click anywhere on the row: the layer menu at `global_position`.
+  std::function<void(QPoint global_position)> on_context_menu;
 
   [[nodiscard]] const LayerRowInfo& info() const noexcept { return info_; }
 
@@ -417,6 +424,23 @@ protected:
     const QColor muted = info_.active ? palette.studio_row_selected_text : palette.studio_text_muted;
     const qreal indent = 10.0 + info_.depth * 16.0;
     qreal x = row.left() + indent;
+    if (info_.clipped) {
+      // Clipping mask: a small arrow bending down toward the base layer below,
+      // and the row shifted right, as Photoshop and Procreate mark it.
+      painter.setPen(QPen(palette.studio_accent, 1.8, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+      painter.setBrush(Qt::NoBrush);
+      const QPointF top(x + 4, row.center().y() - 8);
+      const QPointF corner(x + 4, row.center().y() + 6);
+      QPainterPath arrow;
+      arrow.moveTo(top + QPointF(6, 0));
+      arrow.lineTo(top);
+      arrow.lineTo(corner);
+      arrow.moveTo(corner + QPointF(-3.5, -3.5));
+      arrow.lineTo(corner);
+      arrow.lineTo(corner + QPointF(3.5, -3.5));
+      painter.drawPath(arrow);
+      x += 14;
+    }
     if (info_.group) {
       // Disclosure chevron.
       painter.setPen(QPen(muted, 1.6, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
@@ -502,6 +526,16 @@ protected:
   }
 
   void mousePressEvent(QMouseEvent* event) override {
+    if (event->button() == Qt::RightButton) {
+      if (!info_.active) {
+        shell_.select_layer(info_.id);
+      }
+      if (on_context_menu) {
+        on_context_menu(event->globalPosition().toPoint());
+      }
+      event->accept();
+      return;
+    }
     if (event->button() != Qt::LeftButton) {
       QWidget::mousePressEvent(event);
       return;
@@ -518,9 +552,7 @@ protected:
       }
     } else if (info_.group && chevron_rect_.contains(position)) {
       shell_.toggle_group_collapsed(info_.id);
-    } else if (info_.active && on_active_clicked) {
-      on_active_clicked();
-    } else {
+    } else if (!info_.active) {
       shell_.select_layer(info_.id);
     }
     event->accept();
@@ -595,7 +627,7 @@ public:
     // Rebuild only when something a row shows has changed (or a thumbnail may have).
     QString signature;
     for (const auto& [layer, info] : infos) {
-      signature += QStringLiteral("%1:%2:%3:%4:%5:%6:%7:%8:%9;")
+      signature += QStringLiteral("%1:%2:%3:%4:%5:%6:%7:%8:%9:%10;")
                        .arg(info.id)
                        .arg(info.name)
                        .arg(info.visible)
@@ -604,7 +636,8 @@ public:
                        .arg(static_cast<int>(info.blend))
                        .arg(info.opacity)
                        .arg(info.depth)
-                       .arg(layer->render_revision());
+                       .arg(layer->render_revision())
+                       .arg(info.clipped);
     }
     signature += QString::number(expanded_blend_ ? *expanded_blend_ : 0);
     if (signature == signature_) {
@@ -627,7 +660,9 @@ public:
         signature_.clear();
         refresh_from_editor();
       };
-      row->on_active_clicked = [this, row] { show_layer_menu(row); };
+      // The menu opens at the pointer on a right-click; the press already made
+      // the row active, so its commands act on that layer.
+      row->on_context_menu = [this](QPoint global_position) { show_layer_menu(global_position); };
       rows_->insertWidget(insert_at++, row);
       if (expanded_blend_ == id && info.active) {
         rows_->insertWidget(insert_at++, make_blend_editor(info));
@@ -649,6 +684,7 @@ private:
       info.collapsed = info.group && shell_.group_collapsed(layer.id());
       info.active = active.has_value() && *active == layer.id();
       info.selected = std::find(selected.begin(), selected.end(), layer.id()) != selected.end();
+      info.clipped = layer.clipped();
       info.depth = depth;
       info.blend = layer.blend_mode();
       info.opacity = static_cast<int>(std::lround(layer.opacity() * 100.0f));
@@ -699,7 +735,7 @@ private:
     return editor;
   }
 
-  void show_layer_menu(QWidget* row) {
+  void show_layer_menu(QPoint global_position) {
     auto* menu = make_studio_menu(this);
     const auto add_command = [this, menu](const QString& id) {
       if (auto* action = shell_.command(id); action != nullptr) {
@@ -725,7 +761,7 @@ private:
     add_command(QStringLiteral("layer.new_folder"));
     menu->addSeparator();
     add_command(QStringLiteral("layer.delete"));
-    menu->popup(row->mapToGlobal(QPoint(row->width() - 8, 8)));
+    menu->popup(global_position);
   }
 
   QWidget* body_{nullptr};
@@ -867,6 +903,25 @@ public:
                                   "view.grid", "view.rulers", "view.fit_on_screen", "view.actual_pixels"}) {
              list->addWidget(make_command_row(shell_, page, QLatin1String(id)));
            }
+           // View mirrors (the navigator has the same toggles); pixels never change.
+           const auto add_flip = [this, list, page](const QString& text, const char* name, bool horizontal) {
+             auto* button = new QPushButton(text, page);
+             button->setObjectName(QLatin1String(name));
+             button->setCheckable(true);
+             button->setCursor(Qt::PointingHandCursor);
+             if (const auto* canvas = shell_.canvas(); canvas != nullptr) {
+               button->setChecked(horizontal ? canvas->view_flipped_horizontally() : canvas->view_flipped_vertically());
+             }
+             connect(button, &QPushButton::toggled, this, [this, horizontal](bool on) {
+               if (auto* canvas = shell_.canvas(); canvas != nullptr) {
+                 canvas->set_view_flipped(horizontal ? on : canvas->view_flipped_horizontally(),
+                                          horizontal ? canvas->view_flipped_vertically() : on);
+               }
+             });
+             list->addWidget(button);
+           };
+           add_flip(tr("Flip view horizontally"), "studioActionsFlipHorizontal", true);
+           add_flip(tr("Flip view vertically"), "studioActionsFlipVertical", false);
          }},
         {StudioIcon::Share, tr("Share"),
          [this](QVBoxLayout* list, QWidget* page) {

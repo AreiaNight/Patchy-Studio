@@ -10,6 +10,7 @@
 #include <QImage>
 #include <QWidget>
 
+class QAbstractButton;
 class QLabel;
 class QTimer;
 
@@ -41,11 +42,20 @@ public:
 
 signals:
   void close_requested();
+  // A drag on the panel's background moved it to `top_left` (parent
+  // coordinates, not yet clamped); a double-click there asks for the default spot.
+  void move_requested(QPoint top_left);
+  void move_finished();
+  void reset_position_requested();
 
 protected:
   void paintEvent(QPaintEvent* event) override;
   void showEvent(QShowEvent* event) override;
   void hideEvent(QHideEvent* event) override;
+  void mousePressEvent(QMouseEvent* event) override;
+  void mouseMoveEvent(QMouseEvent* event) override;
+  void mouseReleaseEvent(QMouseEvent* event) override;
+  void mouseDoubleClickEvent(QMouseEvent* event) override;
 
 private:
   [[nodiscard]] CanvasWidget* canvas() const;
@@ -60,11 +70,15 @@ private:
   QLabel* zoom_label_{nullptr};
   StudioNavigatorSlider* rotation_slider_{nullptr};
   QLabel* rotation_label_{nullptr};
+  QAbstractButton* flip_horizontal_button_{nullptr};
+  QAbstractButton* flip_vertical_button_{nullptr};
   QTimer* poll_timer_{nullptr};
   qint64 overview_key_{0};
   QSize overview_document_size_;
   bool overview_dirty_{true};
   bool syncing_{false};
+  bool moving_{false};
+  QPoint move_grab_offset_;
 };
 
 }  // namespace patchy::ui

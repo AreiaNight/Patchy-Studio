@@ -18303,6 +18303,10 @@ Y: %2
         <source>Airbrush: build paint while the pointer is held still</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Press on the graph with the pen to check that its pressure reaches Patchy.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::McpActivity</name>
@@ -18770,6 +18774,13 @@ Y: %2
     </message>
     <message>
         <source>%1 Copy</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>patchy::ui::PressureCurvePreview</name>
+    <message>
+        <source>No pressure</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -19864,6 +19875,14 @@ Y: %2
         <source>Navigator</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Flip view horizontally</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Flip view vertically</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::StudioAdjustmentsPanel</name>
@@ -19999,6 +20018,10 @@ Y: %2
         <source>Opacity</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Clipping mask: clipped to the layer below</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>patchy::ui::StudioNavigator</name>
@@ -20064,6 +20087,14 @@ Y: %2
     </message>
     <message>
         <source>%1°</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Flip the view horizontally</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Flip the view vertically</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

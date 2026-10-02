@@ -50,6 +50,7 @@ namespace {
 QString right_handed_key() { return QStringLiteral("studio/rightHanded"); }
 QString color_history_key() { return QStringLiteral("studio/colorHistory"); }
 QString navigator_visible_key() { return QStringLiteral("studio/navigatorVisible"); }
+QString navigator_position_key() { return QStringLiteral("studio/navigatorPosition"); }
 
 constexpr int kTopBarHeight = 48;
 constexpr int kSideBarWidth = 60;
@@ -139,6 +140,9 @@ StudioShell::StudioShell(MainWindow& window) : QObject(&window), window_(window)
     auto settings = app_settings();
     controls_on_right_ = settings.value(right_handed_key(), false).toBool();
     navigator_enabled_ = settings.value(navigator_visible_key(), true).toBool();
+    if (const auto position = settings.value(navigator_position_key()); position.isValid()) {
+      navigator_position_ = position.toPoint();
+    }
     for (const auto& name : settings.value(color_history_key()).toStringList()) {
       const QColor color(name);
       if (color.isValid()) {
@@ -161,6 +165,22 @@ StudioShell::StudioShell(MainWindow& window) : QObject(&window), window_(window)
   navigator_ = new StudioNavigator(*this, host_);
   navigator_->hide();
   connect(navigator_, &StudioNavigator::close_requested, this, [this] { set_navigator_enabled(false); });
+  connect(navigator_, &StudioNavigator::move_requested, this, [this](QPoint top_left) {
+    navigator_position_ = top_left;
+    layout_overlay();
+  });
+  // Saved when the drag ends, not on every step (each save writes the file).
+  connect(navigator_, &StudioNavigator::move_finished, this, [this] {
+    if (navigator_position_.has_value()) {
+      app_settings().setValue(navigator_position_key(), navigator_->pos());
+      navigator_position_ = navigator_->pos();
+    }
+  });
+  connect(navigator_, &StudioNavigator::reset_position_requested, this, [this] {
+    navigator_position_.reset();
+    app_settings().remove(navigator_position_key());
+    layout_overlay();
+  });
   popover_ = new StudioPopover(host_);
   connect(popover_, &StudioPopover::closed, this, [this] {
     open_panel_ = Panel::None;
@@ -469,12 +489,19 @@ void StudioShell::layout_overlay() {
   const auto navigator_size = navigator_ != nullptr ? navigator_->sizeHint() : QSize();
   int side_bottom = area.height();
   if (navigator_shown) {
-    const int navigator_x =
-        controls_on_right_ ? area.width() - navigator_size.width() - kNavigatorInset : kNavigatorInset;
-    const int navigator_y = std::max(kTopBarHeight, area.height() - navigator_size.height() - kNavigatorInset);
+    int navigator_x = controls_on_right_ ? area.width() - navigator_size.width() - kNavigatorInset : kNavigatorInset;
+    int navigator_y = std::max(kTopBarHeight, area.height() - navigator_size.height() - kNavigatorInset);
+    if (navigator_position_.has_value()) {
+      // A dragged navigator floats wherever it was left, kept inside the canvas
+      // area below the top bar; the side bar then uses the full height.
+      navigator_x = std::clamp(navigator_position_->x(), 0, std::max(0, area.width() - navigator_size.width()));
+      navigator_y = std::clamp(navigator_position_->y(), kTopBarHeight,
+                               std::max(kTopBarHeight, area.height() - navigator_size.height()));
+    } else {
+      side_bottom = navigator_y;
+    }
     navigator_->setGeometry(navigator_x, navigator_y, navigator_size.width(), navigator_size.height());
     navigator_->raise();
-    side_bottom = navigator_y;
   }
   const int available = side_bottom - kTopBarHeight;
   const int side_height = std::min(kSideBarHeight, std::max(220, available - 20));
@@ -1139,6 +1166,9 @@ void StudioShell::hide_gallery() {
 void StudioShell::set_left_handed(bool left_handed) {
   controls_on_right_ = left_handed;
   app_settings().setValue(right_handed_key(), left_handed);
+  // Switching hands sends a dragged navigator back to its corner on the new side.
+  navigator_position_.reset();
+  app_settings().remove(navigator_position_key());
   layout_overlay();
 }
 

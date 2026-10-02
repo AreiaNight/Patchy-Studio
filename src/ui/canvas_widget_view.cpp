@@ -396,24 +396,38 @@ void CanvasWidget::set_view_rotation(double degrees) {
   notify_view_changed();
 }
 
+void CanvasWidget::set_view_flipped(bool horizontal, bool vertical) {
+  if (horizontal == view_flip_horizontal_ && vertical == view_flip_vertical_) {
+    return;
+  }
+  view_flip_horizontal_ = horizontal;
+  view_flip_vertical_ = vertical;
+  clear_move_hover_outline();
+  update();
+  notify_view_changed();
+}
+
 QTransform CanvasWidget::view_to_widget_transform() const {
-  if (!view_rotated()) {
+  if (!view_transformed()) {
     return {};
   }
+  // About the widget center: mirror in view space first, then rotate, so the
+  // rotation always turns the way the screen shows it.
   const QPointF center(static_cast<double>(width()) / 2.0, static_cast<double>(height()) / 2.0);
   QTransform transform;
   transform.translate(center.x(), center.y());
   transform.rotate(view_rotation_degrees_);
+  transform.scale(view_flip_horizontal_ ? -1.0 : 1.0, view_flip_vertical_ ? -1.0 : 1.0);
   transform.translate(-center.x(), -center.y());
   return transform;
 }
 
 QPointF CanvasWidget::view_point_from_widget(QPointF widget_point) const {
-  return view_rotated() ? view_to_widget_transform().inverted().map(widget_point) : widget_point;
+  return view_transformed() ? view_to_widget_transform().inverted().map(widget_point) : widget_point;
 }
 
 QPointF CanvasWidget::widget_point_from_view(QPointF view_point) const {
-  return view_rotated() ? view_to_widget_transform().map(view_point) : view_point;
+  return view_transformed() ? view_to_widget_transform().map(view_point) : view_point;
 }
 
 void CanvasWidget::center_view_on_document_point(QPointF document_point) {
@@ -519,7 +533,7 @@ void CanvasWidget::handle_scroll_bar_value_changed(Qt::Orientation orientation, 
 QPoint CanvasWidget::widget_position_for_document_point(QPoint document_position) const {
   // Callers place real widgets or send real events there, so this is a screen
   // position: rotated with the view.
-  if (view_rotated()) {
+  if (view_transformed()) {
     return widget_point_from_view(QPointF(widget_position(document_position))).toPoint();
   }
   return widget_position(document_position);

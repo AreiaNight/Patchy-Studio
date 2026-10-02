@@ -1142,6 +1142,10 @@ void MainWindow::show_preferences() {
   pen_pressure_curve_preview->setObjectName(QStringLiteral("preferencesPenPressureCurvePreview"));
   pen_pressure_curve_preview->set_curve(pen_input_settings_.pressure_curve);
   pen_form->addRow(QString(), pen_pressure_curve_preview);
+  auto* pen_pressure_test_label =
+      new QLabel(tr("Press on the graph with the pen to check that its pressure reaches Patchy."), pen_group);
+  pen_pressure_test_label->setWordWrap(true);
+  pen_form->addRow(QString(), pen_pressure_test_label);
   connect(pen_pressure_curve_spin, qOverload<int>(&QSpinBox::valueChanged), pen_pressure_curve_preview,
           [pen_pressure_curve_preview](int value) { pen_pressure_curve_preview->set_curve(value); });
   const auto refresh_pressure_curve_controls = [pen_enabled_check, pen_pressure_curve_row,

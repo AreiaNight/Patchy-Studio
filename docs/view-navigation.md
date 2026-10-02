@@ -33,11 +33,13 @@ The pen button action `PenButtonAction::ZoomCanvas` (docs/tools.md pen section; 
 - `ui_pen_zoom_button_drag_changes_zoom_without_painting` (tests/ui/pen_tablet_input_tests.cpp) pins the pen gesture through the shared helper.
 - `ui_zoom_tool_double_click_keeps_view_centered_at_actual_pixels`, `ui_image_resize_recenters_view_and_zoom_double_click_shows_document`, `ui_zoom_preset_recovers_parked_view`, `ui_canvas_wheel_zoom_mode_zooms_at_cursor`, `ui_status_bar_zoom_percent_box_edits_zoom` cover the rest of the zoom surface.
 
-## View rotation
+## View rotation and flip
 
 `CanvasWidget::set_view_rotation` turns the whole view about the widget center (degrees
-clockwise, normalized to (-180, 180], snapped to 0 within 0.01). Document pixels never
-change and nothing enters undo. Every pan/zoom formula, hit test and paint call keeps
+clockwise, normalized to (-180, 180], snapped to 0 within 0.01); `set_view_flipped`
+mirrors it horizontally and/or vertically. The transform mirrors in view space first, then
+rotates, so rotation always turns the way the screen shows. Document pixels never change
+and nothing enters undo. Every pan/zoom formula, hit test and paint call keeps
 working in the unrotated "view space"; the rotation exists at three edges only:
 
 - Input: `event()` re-sends mouse and wheel events with `view_point_from_widget`
@@ -53,6 +55,6 @@ working in the unrotated "view space"; the rotation exists at three edges only:
   because callers place widgets or send real events there; `visible_document_polygon`
   returns the turned viewport. `fit_to_view` fits the rotated document's bounding box.
 
-The inline text editor is a plain child widget and cannot turn, so opening it straightens
-the view (`MainWindow::add_text_at`). OS cursors stay upright. Test:
+The inline text editor is a plain child widget and cannot turn or mirror, so opening it
+straightens and unflips the view (`MainWindow::add_text_at`). OS cursors stay upright. Test:
 `ui_canvas_view_rotation_maps_input_and_paint`.
